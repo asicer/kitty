@@ -338,8 +338,28 @@ void _glfwInputCursorEnter(_GLFWwindow* window, GLFWbool entered)
 //
 void _glfwInputDrop(_GLFWwindow* window, int count, const char** paths)
 {
-    if (window->callbacks.drop)
-        window->callbacks.drop((GLFWwindow*) window, count, paths);
+    if (window->callbacks.drop) {
+        size_t len = strlen(*paths) + 1;
+        size_t newLen = len;
+        for (size_t i = 0; i < len - 1; i++) {
+            if ((*paths)[i] == ' ') {
+                newLen++;
+            }
+        }
+        char* newPaths = (char*)malloc(newLen);
+
+        size_t curPos = 0;
+        for (size_t i = 0; i < len; i++) {
+            if ((*paths)[i] == ' ') {
+                newPaths[curPos] = '\\';
+                curPos++;
+            }
+            newPaths[curPos] = (*paths)[i];
+            curPos++;
+        }
+        window->callbacks.drop((GLFWwindow*) window, count, (const char**)(&newPaths));
+        free(newPaths);
+    }
 }
 
 // Notifies shared code of a joystick connection or disconnection
