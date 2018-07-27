@@ -152,11 +152,18 @@ class Boss:
                     return
                 if w is not None:
                     yield w
+            return
+        if field == 'env':
+            kp, vp = exp.partition('=')[::2]
+            if vp:
+                pat = tuple(map(re.compile, (kp, vp)))
+            else:
+                pat = re.compile(kp), None
         else:
             pat = re.compile(exp)
-            for window in self.all_windows:
-                if window.matches(field, pat):
-                    yield window
+        for window in self.all_windows:
+            if window.matches(field, pat):
+                yield window
 
     def tab_for_window(self, window):
         for tab in self.all_tabs:
@@ -314,6 +321,23 @@ class Boss:
             tm = self.os_window_map.get(os_window_id)
             if tm is not None:
                 tm.resize()
+
+    def clear_terminal(self, action, only_active):
+        if only_active:
+            windows = []
+            w = self.active_window
+            if w is not None:
+                windows.append(w)
+        else:
+            windows = self.all_windows
+        reset = action == 'reset'
+        how = 3 if action == 'scrollback' else 2
+        for w in windows:
+            w.screen.cursor.x = w.screen.cursor.y = 0
+            if reset:
+                w.screen.reset()
+            else:
+                w.screen.erase_in_display(how, False)
 
     def increase_font_size(self):  # legacy
         cfs = global_font_size()
@@ -575,9 +599,14 @@ class Boss:
             output += str(s.linebuf.line(i))
         return output
 
-    def _run_kitten(self, kitten, args=(), input_data=None):
-        w = self.active_window
-        tab = self.active_tab
+    def _run_kitten(self, kitten, args=(), input_data=None, window=None):
+        if window is None:
+            w = self.active_window
+            tab = self.active_tab
+        else:
+            w = window
+            tab = w.tabref()
+
         if w is not None and tab is not None and w.overlay_for is None:
             orig_args, args = list(args), list(args)
             from kittens.runner import create_kitten_handler
@@ -606,11 +635,14 @@ class Boss:
                     stdin=data,
                     env={
                         'KITTY_COMMON_OPTS': json.dumps(copts),
+                        'KITTY_CHILD_PID': w.child.pid,
                         'PYTHONWARNINGS': 'ignore',
                         'OVERLAID_WINDOW_LINES': str(w.screen.lines),
                         'OVERLAID_WINDOW_COLS': str(w.screen.columns),
                     },
-                    overlay_for=w.id))
+                    cwd=w.cwd_of_child,
+                    overlay_for=w.id
+                ))
             overlay_window.action_on_close = partial(self.on_kitten_finish, w.id, end_kitten)
             return overlay_window
 

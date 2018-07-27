@@ -46,18 +46,20 @@ def cmd(short_desc, desc=None, options_spec=None, no_response=False, argspec='..
 MATCH_WINDOW_OPTION = '''\
 --match -m
 The window to match. Match specifications are of the form:
-:italic:`field:regexp`. Where field can be one of: id, title, pid, cwd, cmdline, num.
+:italic:`field:regexp`. Where field can be one of: id, title, pid, cwd, cmdline, num, env.
 You can use the :italic:`ls` command to get a list of windows. Note that for
 numeric fields such as id, pid and num the expression is interpreted as a number,
 not a regular expression. The field num refers to the window position in the current tab,
 starting from zero and counting clockwise (this is the same as the order in which the
 windows are reported by the :italic:`ls` command). The window id of the current window
-is available as the KITTY_WINDOW_ID environment variable.
+is available as the KITTY_WINDOW_ID environment variable. When using the :italic:`env` field
+to match on environment variables you can specify only the environment variable name or a name
+and value, for example, :italic:`env:MY_ENV_VAR=2`
 '''
 MATCH_TAB_OPTION = '''\
 --match -m
 The tab to match. Match specifications are of the form:
-:italic:`field:regexp`. Where field can be one of: id, title, pid, cwd, cmdline.
+:italic:`field:regexp`. Where field can be one of: id, title, pid, cwd, env, cmdline.
 You can use the :italic:`ls` command to get a list of tabs. Note that for
 numeric fields such as id and pid the expression is interpreted as a number,
 not a regular expression. When using title or id, first a matching tab is
@@ -72,8 +74,8 @@ for that window is used.
     'List all windows. The list is returned as JSON tree. The top-level is a list of'
     ' operating system {appname} windows. Each OS window has an :italic:`id` and a list'
     ' of :italic:`tabs`. Each tab has its own :italic:`id`, a :italic:`title` and a list of :italic:`windows`.'
-    ' Each window has an :italic:`id`, :italic:`title`, :italic:`current working directory`, :italic:`process id (PID)` and'
-    ' :italic:`command-line` of the process running in the window.\n\n'
+    ' Each window has an :italic:`id`, :italic:`title`, :italic:`current working directory`, :italic:`process id (PID)`, '
+    ' :italic:`command-line` and :italic:`environment` of the process running in the window.\n\n'
     'You can use these criteria to select windows/tabs for the other commands.'.format(appname=appname),
     argspec=''
 )
@@ -677,6 +679,36 @@ def set_background_opacity(boss, window, payload):
                 raise MatchError(payload['match_window'])
     for os_window_id in {w.os_window_id for w in windows}:
         boss._set_os_window_background_opacity(os_window_id, payload['opacity'])
+# }}}
+
+
+# kitten {{{
+@cmd(
+    'Run a kitten',
+    'Run a kitten over the specified window (active window by default).'
+    ' The :italic:`kitten_name` can be either the name of a builtin kitten'
+    ' or the path to a python file containing a custom kitten. If a relative path'
+    ' is used it is searched for in the kitty config directory.',
+    options_spec=MATCH_WINDOW_OPTION,
+    argspec='kitten_name',
+)
+def cmd_kitten(global_opts, opts, args):
+    if len(args) < 1:
+        raise SystemExit('Must specify kitten name')
+    return {'match': opts.match, 'args': list(args)[1:], 'kitten': args[0]}
+
+
+def kitten(boss, window, payload):
+    windows = [window or boss.active_window]
+    match = payload['match']
+    if match:
+        windows = tuple(boss.match_windows(match))
+        if not windows:
+            raise MatchError(match)
+    for window in windows:
+        if window:
+            boss._run_kitten(payload['kitten'], args=tuple(payload['args']), window=window)
+            break
 # }}}
 
 

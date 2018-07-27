@@ -6,6 +6,10 @@ Changelog
 0.12.0 [future]
 ------------------------------
 
+- Preserve the mouse selection even when the contents of the screen are
+  scrolled or overwritten provided the new text does not intersect the
+  selected lines.
+
 - Linux: Implement support for Input Method Extensions (multilingual input
   using standard keyboards) via `IBus
   <https://github.com/ibus/ibus/wiki/ReadMe>`_ (:iss:`469`)
@@ -18,6 +22,15 @@ Changelog
 
 - macOS: Allow scrolling window contents using mouse wheel/trackpad even when the
   window is not the active window (:iss:`729`)
+
+- Remote control: Allow matching windows by the environment variables of their
+  child process as well
+
+- Allow running kitten via the remote control system (:iss:`738`)
+
+- Add a keyboard shortcut to reset the terminal (:sc:`reset_terminal`). It
+  takes parameters so you can define your own shortcuts to clear the
+  screen/scrollback also (:iss:`747`)
 
 0.11.3 [2018-07-10]
 ------------------------------
