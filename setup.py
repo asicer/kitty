@@ -181,7 +181,7 @@ def init_env(
     sanitize_args = get_sanitize_args(cc, ccver) if sanitize else set()
     cppflags = os.environ.get(
         'OVERRIDE_CPPFLAGS', (
-            '-D_XOPEN_SOURCE=700 -D{}DEBUG'
+            '-D{}DEBUG'
         ).format(
             ('' if debug else 'N'),
         )
@@ -236,6 +236,9 @@ def kitty_env():
     cflags.extend(pkg_config('libpng', '--cflags-only-I'))
     if is_macos:
         font_libs = ['-framework', 'CoreText', '-framework', 'CoreGraphics']
+        # Apple deprecated OpenGL in Mojave (10.14) silence the endless
+        # warnings about it
+        cppflags.append('-DGL_SILENCE_DEPRECATION')
     else:
         cflags.extend(pkg_config('fontconfig', '--cflags-only-I'))
         font_libs = pkg_config('fontconfig', '--libs')
@@ -570,6 +573,20 @@ make && make docs
     shutil.copytree(src, htmldir)
 
 
+def compile_python(base_path):
+    import compileall
+    try:
+        from multiprocessing import cpu_count
+        num_workers = max(1, cpu_count())
+    except Exception:
+        num_workers = 1
+    for root, dirs, files in os.walk(base_path):
+        for f in files:
+            if f.rpartition('.')[-1] in ('pyc', 'pyo'):
+                os.remove(os.path.join(root, f))
+    compileall.compile_dir(base_path, ddir='', force=True, optimize=1, quiet=1, workers=num_workers)
+
+
 def package(args, for_bundle=False, sh_launcher=False):
     ddir = args.prefix
     if for_bundle or sh_launcher:
@@ -582,6 +599,8 @@ def package(args, for_bundle=False, sh_launcher=False):
         odir = os.path.join(x, 'terminfo')
         safe_makedirs(odir)
         subprocess.check_call(['tic', '-x', '-o' + odir, 'terminfo/kitty.terminfo'])
+        if not glob.glob(os.path.join(odir, '*/xterm-kitty')):
+            raise SystemExit('tic failed to output the compiled kitty terminfo file')
     shutil.copy2('__main__.py', libdir)
     shutil.copy2('logo/kitty.rgba', os.path.join(libdir, 'logo'))
     shutil.copy2('logo/beam-cursor.png', os.path.join(libdir, 'logo'))
@@ -596,8 +615,7 @@ def package(args, for_bundle=False, sh_launcher=False):
 
     shutil.copytree('kitty', os.path.join(libdir, 'kitty'), ignore=src_ignore)
     shutil.copytree('kittens', os.path.join(libdir, 'kittens'), ignore=src_ignore)
-    import compileall
-    compileall.compile_dir(libdir, quiet=1, workers=4)
+    compile_python(libdir)
     for root, dirs, files in os.walk(libdir):
         for f in files:
             path = os.path.join(root, f)
@@ -651,9 +669,11 @@ Categories=System;TerminalEmulator;
             LSMinimumSystemVersion='10.12.0',
             LSRequiresNativeExecution=True,
             NSAppleScriptEnabled=False,
+            # Needed for dark mode in Mojave when linking against older SDKs
+            NSRequiresAquaSystemAppearance='NO',
             NSHumanReadableCopyright=time.strftime(
                 'Copyright %Y, Kovid Goyal'),
-            CFBundleGetInfoString='kitty, an OpenGL based terminal emulator https://github.com/kovidgoyal/kitty',
+            CFBundleGetInfoString='kitty, an OpenGL based terminal emulator https://sw.kovidgoyal.net/kitty',
             CFBundleIconFile=appname + '.icns',
             NSHighResolutionCapable=True,
             NSSupportsAutomaticGraphicsSwitching=True,

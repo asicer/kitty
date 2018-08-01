@@ -24,6 +24,8 @@
 //
 //========================================================================
 
+#define _GNU_SOURCE
+#include <stdio.h>
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
@@ -155,7 +157,7 @@ get_ibus_address_file_name(void) {
 
     const char *de = getenv("DISPLAY");
     if (!de || !de[0]) de = ":0.0";
-    char *display = strdup(de);
+    char *display = _glfw_strdup(de);
     const char *host = display;
     char *disp_num  = strrchr(display, ':');
     char *screen_num = strrchr(display, '.');
@@ -219,7 +221,7 @@ read_ibus_address(_GLFWIBUSData *ibus) {
     ibus->address_file_mtime = s.st_mtime;
     if (found) {
         free((void*)ibus->address);
-        ibus->address = strdup(buf + sizeof("IBUS_ADDRESS=") - 1);
+        ibus->address = _glfw_strdup(buf + sizeof("IBUS_ADDRESS=") - 1);
         return GLFW_TRUE;
     }
     _glfwInputError(GLFW_PLATFORM_ERROR, "Could not find IBUS_ADDRESS in %s", ibus->address_file_name);
@@ -236,7 +238,7 @@ input_context_created(DBusMessage *msg, const char* errmsg, void *data) {
     if (!glfw_dbus_get_args(msg, "Failed to get IBUS context path from reply", DBUS_TYPE_OBJECT_PATH, &path, DBUS_TYPE_INVALID)) return;
     _GLFWIBUSData *ibus = (_GLFWIBUSData*)data;
     free((void*)ibus->input_ctx_path);
-    ibus->input_ctx_path = strdup(path);
+    ibus->input_ctx_path = _glfw_strdup(path);
     if (!ibus->input_ctx_path) return;
     dbus_bus_add_match(ibus->conn, "type='signal',interface='org.freedesktop.IBus.InputContext'", NULL);
     DBusObjectPathVTable ibus_vtable = {.message_function = message_handler};
@@ -256,7 +258,7 @@ setup_connection(_GLFWIBUSData *ibus) {
     ibus->ok = GLFW_FALSE;
     if (!address_file_name) return GLFW_FALSE;
     free((void*)ibus->address_file_name);
-    ibus->address_file_name = strdup(address_file_name);
+    ibus->address_file_name = _glfw_strdup(address_file_name);
     if (!read_ibus_address(ibus)) return GLFW_FALSE;
     if (ibus->conn) {
         glfw_dbus_close_connection(ibus->conn);

@@ -32,6 +32,16 @@ Changelog
   takes parameters so you can define your own shortcuts to clear the
   screen/scrollback also (:iss:`747`)
 
+- diff kitten: Fix error when right hand side file is binary and left hand side
+  file is text (:pull:`752`)
+
+- kitty @ new-window: Add a new option :option:`kitty @ new-window --window-type`
+  to create top-level OS windows (:iss:`770`)
+
+- The :opt:`focus_follows_mouse` option now also works across top-level kitty OS windows
+  (:iss:`754`)
+
+
 0.11.3 [2018-07-10]
 ------------------------------
 
