@@ -41,6 +41,15 @@ Changelog
 - The :opt:`focus_follows_mouse` option now also works across top-level kitty OS windows
   (:iss:`754`)
 
+- Fix detection of URLs in HTML source code (URLs inside quotes) (:iss:`785`)
+
+- Implement support for emoji skin tone modifiers (:iss:`787`)
+
+- Round-trip the zwj unicode character. Rendering of sequences containing zwj
+  is still not implemented, since it can cause the collapse of an unbounded
+  number of characters into a single cell. However, kitty at least preserves
+  the zwj by storing it as a combining character.
+
 
 0.11.3 [2018-07-10]
 ------------------------------
