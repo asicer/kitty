@@ -34,6 +34,9 @@ Changelog
   takes parameters so you can define your own shortcuts to clear the
   screen/scrollback also (:iss:`747`)
 
+- Fix one-pixel line appearing at window edges at some window sizes when
+  displaying images with background opacity enabled (:iss:`741`)
+
 - diff kitten: Fix error when right hand side file is binary and left hand side
   file is text (:pull:`752`)
 
@@ -56,6 +59,7 @@ Changelog
   GPU machines. I give up, Apple users will just have to live with the
   limitations of their choice of OS. (:iss:`794`)
 
+- macOS: Fix control+tab key combination not working (:iss:`801`)
 
 0.11.3 [2018-07-10]
 ------------------------------
