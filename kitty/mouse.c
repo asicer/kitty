@@ -554,17 +554,14 @@ scroll_event(double UNUSED xoffset, double yoffset) {
             screen_history_scroll(screen, abs(s), upwards);
         } else {
             if (screen->modes.mouse_tracking_mode) {
-                int sz = encode_mouse_event(w, upwards ? GLFW_MOUSE_BUTTON_4 : GLFW_MOUSE_BUTTON_5, PRESS, 0);
-                if (sz > 0) {
-                    mouse_event_buf[sz] = 0;
-                    while (s != 0) {
-                        if (upwards) {
-                            s--;
-                        } else {
-                            s++;
-                        }
-                        write_escape_code_to_child(screen, CSI, mouse_event_buf);
+                while (s != 0) {
+                    if (upwards) {
+                        s--;
+                    } else {
+                        s++;
                     }
+                    int sz = encode_mouse_event(w, upwards ? GLFW_MOUSE_BUTTON_4 : GLFW_MOUSE_BUTTON_5, PRESS, 0);
+                    if (sz > 0) { mouse_event_buf[sz] = 0; write_escape_code_to_child(screen, CSI, mouse_event_buf); }
                 }
             } else {
                 fake_scroll(abs(s), upwards);
