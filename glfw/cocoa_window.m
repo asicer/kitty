@@ -884,15 +884,10 @@ is_ascii_control_char(char x) {
 
     deltaX = [event scrollingDeltaX];
     deltaY = [event scrollingDeltaY];
-
-    if ([event hasPreciseScrollingDeltas])
-    {
-        deltaX *= 0.1;
-        deltaY *= 0.1;
-    }
+    int flags = [event hasPreciseScrollingDeltas] ? 1 : 0;
 
     if (fabs(deltaX) > 0.0 || fabs(deltaY) > 0.0)
-        _glfwInputScroll(window, deltaX, deltaY);
+        _glfwInputScroll(window, deltaX, deltaY, flags);
 }
 
 - (NSDragOperation)draggingEntered:(id <NSDraggingInfo>)sender
@@ -1104,8 +1099,9 @@ is_ascii_control_char(char x) {
 }
 
 - (void)loadMainMenu
-{ // removed by Kovid as it generated compiler warnings
+{ // removed by Kovid as it generated compiler warnings 
 }
+
 
 @end
 

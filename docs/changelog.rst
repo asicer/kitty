@@ -14,11 +14,17 @@ Changelog
   using standard keyboards) via `IBus
   <https://github.com/ibus/ibus/wiki/ReadMe>`_ (:iss:`469`)
 
+- Implement completion for the kitty command in bash and zsh. See
+  :ref:`completion`.
+
 - Render the text under the cursor in a fixed color, configurable via
   the option :opt:`cursor_text_color` (:iss:`126`)
 
 - Add an option :opt:`env` to set environment variables in child processes
   from kitty.conf
+
+- Implement high precision scrolling with the trackpad on platforms such as
+  macOS and Wayland that implement it. (:pull:`819`)
 
 - macOS: Allow scrolling window contents using mouse wheel/trackpad even when the
   window is not the active window (:iss:`729`)
