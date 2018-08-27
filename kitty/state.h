@@ -69,7 +69,6 @@ typedef struct {
     WindowGeometry geometry;
     ClickQueue click_queue;
     double last_drag_scroll_at;
-    double yoffset_remaining;
 } Window;
 
 typedef struct {
