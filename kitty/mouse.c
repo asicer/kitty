@@ -542,9 +542,6 @@ scroll_event(double UNUSED xoffset, double yoffset, int flags) {
 
     int s;
     if (flags & 1) {
-        if (yoffset * global_state.callback_os_window->pending_scroll_pixels < 0) {
-            global_state.callback_os_window->pending_scroll_pixels = 0;  // change of direction
-        }
         double pixels = global_state.callback_os_window->pending_scroll_pixels + yoffset;
         if (fabs(pixels) < global_state.callback_os_window->fonts_data->cell_height) {
             global_state.callback_os_window->pending_scroll_pixels = pixels;
@@ -555,7 +552,6 @@ scroll_event(double UNUSED xoffset, double yoffset, int flags) {
         global_state.callback_os_window->pending_scroll_pixels = pixels - s * (int) global_state.callback_os_window->fonts_data->cell_height;
     } else {
         s = (int) round(yoffset * OPT(wheel_scroll_multiplier));
-        global_state.callback_os_window->pending_scroll_pixels = 0;
     }
     if (s == 0) return;
     bool upwards = s > 0;
