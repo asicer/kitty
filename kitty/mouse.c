@@ -563,12 +563,7 @@ scroll_event(double UNUSED xoffset, double yoffset, int flags) {
             int sz = encode_mouse_event(w, upwards ? GLFW_MOUSE_BUTTON_4 : GLFW_MOUSE_BUTTON_5, PRESS, 0);
             if (sz > 0) {
                 mouse_event_buf[sz] = 0;
-                while (s != 0) {
-                    if (upwards) {
-                        s--;
-                    } else {
-                        s++;
-                    }
+                for (s = abs(s); s > 0; s--) {
                     write_escape_code_to_child(screen, CSI, mouse_event_buf);
                 }
             }
