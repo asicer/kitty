@@ -3,7 +3,20 @@ Changelog
 
 |kitty| is a feature full, cross-platform, *fast*, GPU based terminal emulator.
 
-0.12.0 [future]
+0.12.1 [future]
+------------------------------
+
+- Allow mapping shortcuts using the raw key code from the OS (:iss:`848`)
+
+- Allow mapping of individual keypresses without modifiers as shortcuts
+
+- Fix legacy invocation of icat as `kitty icat` not working (:iss:`850`)
+
+- Draw underlines under the text instead of over it
+
+- Improve rendering of wavy underline at small font sizes (:iss:`853`)
+
+0.12.0 [2018-09-01]
 ------------------------------
 
 - Preserve the mouse selection even when the contents of the screen are
@@ -28,6 +41,9 @@ Changelog
 
 - macOS: Allow scrolling window contents using mouse wheel/trackpad even when the
   window is not the active window (:iss:`729`)
+
+- Remote control: Allow changing the current window layout with a new
+  :ref:`at_goto-layout` command (:iss:`845`)
 
 - Remote control: Allow matching windows by the environment variables of their
   child process as well
@@ -66,6 +82,11 @@ Changelog
   limitations of their choice of OS. (:iss:`794`)
 
 - macOS: Fix control+tab key combination not working (:iss:`801`)
+
+- Linux: Fix slow startup on some systems caused by GLFW searching for
+  joysticks. Since kitty does not use joysticks, disable joystick support.
+  (:iss:`830`)
+
 
 0.11.3 [2018-07-10]
 ------------------------------
