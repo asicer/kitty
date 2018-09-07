@@ -13,6 +13,10 @@ Changelog
   font fallback for all subsequent characters that cannot be rendered in the
   main font to fail (:iss:`799`)
 
+- Linux: Do not enable IME input via ibus unless the ``GLFW_IM_MODULE=ibus``
+  environment variable is set. IME causes key processing latency and even
+  missed keystrokes for many people, so it is now off by default.
+
 - Fix backspacing of wide characters in wide-character unaware programs not working (:iss:`875`)
 
 - Linux: Fix number pad arrow keys not working when Numlock is off (:iss:`857`)
@@ -25,11 +29,9 @@ Changelog
 
 - Fix legacy invocation of icat as `kitty icat` not working (:iss:`850`)
 
-- Draw underlines under the text instead of over it
-
 - Improve rendering of wavy underline at small font sizes (:iss:`853`)
 
-- Fix a regression in 0.12.0 that broke resizing of layouts (:iss:`860`)
+- Fix a regression in 0.12.0 that broke dynamic resizing of layouts (:iss:`860`)
 
 - Wayland: Allow using the :option:`kitty --class` command line flag
   to set the app id (:iss:`862`)
@@ -37,6 +39,9 @@ Changelog
 - Add completion of the kitty command for the fish shell (:pull:`829`)
 
 - Linux: Fix XCompose rules with no defined symbol not working (:iss:`880`)
+
+- Linux: Fix crash with some Nvidia drivers when creating tabs in the first
+  top level-window after creating a second top-level window. (:iss:`873`)
 
 0.12.0 [2018-09-01]
 ------------------------------
