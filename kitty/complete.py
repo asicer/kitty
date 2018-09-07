@@ -35,7 +35,7 @@ completion_scripts = {
     'zsh': '''
 _kitty() {
     local src
-    # Send all words upto the word the cursor is currently on
+    # Send all words up to the word the cursor is currently on
     src=$(printf "%s\n" "${(@)words[1,$CURRENT]}" | kitty +complete zsh)
     if [[ $? == 0 ]]; then
         eval ${src}
@@ -56,6 +56,14 @@ kitty_completions() {
 }
 
 complete -o nospace -F kitty_completions kitty
+''',
+    'fish': '''
+function __kitty_completions
+    # Send all words up to the one before the cursor
+    commandline -cop | kitty +complete fish
+end
+
+complete -f -c kitty -a "(__kitty_completions)"
 ''',
 }
 
@@ -86,6 +94,11 @@ def bash_input_parser(data):
     return words, new_word
 
 
+@input_parser
+def fish_input_parser(data):
+    return data.rstrip().splitlines(), True
+
+
 @output_serializer
 def zsh_output_serializer(ans):
     lines = []
@@ -95,6 +108,10 @@ def zsh_output_serializer(ans):
             cmd += ['-S', '""']
         if description in ans.files_groups:
             cmd.append('-f')
+            common_prefix = os.path.commonprefix(tuple(matches))
+            if common_prefix:
+                cmd.extend(('-p', shlex.quote(common_prefix)))
+                matches = {k[len(common_prefix):]: v for k, v in matches.items()}
         cmd.append('--')
         for word, description in matches.items():
             cmd.append(shlex.quote(word))
@@ -115,6 +132,16 @@ def bash_output_serializer(ans):
     # debug('\n'.join(lines))
     return '\n'.join(lines)
 # }}}
+
+
+@output_serializer
+def fish_output_serializer(ans):
+    lines = []
+    for matches in ans.match_groups.values():
+        for word in matches:
+            lines.append(shlex.quote(word))
+    # debug('\n'.join(lines))
+    return '\n'.join(lines)
 
 
 def completions_for_first_word(ans, prefix, entry_points, namespaced_entry_points):
@@ -197,21 +224,40 @@ def complete_remote_command(ans, cmd_name, words, new_word):
     complete_alias_map(ans, words, new_word, alias_map)
 
 
-def complete_files_and_dirs(ans, prefix, files_group_name='Files', predicate=lambda filename: True):
+def path_completion(prefix=''):
+    prefix = prefix.replace(r'\ ', ' ')
     dirs, files = [], []
     base = '.'
     if prefix.endswith('/'):
         base = prefix
     elif '/' in prefix:
         base = os.path.dirname(prefix)
-    for x in os.scandir(base):
-        q = os.path.relpath(x.path)
-        if x.is_dir():
-            if q.startswith(prefix):
-                dirs.append(q.rstrip(os.sep) + os.sep)
+    src = os.path.expandvars(os.path.expanduser(base))
+    src_prefix = os.path.abspath(os.path.expandvars(os.path.expanduser(prefix))) if prefix else ''
+    try:
+        items = os.scandir(src)
+    except FileNotFoundError:
+        items = ()
+    for x in items:
+        abspath = os.path.abspath(x.path)
+        if prefix and not abspath.startswith(src_prefix):
+            continue
+        if prefix:
+            q = prefix + abspath[len(src_prefix):].lstrip(os.sep)
+            q = os.path.expandvars(os.path.expanduser(q))
         else:
-            if q.startswith(prefix) and predicate(q):
-                files.append(q)
+            q = os.path.relpath(abspath)
+        if x.is_dir():
+            dirs.append(q.rstrip(os.sep) + os.sep)
+        else:
+            files.append(q)
+    return dirs, files
+
+
+def complete_files_and_dirs(ans, prefix, files_group_name='Files', predicate=None):
+    dirs, files = path_completion(prefix or '')
+    files = filter(predicate, files)
+
     if dirs:
         ans.match_groups['Directories'] = dict.fromkeys(dirs)
         ans.files_groups.add('Directories'), ans.no_space_groups.add('Directories')
@@ -232,6 +278,17 @@ def complete_icat_args(ans, opt, prefix):
         complete_files_and_dirs(ans, prefix, 'Images', icat_file_predicate)
 
 
+def config_file_predicate(filename):
+    return filename.endswith('.conf')
+
+
+def complete_diff_args(ans, opt, prefix):
+    if opt is None:
+        complete_files_and_dirs(ans, prefix, 'Files')
+    elif opt['dest'] == 'config':
+        complete_files_and_dirs(ans, prefix, 'Config Files', config_file_predicate)
+
+
 def complete_kitten(ans, kitten, words, new_word):
     try:
         cd = get_kitten_cli_docs(kitten)
@@ -247,7 +304,8 @@ def complete_kitten(ans, kitten, words, new_word):
             for alias in opt['aliases']:
                 option_map[alias] = opt
     complete_alias_map(ans, words, new_word, option_map, {
-        'icat': complete_icat_args
+        'icat': complete_icat_args,
+        'diff': complete_diff_args,
     }.get(kitten))
 
 

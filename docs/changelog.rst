@@ -6,19 +6,37 @@ Changelog
 0.12.1 [future]
 ------------------------------
 
+- Add a new :option:`kitty --start-in-fullscreen` command line flag to start
+  kitty in full screen mode (:iss:`856`)
+
 - macOS: Fix a character that cannot be rendered in any font causing
   font fallback for all subsequent characters that cannot be rendered in the
   main font to fail (:iss:`799`)
 
+- Fix backspacing of wide characters in wide-character unaware programs not working (:iss:`875`)
+
+- Linux: Fix number pad arrow keys not working when Numlock is off (:iss:`857`)
+
+- Wayland: Implement support for clipboard copy/paste (:iss:`855`)
+
 - Allow mapping shortcuts using the raw key code from the OS (:iss:`848`)
 
-- Allow mapping of individual keypresses without modifiers as shortcuts
+- Allow mapping of individual key-presses without modifiers as shortcuts
 
 - Fix legacy invocation of icat as `kitty icat` not working (:iss:`850`)
 
 - Draw underlines under the text instead of over it
 
 - Improve rendering of wavy underline at small font sizes (:iss:`853`)
+
+- Fix a regression in 0.12.0 that broke resizing of layouts (:iss:`860`)
+
+- Wayland: Allow using the :option:`kitty --class` command line flag
+  to set the app id (:iss:`862`)
+
+- Add completion of the kitty command for the fish shell (:pull:`829`)
+
+- Linux: Fix XCompose rules with no defined symbol not working (:iss:`880`)
 
 0.12.0 [2018-09-01]
 ------------------------------

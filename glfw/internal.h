@@ -31,6 +31,8 @@
  #include "glfw_config.h"
 #endif
 
+#define arraysz(x) (sizeof(x)/sizeof(x[0]))
+
 #if defined(GLFW_INCLUDE_GLCOREARB) || \
     defined(GLFW_INCLUDE_ES1)       || \
     defined(GLFW_INCLUDE_ES2)       || \
@@ -280,6 +282,9 @@ struct _GLFWwndconfig
         char      className[256];
         char      instanceName[256];
     } x11;
+    struct {
+        char      appId[256];
+    } wl;
 };
 
 // Context configuration

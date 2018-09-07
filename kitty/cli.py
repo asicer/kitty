@@ -464,7 +464,7 @@ def options_spec():
 dest=cls
 default={appname}
 condition=not is_macos
-Set the class part of the :italic:`WM_CLASS` window property
+Set the class part of the :italic:`WM_CLASS` window property. On Wayland, it sets the app id.
 
 
 --name
@@ -544,6 +544,11 @@ specify this address. This option will be ignored, unless you set
 :opt:`allow_remote_control` to yes in :file:`kitty.conf`. Note that if you run
 :italic:`kitty @` within a kitty window, there is no need to specify the :italic:`--to`
 option as it is read automatically from the environment.
+
+
+--start-in-fullscreen
+type=bool-set
+Make the initial kitty window fullscreen on startup
 
 
 # Debugging options

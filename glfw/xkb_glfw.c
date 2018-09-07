@@ -33,7 +33,7 @@
 #define debug(...) if (_glfw.hints.init.debugKeyboard) printf(__VA_ARGS__);
 
 
-#define map_key(key) { \
+#define map_key(key) \
     switch(key) { \
         S(space, SPACE); \
         S(apostrophe, APOSTROPHE); \
@@ -93,10 +93,6 @@
         D(A, Z, A, Z); \
         R(F1, F25, F1, F25); \
         R(KP_0, KP_9, KP_0, KP_9); \
-        default: \
-            break; \
-    } \
-}
 
 static int
 glfw_key_for_sym(xkb_keysym_t key) {
@@ -105,6 +101,13 @@ glfw_key_for_sym(xkb_keysym_t key) {
 #define R(s, e, gs, ...) case XKB_KEY_##s ... XKB_KEY_##e: return GLFW_KEY_##gs + key - XKB_KEY_##s
 #define D(s, e, gs, ...) R(s, e, gs)
     map_key(key)
+        S(KP_Up, UP);
+        S(KP_Down, DOWN);
+        S(KP_Left, LEFT);
+        S(KP_Right, RIGHT);
+        default:
+            break;
+    }
     return GLFW_KEY_UNKNOWN;
 #undef F
 #undef D
@@ -119,6 +122,9 @@ glfw_xkb_sym_for_key(int key) {
 #define R(s, e, gs, ge) case GLFW_KEY_##gs ... GLFW_KEY_##ge: return XKB_KEY_##s + key - GLFW_KEY_##gs
 #define D(...)
     map_key(key)
+    default:
+        break;
+    }
     return GLFW_KEY_UNKNOWN;
 #undef F
 #undef D
@@ -329,12 +335,14 @@ glfw_xkb_should_repeat(_GLFWXKBData *xkb, xkb_keycode_t scancode) {
 static KeyEvent key_event = {};
 
 static inline xkb_keysym_t
-compose_symbol(struct xkb_compose_state *composeState, xkb_keysym_t sym) {
+compose_symbol(struct xkb_compose_state *composeState, xkb_keysym_t sym, int *compose_completed) {
+    *compose_completed = 0;
     if (sym == XKB_KEY_NoSymbol || !composeState) return sym;
     if (xkb_compose_state_feed(composeState, sym) != XKB_COMPOSE_FEED_ACCEPTED) return sym;
     switch (xkb_compose_state_get_status(composeState)) {
         case XKB_COMPOSE_COMPOSED:
             xkb_compose_state_get_utf8(composeState, key_event.text, sizeof(key_event.text));
+            *compose_completed = 1;
             return xkb_compose_state_get_one_sym(composeState);
         case XKB_COMPOSE_COMPOSING:
         case XKB_COMPOSE_CANCELLED:
@@ -465,8 +473,9 @@ glfw_xkb_handle_key_event(_GLFWwindow *window, _GLFWXKBData *xkb, xkb_keycode_t 
     debug("clean_sym: %s ", glfw_xkb_keysym_name(clean_syms[0]));
     if (action == GLFW_PRESS || action == GLFW_REPEAT) {
         const char *text_type = "composed_text";
-        glfw_sym = compose_symbol(sg->composeState, syms[0]);
-        if (glfw_sym == XKB_KEY_NoSymbol) {
+        int compose_completed;
+        glfw_sym = compose_symbol(sg->composeState, syms[0], &compose_completed);
+        if (glfw_sym == XKB_KEY_NoSymbol && !compose_completed) {
             debug("compose not complete, ignoring.\n");
             return;
         }
