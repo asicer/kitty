@@ -474,7 +474,9 @@ Set the name part of the :italic:`WM_CLASS` property (defaults to using the valu
 
 --title -T
 Set the window title. This will override any title set by the program running inside kitty. So
-only use this if you are running a program that does not set titles.
+only use this if you are running a program that does not set titles. If combined
+with :option:`{appname} --session` the title will be used for all windows created by the
+session, that do not set their own titles.
 
 
 --config -c
@@ -546,9 +548,11 @@ specify this address. This option will be ignored, unless you set
 option as it is read automatically from the environment.
 
 
---start-in-fullscreen
-type=bool-set
-Make the initial kitty window fullscreen on startup
+--start-as
+type=choices
+default=normal
+choices=normal,fullscreen,maximized,minimized
+Control how the initial kitty window is created.
 
 
 # Debugging options

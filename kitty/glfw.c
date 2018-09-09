@@ -157,9 +157,9 @@ mouse_button_callback(GLFWwindow *w, int button, int action, int mods) {
     show_mouse_cursor(w);
     double now = monotonic();
     global_state.callback_os_window->last_mouse_activity_at = now;
-    if (button >= 0 && (unsigned int)button < sizeof(global_state.callback_os_window->mouse_button_pressed)/sizeof(global_state.callback_os_window->mouse_button_pressed[0])) {
+    if (button >= 0 && (unsigned int)button < arraysz(global_state.callback_os_window->mouse_button_pressed)) {
         global_state.callback_os_window->mouse_button_pressed[button] = action == GLFW_PRESS ? true : false;
-        if (is_window_ready_for_callbacks()) mouse_event(button, mods);
+        if (is_window_ready_for_callbacks()) mouse_event(button, mods, action);
     }
     global_state.callback_os_window = NULL;
 }
@@ -173,7 +173,7 @@ cursor_pos_callback(GLFWwindow *w, double x, double y) {
     global_state.callback_os_window->cursor_blink_zero_time = now;
     global_state.callback_os_window->mouse_x = x * global_state.callback_os_window->viewport_x_ratio;
     global_state.callback_os_window->mouse_y = y * global_state.callback_os_window->viewport_y_ratio;
-    if (is_window_ready_for_callbacks()) mouse_event(-1, 0);
+    if (is_window_ready_for_callbacks()) mouse_event(-1, 0, -1);
     global_state.callback_os_window = NULL;
 }
 
@@ -693,7 +693,7 @@ static PyObject*
 toggle_fullscreen(PYNOARG) {
     GLFWmonitor *monitor;
     OSWindow *w = current_os_window();
-    if (!w) Py_RETURN_NONE;
+    if (!w || !w->handle) Py_RETURN_NONE;
     if ((monitor = glfwGetWindowMonitor(w->handle)) == NULL) {
         // make fullscreen
         monitor = current_monitor(w->handle);
@@ -714,6 +714,18 @@ toggle_fullscreen(PYNOARG) {
 #endif
         Py_RETURN_FALSE;
     }
+}
+
+static PyObject*
+change_os_window_state(PyObject *self UNUSED, PyObject *args) {
+    char *state;
+    if (!PyArg_ParseTuple(args, "s", &state)) return NULL;
+    OSWindow *w = current_os_window();
+    if (!w || !w->handle) Py_RETURN_NONE;
+    if (strcmp(state, "maximized") == 0) glfwMaximizeWindow(w->handle);
+    else if (strcmp(state, "minimized") == 0) glfwIconifyWindow(w->handle);
+    else { PyErr_SetString(PyExc_ValueError, "Unknown window state"); return NULL; }
+    Py_RETURN_NONE;
 }
 
 void
@@ -924,6 +936,7 @@ static PyMethodDef module_methods[] = {
     METHODB(get_content_scale_for_window, METH_NOARGS),
     METHODB(set_clipboard_string, METH_VARARGS),
     METHODB(toggle_fullscreen, METH_NOARGS),
+    METHODB(change_os_window_state, METH_VARARGS),
     METHODB(glfw_window_hint, METH_VARARGS),
     METHODB(os_window_should_close, METH_VARARGS),
     METHODB(os_window_swap_buffers, METH_VARARGS),

@@ -3,10 +3,47 @@ Changelog
 
 |kitty| is a feature full, cross-platform, *fast*, GPU based terminal emulator.
 
-0.12.1 [future]
+0.12.2 [future]
 ------------------------------
 
-- Add a new :option:`kitty --start-in-fullscreen` command line flag to start
+- A new ``last_used_layout`` function that can be mapped to a shortcut to
+  switch to the previously used window layout (:iss:`870`)
+
+- New ``neighboring_window`` and ``move_window`` functions to switch to
+  neighboring windows in the current layout, and move them around, similar to
+  window movement in vim (:iss:`916`)
+
+- A new ``pipe`` function that can be used to pipe the contents of the screen
+  and scrollback buffer to any desired program running in a new window, tab or
+  overlay window. (:iss:`933`)
+
+- Add a new :option:`kitty --start-as` command line flag to start kitty
+  fullscreen/maximized/minimized. This replaces the ``--start-in-fullscreen``
+  flag introduced in the previous release (:iss:`935`)
+
+- Fix drag-scrolling not working when the mouse leaves the window confines
+  (:iss:`917`)
+
+- Linux: Ensure that the python embedded in the kitty binary build uses
+  UTF-8 mode to process command-line arguments (:iss:`924`)
+
+- Linux: Handle fonts that contain monochrome bitmaps (such as the Terminus TTF
+  font) (:pull:`934`)
+
+- Have the :option:`kitty --title` flag apply to all windows created
+  using :option:`kitty --session` (:iss:`921`)
+
+- Revert change for backspacing of wide characters in the previous release,
+  as it breaks backspacing in some wide character aware programs (:iss:`875`)
+
+- Fix kitty @set-colors not working for tab backgrounds when using the `fade` tabbar style
+  (:iss:`937`)
+
+
+0.12.1 [2018-09-08]
+------------------------------
+
+- Add a new ``--start-in-fullscreen`` command line flag to start
   kitty in full screen mode (:iss:`856`)
 
 - macOS: Fix a character that cannot be rendered in any font causing
@@ -42,6 +79,9 @@ Changelog
 
 - Linux: Fix crash with some Nvidia drivers when creating tabs in the first
   top level-window after creating a second top-level window. (:iss:`873`)
+
+- macOS: Diff kitten: Fix syntax highlighting not working because of
+  a bug in the 0.12.0 macOS package
 
 0.12.0 [2018-09-01]
 ------------------------------

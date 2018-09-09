@@ -140,6 +140,39 @@ def clear_terminal(func, rest):
     return func, args
 
 
+@func_with_args('neighboring_window')
+def neighboring_window(func, rest):
+    rest = rest.lower()
+    rest = {'up': 'top', 'down': 'bottom'}.get(rest, rest)
+    if rest not in ('left', 'right', 'top', 'bottom'):
+        log_error('Invalid neighbor specification: {}'.format(rest))
+        rest = 'right'
+    return func, [rest]
+
+
+@func_with_args('move_window')
+def move_window(func, rest):
+    rest = rest.lower()
+    rest = {'up': 'top', 'down': 'bottom'}.get(rest, rest)
+    try:
+        rest = int(rest)
+    except Exception:
+        if rest not in ('left', 'right', 'top', 'bottom'):
+            log_error('Invalid move_window specification: {}'.format(rest))
+            rest = 0
+    return func, [rest]
+
+
+@func_with_args('pipe')
+def pipe(func, rest):
+    import shlex
+    rest = shlex.split(rest)
+    if len(rest) < 3:
+        log_error('Too few arguments to pipe function')
+        rest = ['none', 'none', 'true']
+    return func, rest
+
+
 def parse_key_action(action):
     parts = action.split(' ', 1)
     func = parts[0]
