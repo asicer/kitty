@@ -376,6 +376,8 @@ render_glyphs(CTFontRef font, unsigned int width, unsigned int height, unsigned 
     CGContextSetTextMatrix(render_ctx, CGAffineTransformIdentity);
     CGContextSetTextPosition(render_ctx, 0, height - baseline);
     CTFontDrawGlyphs(font, glyphs, positions, num_glyphs, render_ctx);
+    CGContextRelease(render_ctx);
+    CGColorSpaceRelease(gray_color_space);
 }
 
 static inline bool
