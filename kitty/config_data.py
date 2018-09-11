@@ -782,7 +782,9 @@ on macOS.
 
 o('macos_thicken_font', 0, option_type=positive_float, long_text=_('''
 Draw an extra border around the font with the given width, to increase
-legibility at small font sizes.
+legibility at small font sizes. For example, a value of 0.75 will
+result in rendering that looks similar to sub-pixel antialiasing at
+common font sizes.
 '''))
 # }}}
 

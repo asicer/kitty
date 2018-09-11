@@ -18,8 +18,12 @@ Changelog
   overlay window. (:iss:`933`)
 
 - Add a new :option:`kitty --start-as` command line flag to start kitty
-  fullscreen/maximized/minimized. This replaces the ``--start-in-fullscreen``
+  full-screen/maximized/minimized. This replaces the ``--start-in-fullscreen``
   flag introduced in the previous release (:iss:`935`)
+
+- macOS: Add a new :opt:`macos_thicken_font` to make text rendering
+  on macs thicker, which makes it similar to the result of
+  sub-pixel antialiasing (:pull:`950`)
 
 - Fix drag-scrolling not working when the mouse leaves the window confines
   (:iss:`917`)
