@@ -25,6 +25,12 @@ Changelog
   on macs thicker, which makes it similar to the result of
   sub-pixel antialiasing (:pull:`950`)
 
+- macOS: Add an option :opt:`macos_traditional_fullscreen` to make
+  full-screening of kitty windows much faster, but less pretty. (:iss:`911`)
+
+- Fix a bug causing incorrect line ordering when viewing the scrollback buffer
+  if the scrollback buffer is full (:iss:`960`)
+
 - Fix drag-scrolling not working when the mouse leaves the window confines
   (:iss:`917`)
 
@@ -45,6 +51,8 @@ Changelog
 
 - macOS: Fix resizing semi-transparent windows causing the windows to be
   invisible during the resize (:iss:`941`)
+
+- Linux: Fix window icon not set on X11 for the first OS window (:iss:`961`)
 
 0.12.1 [2018-09-08]
 ------------------------------
