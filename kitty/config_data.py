@@ -758,7 +758,7 @@ Whether this works and exactly what effect it has depends on the window
 manager, as it is the job of the window manager/compositor to draw window
 decorations.'''))
 
-o('macos_option_as_alt', True, long_text=_('''
+o('macos_option_as_alt', False, long_text=_('''
 Use the option key as an alt key. With this set to no, kitty will use
 the macOS native :kbd:`Option+Key` = unicode character behavior. This will
 break any :kbd:`Alt+key` keyboard shortcuts in your terminal programs, but you
