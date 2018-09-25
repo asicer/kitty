@@ -146,7 +146,12 @@ You can also create shortcuts to go to specific tabs, with 1 being the first tab
     map ctrl+alt+2 goto_tab 2
 
 Just as with :code:`new_window` above, you can also pass the name of arbitrary
-commands to run when using new_tab and use :code:`new_tab_with_cwd`.
+commands to run when using new_tab and use :code:`new_tab_with_cwd`. Finally,
+if you want the new tab to open next to the current tab rather than at the
+end of the tabs list, use::
+
+    map ctrl+t new_tab !neighbor [optional cmd to run]
+
 ''')],
     'shortcuts.layout': [
             _('Layout management'), '',
@@ -719,9 +724,13 @@ program, even one running on a remote server via SSH can read your clipboard.
 '''))
 
 o('term', 'xterm-kitty', long_text=_('''
-The value of the TERM environment variable to set. Changing this can break
-many terminal programs, only change it if you know what you are doing, not
-because you read some advice on Stack Overflow to change it.
+The value of the TERM environment variable to set. Changing this can break many
+terminal programs, only change it if you know what you are doing, not because
+you read some advice on Stack Overflow to change it. The TERM variable if used
+by various programs to get information about the capabilities and behavior of
+the terminal. If you change it, depending on what programs you run, and how
+different the terminal you are changing it to is, various things from
+key-presses, to colors, to various advanced features may not work.
 '''))
 
 # }}}

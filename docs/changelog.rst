@@ -3,7 +3,7 @@ Changelog
 
 |kitty| is a feature full, cross-platform, *fast*, GPU based terminal emulator.
 
-0.12.2 [future]
+0.12.2 [2018-09-24]
 ------------------------------
 
 - A new ``last_used_layout`` function that can be mapped to a shortcut to
@@ -21,6 +21,9 @@ Changelog
   full-screen/maximized/minimized. This replaces the ``--start-in-fullscreen``
   flag introduced in the previous release (:iss:`935`)
 
+- When mapping the ``new_tab`` action allow specifying that the tab should open
+  next to the current tab instead of at the end of the tabs list (:iss:`979`)
+
 - macOS: Add a new :opt:`macos_thicken_font` to make text rendering
   on macs thicker, which makes it similar to the result of
   sub-pixel antialiasing (:pull:`950`)
@@ -33,6 +36,9 @@ Changelog
 
 - Fix drag-scrolling not working when the mouse leaves the window confines
   (:iss:`917`)
+
+- Workaround for broken editors like nano that cannot handle newlines in pasted text
+  (:iss:`994`)
 
 - Linux: Ensure that the python embedded in the kitty binary build uses
   UTF-8 mode to process command-line arguments (:iss:`924`)
@@ -58,6 +64,11 @@ Changelog
   mouse cursor image that can be seen on both light and dark backgrounds
   (:iss:`359`)
 
+- Remote control: Fix the ``focus_window`` command not focusing the
+  top-level OS window of the specified kitty window (:iss:`1003`)
+
+- Fix using :opt:`focus_follows_mouse` causing text selection with the
+  mouse to malfunction when using multiple kitty windows (:iss:`1002`)
 
 0.12.1 [2018-09-08]
 ------------------------------

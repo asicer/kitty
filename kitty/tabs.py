@@ -271,6 +271,8 @@ class Tab:  # {{{
     def previous_window(self):
         self._next_window(-1)
 
+    prev_window = previous_window
+
     def neighboring_window(self, which):
         neighbors = self.current_layout.neighbors(self.windows, self.active_window_idx)
         candidates = neighbors.get(which)
@@ -464,10 +466,16 @@ class TabManager:  # {{{
             self._set_active_tab(nidx)
             self.mark_tab_bar_dirty()
 
-    def new_tab(self, special_window=None, cwd_from=None):
+    def new_tab(self, special_window=None, cwd_from=None, as_neighbor=False):
+        nidx = self.active_tab_idx + 1
         idx = len(self.tabs)
         self._add_tab(Tab(self, special_window=special_window, cwd_from=cwd_from))
         self._set_active_tab(idx)
+        if len(self.tabs) > 2 and as_neighbor and idx != nidx:
+            self.tabs[idx], self.tabs[nidx] = self.tabs[nidx], self.tabs[idx]
+            swap_tabs(self.os_window_id, idx, nidx)
+            self._set_active_tab(nidx)
+            idx = nidx
         self.mark_tab_bar_dirty()
         return self.tabs[idx]
 
