@@ -456,7 +456,8 @@ cocoa_set_hide_from_tasks(void) {
 void
 cocoa_set_titlebar_color(void *w, color_type titlebar_color)
 {
-    @autoreleasepool {
+    printf("asdf\n");
+
     NSWindow *window = (NSWindow *)w;
 
     double red = ((titlebar_color >> 16) & 0xFF) / 255.0;
@@ -478,7 +479,24 @@ cocoa_set_titlebar_color(void *w, color_type titlebar_color)
     } else {
         [window setAppearance:[NSAppearance appearanceNamed:NSAppearanceNameVibrantLight]];
     }
-    }
+
+
+
+
+    NSVisualEffectView *vview = [[NSVisualEffectView alloc] initWithFrame:
+        [[window contentView] bounds]];
+    [vview setAutoresizingMask:
+        NSViewWidthSizable | NSViewHeightSizable];
+
+    [vview setBlendingMode:NSVisualEffectBlendingModeBehindWindow];
+    [vview setState:NSVisualEffectStateActive];
+    [[window contentView] addSubview:vview
+                           positioned:NSWindowBelow
+                           relativeTo:nil];
+
+    NSVisualEffectMaterial vibrancyType = NSVisualEffectMaterialUltraDark;
+
+    [vview setMaterial:vibrancyType];
 }
 
 void
