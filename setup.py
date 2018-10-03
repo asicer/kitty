@@ -190,7 +190,7 @@ def init_env(
     cflags = os.environ.get(
         'OVERRIDE_CFLAGS', (
             '-Wextra -Wno-missing-field-initializers -Wall -std=c99'
-            ' -pedantic-errors {} {} -fwrapv {} {} -pipe {} -fvisibility=hidden'
+            ' -pedantic-errors -Werror {} {} -fwrapv {} {} -pipe {} -fvisibility=hidden'
         ).format(
             optimize,
             ' '.join(sanitize_args),
