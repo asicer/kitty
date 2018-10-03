@@ -13,7 +13,6 @@ import shutil
 import subprocess
 import sys
 import sysconfig
-import tempfile
 import time
 
 base = os.path.dirname(os.path.abspath(__file__))
@@ -141,11 +140,13 @@ def get_sanitize_args(cc, ccver):
 
 
 def test_compile(cc, *cflags, src=None):
-    with tempfile.NamedTemporaryFile(suffix='.c') as f:
-        src = src or 'int main(void) { return 0; }'
-        f.write(src.encode('utf-8'))
-        f.flush()
-        return subprocess.Popen([cc] + list(cflags) + [f.name, '-o', os.devnull]).wait() == 0
+    src = src or 'int main(void) { return 0; }'
+    p = subprocess.Popen([cc] + list(cflags) + ['-x', 'c', '-o', os.devnull, '-'], stdin=subprocess.PIPE)
+    try:
+        p.stdin.write(src.encode('utf-8')), p.stdin.close()
+    except BrokenPipeError:
+        return False
+    return p.wait() == 0
 
 
 def first_successful_compile(cc, *cflags, src=None):
@@ -425,7 +426,7 @@ def compile_glfw(incremental, compilation_database, all_keys):
     modules = 'cocoa' if is_macos else 'x11 wayland'
     for module in modules.split():
         try:
-            genv = glfw.init_env(env, pkg_config, at_least_version, module)
+            genv = glfw.init_env(env, pkg_config, at_least_version, test_compile, module)
         except SystemExit as err:
             if module != 'wayland':
                 raise

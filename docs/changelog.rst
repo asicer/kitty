@@ -3,11 +3,24 @@ Changelog
 
 |kitty| is a feature full, cross-platform, *fast*, GPU based terminal emulator.
 
-0.12.3 [future]
+0.13.0 [future]
+------------------------------
+
+- Add an option :opt:`scrollback_pager_history_size` to tell kitty to store
+  extended scrollback to use when viewing the scrollback buffer in a pager
+  (:iss:`970`)
+
+- Fix the ``*_with_cwd`` actions using the cwd of the overlay window rather
+  than the underlying window's cwd (:iss:`1045`)
+
+
+0.12.3 [2018-09-29]
 ------------------------------
 
 - macOS: Fix kitty window not being rendered on macOS Mojave until the window is
   moved or resized at least once (:iss:`887`)
+
+- Unicode input: Fix an error when searching for the string 'fir' (:iss:`1035`)
 
 
 0.12.2 [2018-09-24]

@@ -22,7 +22,7 @@ def wayland_protocol_file_name(base, ext='c'):
     return 'wayland-{}-client-protocol.{}'.format(base, ext)
 
 
-def init_env(env, pkg_config, at_least_version, module='x11'):
+def init_env(env, pkg_config, at_least_version, test_compile, module='x11'):
     ans = env.copy()
     ans.cflags = [
         x for x in ans.cflags
@@ -32,10 +32,11 @@ def init_env(env, pkg_config, at_least_version, module='x11'):
         ans.cflags.append('-pthread')
         ans.ldpaths.append('-pthread')
     ans.cflags.append('-fpic')
-    ans.cflags.append('-D_GLFW_' + module.upper())
-    ans.cflags.append('-D_GLFW_BUILD_DLL')
+    ans.cppflags.append('-D_GLFW_' + module.upper())
+    ans.cppflags.append('-D_GLFW_BUILD_DLL')
 
     if is_macos:
+        ans.cppflags.append('-DGL_SILENCE_DEPRECATION')
         ans.ldpaths.extend(
             "-framework Cocoa -framework IOKit -framework CoreFoundation -framework CoreVideo".
             split()
@@ -76,6 +77,14 @@ def init_env(env, pkg_config, at_least_version, module='x11'):
         for dep in 'wayland-egl wayland-client wayland-cursor xkbcommon dbus-1'.split():
             ans.cflags.extend(pkg_config(dep, '--cflags-only-I'))
             ans.ldpaths.extend(pkg_config(dep, '--libs'))
+        has_memfd_create = test_compile(env.cc, '-Werror', src='''#define _GNU_SOURCE
+    #include <unistd.h>
+    #include <sys/syscall.h>
+    int main(void) {
+        return syscall(__NR_memfd_create, "test", 0);
+    }''')
+        if has_memfd_create:
+            ans.cppflags.append('-DHAS_MEMFD_CREATE')
 
     return ans
 

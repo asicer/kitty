@@ -61,8 +61,12 @@ def data_for_at(w, arg):
         return w.as_text(as_ansi=True)
     if arg == '@alternate':
         return w.as_text(alternate_screen=True)
+    if arg == '@alternate_scrollback':
+        return w.as_text(alternate_screen=True, add_history=True)
     if arg == '@ansi_alternate':
         return w.as_text(as_ansi=True, alternate_screen=True)
+    if arg == '@ansi_alternate_scrollback':
+        return w.as_text(as_ansi=True, alternate_screen=True, add_history=True)
 
 
 class DumpCommands:  # {{{
@@ -236,8 +240,15 @@ class Boss:
     def new_os_window(self, *args):
         self._new_os_window(args)
 
-    def new_os_window_with_cwd(self, *args):
+    @property
+    def active_window_for_cwd(self):
         w = self.active_window
+        if w is not None and w.overlay_for is not None and w.overlay_for in self.window_id_map:
+            w = self.window_id_map[w.overlay_for]
+        return w
+
+    def new_os_window_with_cwd(self, *args):
+        w = self.active_window_for_cwd
         cwd_from = w.child.pid if w is not None else None
         self._new_os_window(args, cwd_from)
 
@@ -874,7 +885,7 @@ class Boss:
         self._create_tab(args)
 
     def new_tab_with_cwd(self, *args):
-        w = self.active_window
+        w = self.active_window_for_cwd
         cwd_from = w.child.pid if w is not None else None
         self._create_tab(args, cwd_from=cwd_from)
 
@@ -890,7 +901,7 @@ class Boss:
         self._new_window(args)
 
     def new_window_with_cwd(self, *args):
-        w = self.active_window
+        w = self.active_window_for_cwd
         if w is None:
             return self.new_window(*args)
         cwd_from = w.child.pid if w is not None else None
