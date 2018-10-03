@@ -490,9 +490,6 @@ cocoa_set_titlebar_color(void *w, color_type titlebar_color)
 
     [vview setBlendingMode:NSVisualEffectBlendingModeBehindWindow];
     [vview setState:NSVisualEffectStateActive];
-    [[window contentView] addSubview:vview
-                           positioned:NSWindowBelow
-                           relativeTo:nil];
 
     NSVisualEffectMaterial vibrancyType = NSVisualEffectMaterialUltraDark;
 
