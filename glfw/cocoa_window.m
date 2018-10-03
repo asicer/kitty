@@ -696,8 +696,8 @@ static GLFWapplicationshouldhandlereopenfun handle_reopen_callback = NULL;
 
 - (void)mouseEntered:(NSEvent *)event
 {
-    if (window->cursorMode == GLFW_CURSOR_HIDDEN)
-        hideCursor(window);
+    //if (window->cursorMode == GLFW_CURSOR_HIDDEN)
+    //    hideCursor(window);
 
     _glfwInputCursorEnter(window, GLFW_TRUE);
 }
