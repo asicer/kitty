@@ -1486,7 +1486,7 @@ is_selection_empty(Screen *self, unsigned int start_x, unsigned int start_y, uns
 static inline void
 selection_coord(Screen *self, unsigned int x, unsigned int y, SelectionBoundary *ans) {
     int ydelta = self->scrolled_by - self->selection.anchor_scroll_offset;
-    fprintf(stderr, "selection_coord, scroll_offset=%d, ydelta=%d scrolled_by=%d\n", self->selection.scroll_offset, ydelta, self->scrolled_by);
+    //fprintf(stderr, "selection_coord, scroll_offset=%d, ydelta=%d scrolled_by=%d\n", self->selection.scroll_offset, ydelta, self->scrolled_by);
     if (x == UINT_MAX) {
         ans->x = UINT_MAX; ans->y = UINT_MAX;
     } else {
@@ -1496,7 +1496,7 @@ selection_coord(Screen *self, unsigned int x, unsigned int y, SelectionBoundary 
 
 static inline void
 full_selection_coord(Screen *self, unsigned int x, unsigned int y, FullSelectionBoundary *ans) {
-    fprintf(stderr, "full_selection_coord, scroll_offset=%d, ydelta=%u\n", self->selection.scroll_offset, 0);
+    //fprintf(stderr, "full_selection_coord, scroll_offset=%d, ydelta=%u\n", self->selection.scroll_offset, 0);
     int ydelta = self->scrolled_by - self->selection.anchor_scroll_offset;
     ans->x = MIN(x, self->columns - 1);
     ans->y = (unsigned)(y + ydelta);
