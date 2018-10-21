@@ -15,6 +15,11 @@ Changelog
   be bound to key presses in :file:`kitty.conf`. See
   `https://sw.kovidgoyal.net/kitty/kittens/custom.html`_. (:iss:`870`)
 
+- Add a new ``nth_window`` action that can be used to go to the nth window and
+  also previously active windows, using negative numbers. Similarly,
+  ``goto_tab`` now accepts negative numbers to go to previously active tabs
+  (:iss:`1040`)
+
 - Fix the ``*_with_cwd`` actions using the cwd of the overlay window rather
   than the underlying window's cwd (:iss:`1045`)
 
@@ -22,8 +27,13 @@ Changelog
 
 - macOS: Fix drag and drop of files not working on mojave (:iss:`1058`)
 
+- macOS: Fix IME input for east asian languages (:iss:`910`)
+
 - Fix expansion of env vars not working in the :opt:`env` directive
   (:iss:`1075`)
+
+- Fix :opt:`mouse_hide_wait` only taking effect after an event such as cursor
+  blink or key press (:iss:`1073`)
 
 
 0.12.3 [2018-09-29]

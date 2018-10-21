@@ -27,6 +27,16 @@ def SpecialWindow(cmd, stdin=None, override_title=None, cwd_from=None, cwd=None,
     return SpecialWindowInstance(cmd, stdin, override_title, cwd_from, cwd, overlay_for, env)
 
 
+def add_active_id_to_history(items, item_id, maxlen=64):
+    try:
+        items.remove(item_id)
+    except ValueError:
+        pass
+    items.append(item_id)
+    if len(items) > maxlen:
+        items.popleft()
+
+
 class Tab:  # {{{
 
     def __init__(self, tab_manager, session_tab=None, special_window=None, cwd_from=None):
@@ -34,6 +44,7 @@ class Tab:  # {{{
         self.tab_manager_ref = weakref.ref(tab_manager)
         self.os_window_id = tab_manager.os_window_id
         self.id = add_tab(self.os_window_id)
+        self.active_window_history = deque()
         if not self.id:
             raise Exception('No OS window with id {} found, or tab counter has wrapped'.format(self.os_window_id))
         self.opts, self.args = tab_manager.opts, tab_manager.args
@@ -84,6 +95,9 @@ class Tab:  # {{{
             old_active_window = self.windows[self._active_window_idx]
         except Exception:
             old_active_window = None
+        else:
+            wid = old_active_window.id if old_active_window.overlay_for is None else old_active_window.overlay_for
+            add_active_id_to_history(self.active_window_history, wid)
         self._active_window_idx = max(0, min(val, len(self.windows) - 1))
         try:
             new_active_window = self.windows[self._active_window_idx]
@@ -255,7 +269,19 @@ class Tab:  # {{{
 
     def nth_window(self, num=0):
         if self.windows:
-            self.active_window_idx = self.current_layout.nth_window(self.windows, num)
+            if num < 0:
+                try:
+                    old_window_id = self.active_window_history[num]
+                except IndexError:
+                    return
+                for idx, w in enumerate(self.windows):
+                    if w.id == old_window_id:
+                        self.active_window_idx = self.current_layout.set_active_window(self.windows, idx)
+                        break
+                else:
+                    return
+            else:
+                self.active_window_idx = self.current_layout.nth_window(self.windows, num)
             self.relayout_borders()
             glfw_post_empty_event()
 
@@ -330,6 +356,7 @@ class TabManager:  # {{{
 
     def __init__(self, os_window_id, opts, args, startup_session):
         self.os_window_id = os_window_id
+        self.last_active_tab_id = None
         self.opts, self.args = opts, args
         self.tabs = []
         self.active_tab_history = deque()
@@ -348,11 +375,10 @@ class TabManager:  # {{{
     def active_tab_idx(self, val):
         try:
             old_active_tab = self.tabs[self._active_tab_idx]
-            self.active_tab_history.append(old_active_tab.id)
-            if len(self.active_tab_history) > 64:
-                self.active_tab_history.popleft()
         except Exception:
             old_active_tab = None
+        else:
+            add_active_id_to_history(self.active_tab_history, old_active_tab.id)
         self._active_tab_idx = max(0, min(val, len(self.tabs) - 1))
         try:
             new_active_tab = self.tabs[self._active_tab_idx]
@@ -426,6 +452,15 @@ class TabManager:  # {{{
     def goto_tab(self, tab_num):
         if tab_num < len(self.tabs) and 0 <= tab_num:
             self.set_active_tab_idx(tab_num)
+        elif tab_num < 0:
+            try:
+                old_active_tab_id = self.active_tab_history[tab_num]
+            except IndexError:
+                return
+            for idx, tab in enumerate(self.tabs):
+                if tab.id == old_active_tab_id:
+                    self.set_active_tab_idx(idx)
+                    break
 
     def __iter__(self):
         return iter(self.tabs)
