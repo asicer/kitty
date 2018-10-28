@@ -401,7 +401,7 @@ database will be matched.'''))
 
 o('click_interval', -1.0, option_type=float, long_text=_('''
 The interval between successive clicks to detect double/triple clicks (in seconds).
-Negative numbers will use the system default instead, if available or fallback to 0.5.'''))
+Negative numbers will use the system default instead, if available, or fallback to 0.5.'''))
 
 o('mouse_hide_wait', 3.0, option_type=positive_float, long_text=_('''
 Hide mouse cursor after the specified number of seconds

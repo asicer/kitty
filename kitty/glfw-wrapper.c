@@ -383,6 +383,8 @@ load_glfw(const char* path) {
 
     *(void **) (&glfwGetXKBScancode_impl) = dlsym(handle, "glfwGetXKBScancode");
 
+    *(void **) (&glfwRequestWaylandFrameEvent_impl) = dlsym(handle, "glfwRequestWaylandFrameEvent");
+
     return NULL;
 }
 

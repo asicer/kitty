@@ -791,6 +791,7 @@ incrementCursorImage(_GLFWwindow* window)
             cursor->wl.currentImage += 1;
             cursor->wl.currentImage %= cursor->wl.cursor->image_count;
             setCursorImage(&cursor->wl);
+            toggleTimer(&_glfw.wl.eventLoopData, _glfw.wl.cursorAnimationTimer, cursor->wl.cursor->image_count > 1);
             return;
         }
     }
@@ -973,6 +974,8 @@ void _glfwPlatformDestroyWindow(_GLFWwindow* window)
 
     free(window->wl.title);
     free(window->wl.monitors);
+    if (window->wl.frameCallbackData.current_wl_callback)
+        wl_callback_destroy(window->wl.frameCallbackData.current_wl_callback);
 }
 
 void _glfwPlatformSetWindowTitle(_GLFWwindow* window, const char* title)
@@ -1789,15 +1792,11 @@ const static struct wl_data_device_listener data_device_listener = {
 
 static void
 copy_callback_done(void *data, struct wl_callback *callback, uint32_t serial) {
-    if (!_glfw.wl.dataDevice) return;
-    if (data == (void*)_glfw.wl.dataSourceForClipboard) {
+    if (_glfw.wl.dataDevice && data == (void*)_glfw.wl.dataSourceForClipboard) {
         wl_data_device_set_selection(_glfw.wl.dataDevice, data, serial);
     }
+    wl_callback_destroy(callback);
 }
-
-const static struct wl_callback_listener copy_callback_listener = {
-    .done = copy_callback_done
-};
 
 void _glfwSetupWaylandDataDevice() {
     _glfw.wl.dataDevice = wl_data_device_manager_get_data_device(_glfw.wl.dataDeviceManager, _glfw.wl.seat);
@@ -1852,6 +1851,7 @@ void _glfwPlatformSetClipboardString(const char* string)
     wl_data_source_offer(_glfw.wl.dataSourceForClipboard, "STRING");
     wl_data_source_offer(_glfw.wl.dataSourceForClipboard, "UTF8_STRING");
     struct wl_callback *callback = wl_display_sync(_glfw.wl.display);
+    const static struct wl_callback_listener copy_callback_listener = {.done = copy_callback_done };
     wl_callback_add_listener(callback, &copy_callback_listener, _glfw.wl.dataSourceForClipboard);
 }
 
@@ -1934,6 +1934,15 @@ _glfwPlatformUpdateIMEState(_GLFWwindow *w, int which, int a, int b, int c, int 
     glfw_xkb_update_ime_state(w, &_glfw.wl.xkb, which, a, b, c, d);
 }
 
+static void
+frame_handle_redraw(void *data, struct wl_callback *callback, uint32_t time) {
+    _GLFWwindow* window = (_GLFWwindow*) data;
+    if (callback == window->wl.frameCallbackData.current_wl_callback) {
+        window->wl.frameCallbackData.callback(window->wl.frameCallbackData.id);
+        window->wl.frameCallbackData.current_wl_callback = NULL;
+    }
+    wl_callback_destroy(callback);
+}
 
 //////////////////////////////////////////////////////////////////////////
 //////                        GLFW native API                       //////
@@ -1954,4 +1963,17 @@ GLFWAPI struct wl_surface* glfwGetWaylandWindow(GLFWwindow* handle)
 
 GLFWAPI int glfwGetXKBScancode(const char* keyName, GLFWbool caseSensitive) {
     return glfw_xkb_keysym_from_name(keyName, caseSensitive);
+}
+
+GLFWAPI void glfwRequestWaylandFrameEvent(GLFWwindow *handle, unsigned long long id, void(*callback)(unsigned long long id)) {
+    _GLFWwindow* window = (_GLFWwindow*) handle;
+    static const struct wl_callback_listener frame_listener = { .done = frame_handle_redraw };
+    if (window->wl.frameCallbackData.current_wl_callback) wl_callback_destroy(window->wl.frameCallbackData.current_wl_callback);
+    window->wl.frameCallbackData.id = id;
+    window->wl.frameCallbackData.callback = callback;
+    window->wl.frameCallbackData.current_wl_callback = wl_surface_frame(window->wl.surface);
+    if (window->wl.frameCallbackData.current_wl_callback) {
+        wl_callback_add_listener(window->wl.frameCallbackData.current_wl_callback, &frame_listener, window);
+        wl_surface_commit(window->wl.surface);
+    }
 }

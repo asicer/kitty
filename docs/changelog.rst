@@ -38,11 +38,15 @@ Changelog
 - macOS: Fix incorrect text sizes calculated when using an external display
   that is set to mirror the main display (:iss:`1056`)
 
+- macOS: Use the system default double click interval (:pull:`1090`)
+
 - Linux: Fix match rules used as aliases in Fontconfig configuration not being
   respected (:iss:`1085`)
 
 - Linux: Fix a crash when using the GNU Unifont as a fallback font
   (:iss:`1087`)
+
+- Wayland: Fix copying from hidden kitty windows hanging (:iss:`1051`)
 
 - Fix expansion of env vars not working in the :opt:`env` directive
   (:iss:`1075`)
