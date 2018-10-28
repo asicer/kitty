@@ -399,17 +399,9 @@ Characters considered part of a word when double clicking. In addition to these 
 any character that is marked as an alpha-numeric character in the unicode
 database will be matched.'''))
 
-
-def click_interval(x):
-    if x == 'system':
-        from .fast_data_types import cocoa_get_double_click_interval
-        return cocoa_get_double_click_interval()
-    return positive_float(x)
-
-
-o('click_interval', 'system', option_type=click_interval, long_text=_('''
-The interval between successive clicks to detect
-double/triple clicks (in seconds)'''))
+o('click_interval', -1.0, option_type=float, long_text=_('''
+The interval between successive clicks to detect double/triple clicks (in seconds).
+Negative numbers will use the system default instead, if available or fallback to 0.5.'''))
 
 o('mouse_hide_wait', 3.0, option_type=positive_float, long_text=_('''
 Hide mouse cursor after the specified number of seconds
@@ -583,8 +575,8 @@ Which edge to show the tab bar on, top or bottom'''))
 o('tab_bar_margin_width', 0.0, option_type=positive_float, long_text=_('''
 The margin to the left and right of the tab bar (in pts)'''))
 
-o('tab_bar_style', 'fade', option_type=choices('fade', 'separator'), long_text=_('''
-The tab bar style, can be one of: :code:`fade` or :code:`separator`. In the fade style,
+o('tab_bar_style', 'fade', option_type=choices('fade', 'separator', 'hidden'), long_text=_('''
+The tab bar style, can be one of: :code:`fade`, :code:`separator` or :code:`hidden`. In the fade style,
 each tab's edges fade into the background color, in the separator style, tabs are
 separated by a configurable separator.
 '''))
