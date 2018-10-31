@@ -23,6 +23,9 @@ Changelog
 - Allow hiding the tab bar completely, by setting :opt:`tab_bar_style` to
   ``hidden``. (:iss:`1014`)
 
+- Allow private use unicode characters to stretchover more than a single
+  neighboring space (:pull:`1036`)
+
 - Fix the ``*_with_cwd`` actions using the cwd of the overlay window rather
   than the underlying window's cwd (:iss:`1045`)
 
@@ -48,12 +51,17 @@ Changelog
 
 - Wayland: Fix copying from hidden kitty windows hanging (:iss:`1051`)
 
+- Wayland: Add support for the experimental primary select protocol
+  implemented by some compositors (:pull:`1095`)
+
 - Fix expansion of env vars not working in the :opt:`env` directive
   (:iss:`1075`)
 
 - Fix :opt:`mouse_hide_wait` only taking effect after an event such as cursor
   blink or key press (:iss:`1073`)
 
+- Fix second cell of emoji created using variation selectors not having
+  the same attributes as the first cell (:iss:`1109`)
 
 0.12.3 [2018-09-29]
 ------------------------------
