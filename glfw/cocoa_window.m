@@ -902,6 +902,12 @@ is_ascii_control_char(char x) {
     deltaX = [event scrollingDeltaX];
     deltaY = [event scrollingDeltaY];
     int flags = [event hasPreciseScrollingDeltas] ? 1 : 0;
+    if (flags) {
+        float xscale = 1, yscale = 1;
+        _glfwPlatformGetWindowContentScale(window, &xscale, &yscale);
+        if (xscale > 0) deltaX *= xscale;
+        if (yscale > 0) deltaY *= yscale;
+    }
 
     if (fabs(deltaX) > 0.0 || fabs(deltaY) > 0.0)
         _glfwInputScroll(window, deltaX, deltaY, flags);

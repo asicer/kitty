@@ -23,7 +23,7 @@ Changelog
 - Allow hiding the tab bar completely, by setting :opt:`tab_bar_style` to
   ``hidden``. (:iss:`1014`)
 
-- Allow private use unicode characters to stretchover more than a single
+- Allow private use unicode characters to stretch over more than a single
   neighboring space (:pull:`1036`)
 
 - Fix the ``*_with_cwd`` actions using the cwd of the overlay window rather
@@ -42,6 +42,8 @@ Changelog
   that is set to mirror the main display (:iss:`1056`)
 
 - macOS: Use the system default double click interval (:pull:`1090`)
+
+- macOS: Fix touch scrolling sensitivity low on retina screens (:iss:`1112`)
 
 - Linux: Fix match rules used as aliases in Fontconfig configuration not being
   respected (:iss:`1085`)
@@ -62,6 +64,14 @@ Changelog
 
 - Fix second cell of emoji created using variation selectors not having
   the same attributes as the first cell (:iss:`1109`)
+
+- Fix focusing neighboring windows in the grid layout with less than 4 windows
+  not working (:iss:`1115`)
+
+- Fix :kbd:`ctrl+shift+special` key not working in normal and application keyboard
+  modes (:iss:`1114`)
+
+- Add a terminfo entry for full keyboard mode.
 
 0.12.3 [2018-09-29]
 ------------------------------
@@ -201,6 +211,9 @@ Changelog
 
 - Add an option :opt:`env` to set environment variables in child processes
   from kitty.conf
+
+- Add an action to the ``clear_terminal`` function to scroll the screen
+  contents into the scrollback buffer (:iss:`1113`)
 
 - Implement high precision scrolling with the trackpad on platforms such as
   macOS and Wayland that implement it. (:pull:`819`)
