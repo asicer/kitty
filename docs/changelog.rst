@@ -26,6 +26,16 @@ Changelog
 - Allow private use unicode characters to stretch over more than a single
   neighboring space (:pull:`1036`)
 
+- Add a new :opt:`touch_scroll_multiplier` option to modify the amount
+  scrolled by high precision scrolling devices such as touchpads (:pull:`1129`)
+
+- icat kitten: Implement reading image data from STDIN, if STDIN is not
+  connected to a terminal (:iss:`1130`)
+
+- hints kitten: Insert trailing spaces after matches when using the
+  ``--multiple`` option. Also add a separate ``--add-trailing-space``
+  option to control this behavior (:pull:`1132`)
+
 - Fix the ``*_with_cwd`` actions using the cwd of the overlay window rather
   than the underlying window's cwd (:iss:`1045`)
 

@@ -354,6 +354,14 @@ o('wheel_scroll_multiplier', 5.0, long_text=_('''
 Modify the amount scrolled by the mouse wheel. Note this is only used for low
 precision scrolling devices, not for high precision scrolling on platforms such
 as macOS and Wayland. Use negative numbers to change scroll direction.'''))
+
+o('touch_scroll_multiplier', 1.0, long_text=_('''
+Modify the amount scrolled by a touchpad. Note this is only used for high
+precision scrolling devices on platforms such as macOS and Wayland.
+Use negative numbers to change scroll direction.'''))
+
+# }}}
+
 # }}}
 
 g('mouse')  # {{{
@@ -540,6 +548,12 @@ The color for the border of inactive windows in which a bell has occurred'''))
 o('inactive_text_alpha', 1.0, option_type=unit_float, long_text=_('''
 Fade the text in inactive windows by the specified amount (a number between
 zero and one, with zero being fully faded).
+'''))
+
+o('hide_window_decorations', False, long_text=_('''
+Hide the window decorations (title-bar and window borders).
+Whether this works and exactly what effect it has depends on the
+window manager/operating system.
 '''))
 # }}}
 
@@ -774,15 +788,6 @@ color of the entire window and makes the titlebar transparent. As such it is
 incompatible with :opt:`background_opacity`. If you want to use both, you are
 probably better off just hiding the titlebar with :opt:`macos_hide_titlebar`.
 '''))
-
-o('macos_hide_titlebar', False, long_text=_('''
-Hide the kitty window's title bar on macOS.'''))
-
-o('x11_hide_window_decorations', False, long_text=_('''
-Hide the window decorations (title bar and window borders) on X11 and Wayland.
-Whether this works and exactly what effect it has depends on the window
-manager, as it is the job of the window manager/compositor to draw window
-decorations.'''))
 
 o('macos_hide_menu_bar_title', False, long_text=_('''
 Have kitty hide the current window title in the menu bar.'''))

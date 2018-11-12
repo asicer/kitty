@@ -13,7 +13,7 @@
 typedef enum { LEFT_EDGE, TOP_EDGE, RIGHT_EDGE, BOTTOM_EDGE } Edge;
 
 typedef struct {
-    double visual_bell_duration, cursor_blink_interval, cursor_stop_blinking_after, mouse_hide_wait, click_interval, wheel_scroll_multiplier;
+    double visual_bell_duration, cursor_blink_interval, cursor_stop_blinking_after, mouse_hide_wait, click_interval, wheel_scroll_multiplier, touch_scroll_multiplier;
     bool enable_audio_bell;
     CursorShape cursor_shape;
     unsigned int open_url_modifiers;
@@ -23,8 +23,8 @@ typedef struct {
     char_type select_by_word_characters[256]; size_t select_by_word_characters_count;
     color_type url_color, background, active_border_color, inactive_border_color, bell_border_color;
     double repaint_delay, input_delay;
-    bool focus_follows_mouse;
-    bool macos_option_as_alt, macos_hide_titlebar, macos_hide_from_tasks, x11_hide_window_decorations, macos_quit_when_last_window_closed, macos_window_resizable, macos_traditional_fullscreen, macos_hide_menu_bar_title;
+    bool focus_follows_mouse, hide_window_decorations;
+    bool macos_option_as_alt, macos_hide_from_tasks, macos_quit_when_last_window_closed, macos_window_resizable, macos_traditional_fullscreen, macos_hide_menu_bar_title;
     float macos_thicken_font;
     int adjust_line_height_px, adjust_column_width_px;
     float adjust_line_height_frac, adjust_column_width_frac;
