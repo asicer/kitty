@@ -788,7 +788,6 @@ o('macos_hide_menu_bar_title', False, long_text=_('''
 Have kitty hide the current window title in the menu bar.'''))
 
 o('macos_option_as_alt', False, long_text=_('''
->>>>>>> hide_menu_bar_title
 Use the option key as an alt key. With this set to no, kitty will use
 the macOS native :kbd:`Option+Key` = unicode character behavior. This will
 break any :kbd:`Alt+key` keyboard shortcuts in your terminal programs, but you
