@@ -600,6 +600,11 @@ static GLFWapplicationshouldhandlereopenfun handle_reopen_callback = NULL;
     return YES;
 }
 
+- (BOOL) allowsVibrancy
+{
+    return YES;
+}
+
 - (void)updateLayer
 {
     if (window->context.client != GLFW_NO_API) {
@@ -1231,9 +1236,7 @@ static GLFWbool initializeAppKit(void)
     [NSApp run];
 
     // Press and Hold prevents some keys from emitting repeated characters
-    NSDictionary* defaults = @{@"ApplePressAndHoldEnabled":@NO};
 
-    [[NSUserDefaults standardUserDefaults] registerDefaults:defaults];
 
     return GLFW_TRUE;
 }

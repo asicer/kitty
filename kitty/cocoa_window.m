@@ -460,6 +460,7 @@ cocoa_set_titlebar_color(void *w, color_type titlebar_color)
 
     NSWindow *window = (NSWindow *)w;
 
+
     double red = ((titlebar_color >> 16) & 0xFF) / 255.0;
     double green = ((titlebar_color >> 8) & 0xFF) / 255.0;
     double blue = (titlebar_color & 0xFF) / 255.0;
@@ -480,44 +481,54 @@ cocoa_set_titlebar_color(void *w, color_type titlebar_color)
         [window setAppearance:[NSAppearance appearanceNamed:NSAppearanceNameVibrantLight]];
     }
 
-
 /*
+    [window setTitlebarAppearsTransparent:YES];
+    //[window setStyleMask: [window styleMask] | NSFullSizeContentViewWindowMask];
+    [window setBackgroundColor:[NSColor clearColor]];
 
-    NSVisualEffectView *effect_view = [[NSVisualEffectView alloc] initWithFrame:
-        [[window contentView] bounds]];
-    [effect_view setAutoresizingMask:
-        NSViewWidthSizable | NSViewHeightSizable];
+    NSVisualEffectView *effect_view = [[[NSVisualEffectView alloc]
+        initWithFrame:[[window contentView] bounds]] autorelease];
+    //[window setVibrantView:effect_view];
 
+    [effect_view
+        setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable];
     [effect_view setBlendingMode:NSVisualEffectBlendingModeBehindWindow];
     [effect_view setState:NSVisualEffectStateActive];
 
     NSVisualEffectMaterial vibrancyType = NSVisualEffectMaterialUltraDark;
 
     [effect_view setMaterial:vibrancyType];
-
-*/
-
-
-
-
-
-    [window setTitlebarAppearsTransparent:YES];
-    //[window setBackgroundColor:[NSColor clearColor]];
-
-    NSVisualEffectView*effect_view = [[[NSVisualEffectView alloc]
-        initWithFrame:[[window contentView] bounds]] autorelease];
-
-    [effect_view
-        setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable];
-    [effect_view setBlendingMode:NSVisualEffectBlendingModeBehindWindow];
-    [effect_view setState:NSVisualEffectStateActive];
     [[window contentView] addSubview:effect_view
                            positioned:NSWindowBelow
                            relativeTo:nil];
+                           */
 
-    NSVisualEffectMaterial vibrancyType = NSVisualEffectMaterialUltraDark;
+    //NSView* vibrant_view = [window vibrantView];
 
-    //[window setVibrantView:effect_view];
+
+    [window setTitlebarAppearsTransparent:YES];
+    [window setBackgroundColor:[NSColor clearColor]];
+
+    //NSVisualEffectView* effect_view = (NSVisualEffectView*)vibrant_view;
+    NSVisualEffectView* effect_view = nil;
+    if (effect_view == nil) {
+      effect_view = [[[NSVisualEffectView alloc]
+          initWithFrame:[[window contentView] bounds]] autorelease];
+      //[window setAllowsVibrancy:true];
+      //[window setVibrantView:(NSView*)effect_view];
+
+      [effect_view
+          setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable];
+      [effect_view setBlendingMode:NSVisualEffectBlendingModeBehindWindow];
+      [effect_view setState:NSVisualEffectStateActive];
+      [[window contentView] addSubview:effect_view
+                             positioned:NSWindowBelow
+                             relativeTo:nil];
+    }
+
+    NSVisualEffectMaterial vibrancyType = NSVisualEffectMaterialLight;
+
+
     [effect_view setMaterial:vibrancyType];
 }
 
