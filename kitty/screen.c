@@ -336,9 +336,9 @@ move_widened_char(Screen *self, CPUCell* cpu_cell, GPUCell *gpu_cell, index_type
 
 static inline bool
 selection_has_screen_line(Selection *s, int y) {
-    if (s->start_x == UINT_MAX) return false;
-    int top = (int)s->start_y;
-    int bottom = (int)s->end_y;
+    if (s->start_scrolled_by == s->end_scrolled_by && s->start_x == UINT_MAX) return false;
+    int top = (int)s->start_y - s->start_scrolled_by;
+    int bottom = (int)s->end_y - s->end_scrolled_by;
     return top <= y && y <= bottom;
 }
 
@@ -811,9 +811,19 @@ screen_cursor_to_column(Screen *self, unsigned int column) {
 }
 
 static inline void
-index_selection(Selection *s, int delta) {
-    s->start_y += delta;
-    s->end_y += delta;
+index_selection(Screen *self, Selection *s, bool up) {
+    if (s->start_scrolled_by == s->end_scrolled_by && s->start_x == UINT_MAX) return;
+    if (up) {
+        if (s->start_y == 0) s->start_scrolled_by += 1;
+        else s->start_y--;
+        if (s->end_y == 0) s->end_scrolled_by += 1;
+        else s->end_y--;
+    } else {
+        if (s->start_y >= self->lines - 1) s->start_scrolled_by -= 1;
+        else s->start_y++;
+        if (s->end_y >= self->lines - 1) s->end_scrolled_by -= 1;
+        else s->end_y++;
+    }
 }
 
 #define INDEX_GRAPHICS(amtv) { \
@@ -837,7 +847,7 @@ index_selection(Selection *s, int delta) {
     } \
     linebuf_clear_line(self->linebuf, bottom); \
     self->is_dirty = true; \
-    index_selection(&self->selection, -1);
+    index_selection(self, &self->selection, true);
 
 void
 screen_index(Screen *self) {
@@ -864,7 +874,7 @@ screen_scroll(Screen *self, unsigned int count) {
     linebuf_clear_line(self->linebuf, top); \
     INDEX_GRAPHICS(1) \
     self->is_dirty = true; \
-    index_selection(&self->selection, 1);
+    index_selection(self, &self->selection, false);
 
 void
 screen_reverse_index(Screen *self) {
@@ -1494,37 +1504,40 @@ is_selection_empty(Screen *self, unsigned int start_x, unsigned int start_y, uns
 }
 
 static inline void
-selection_coord(Screen *self, unsigned int x, unsigned int y, SelectionBoundary *ans) {
-    int ydelta = self->scrolled_by - self->selection.anchor_scroll_offset;
-    //fprintf(stderr, "selection_coord, scroll_offset=%d, ydelta=%d scrolled_by=%d\n", self->selection.scroll_offset, ydelta, self->scrolled_by);
+selection_coord(Screen *self, unsigned int x, unsigned int y, unsigned int ydelta, SelectionBoundary *ans) {
     if (x == UINT_MAX) {
         ans->x = UINT_MAX; ans->y = UINT_MAX;
+    } else if (y + self->scrolled_by < ydelta) {
+        ans->x = 0; ans->y = 0;
     } else {
-        ans->x = x; ans->y = (unsigned)(y + ydelta);
+        y = y - ydelta + self->scrolled_by;
+        if (y >= self->lines) {
+            ans->x = self->columns - 1; ans->y = self->lines - 1;
+        } else {
+            ans->x = x; ans->y = y;
+        }
     }
 }
 
 static inline void
-full_selection_coord(Screen *self, unsigned int x, unsigned int y, FullSelectionBoundary *ans) {
-    //fprintf(stderr, "full_selection_coord, scroll_offset=%d, ydelta=%u\n", self->selection.scroll_offset, 0);
-    int ydelta = self->scrolled_by - self->selection.anchor_scroll_offset;
+full_selection_coord(Screen *self, unsigned int x, unsigned int y, unsigned int ydelta, FullSelectionBoundary *ans) {
     ans->x = MIN(x, self->columns - 1);
-    ans->y = (unsigned)(y + ydelta);
-    if (ans->y >= (int)self->lines) { ans->x = self->columns - 1; ans->y = self->lines - 1; }
+    ans->y = y - ydelta;
+    if (y >= self->lines) { ans->x = self->columns - 1; ans->y = self->lines - 1; }
 }
 
 #define selection_limits_(which, left, right) { \
     SelectionBoundary a, b; \
-    selection_coord(self, self->which.start_x, self->which.start_y, &a); \
-    selection_coord(self, self->which.end_x, self->which.end_y, &b); \
+    selection_coord(self, self->which.start_x, self->which.start_y, self->which.start_scrolled_by, &a); \
+    selection_coord(self, self->which.end_x, self->which.end_y, self->which.end_scrolled_by, &b); \
     if (a.y < b.y || (a.y == b.y && a.x <= b.x)) { *(left) = a; *(right) = b; } \
     else { *(left) = b; *(right) = a; } \
 }
 
 #define full_selection_limits_(which, left, right) { \
     FullSelectionBoundary a, b; \
-    full_selection_coord(self, self->which.start_x, self->which.start_y, &a); \
-    full_selection_coord(self, self->which.end_x, self->which.end_y, &b); \
+    full_selection_coord(self, self->which.start_x, self->which.start_y, self->which.start_scrolled_by, &a); \
+    full_selection_coord(self, self->which.end_x, self->which.end_y, self->which.end_scrolled_by, &b); \
     if (a.y < b.y || (a.y == b.y && a.x <= b.x)) { *(left) = a; *(right) = b; } \
     else { *(left) = b; *(right) = a; } \
 }
@@ -2020,12 +2033,13 @@ void
 screen_start_selection(Screen *self, index_type x, index_type y, bool rectangle_select, SelectionExtendMode extend_mode) {
 #define A(attr, val) self->selection.attr = val;
     A(anchor_x, x);
-    A(anchor_y, y - self->scrolled_by);
-    A(anchor_scroll_offset, self->scrolled_by);
+    A(anchor_y, y);
     A(start_x, UINT_MAX);
     A(start_y, UINT_MAX);
     A(end_x, UINT_MAX);
     A(end_y, UINT_MAX);
+    A(start_scrolled_by, self->scrolled_by);
+    A(end_scrolled_by, self->scrolled_by);
     A(in_progress, true); A(rectangle_select, rectangle_select); A(extend_mode, extend_mode);
 #undef A
 }
@@ -2033,13 +2047,12 @@ screen_start_selection(Screen *self, index_type x, index_type y, bool rectangle_
 void
 screen_mark_url(Screen *self, index_type start_x, index_type start_y, index_type end_x, index_type end_y) {
 #define A(attr, val) self->url_range.attr = val;
-    A(start_x, start_x); A(end_x, end_x); A(start_y, start_y); A(end_y, end_y);
+    A(start_x, start_x); A(end_x, end_x); A(start_y, start_y); A(end_y, end_y); A(start_scrolled_by, self->scrolled_by); A(end_scrolled_by, self->scrolled_by);
 #undef A
 }
 
 void
 screen_update_selection(Screen *self, index_type x, index_type y, bool ended) {
-    y -= self->scrolled_by;
     if (ended) self->selection.in_progress = false;
     bool empty = false;
     bool extending_leftwards = y < self->selection.anchor_y || (y == self->selection.anchor_y && x <= self->selection.anchor_x);
@@ -2075,19 +2088,19 @@ screen_update_selection(Screen *self, index_type x, index_type y, bool ended) {
         bool found = false;
         switch(self->selection.extend_mode) {
         case EXTEND_WORD: {
-            index_type y1 = y - self->scrolled_by + self->selection.anchor_scroll_offset, y2;
+            index_type y1 = y, y2;
             found = screen_selection_range_for_word(self, x - (extending_leftwards ? 0 : 1), &y1, &y2, &start, &end);
             if (found) {
                 if (extending_leftwards) {
                     self->selection.end_x = start; self->selection.end_y = y1;
-                    y1 = self->selection.anchor_y - self->scrolled_by + self->selection.anchor_scroll_offset;
+                    y1 = self->selection.anchor_y;
                     found = screen_selection_range_for_word(self, self->selection.anchor_x, &y1, &y2, &start, &end);
                     if (found) {
                         self->selection.start_x = end; self->selection.start_y = y2;
                     }
                 } else {
                     self->selection.end_x = end; self->selection.end_y = y2;
-                    y1 = self->selection.anchor_y - self->scrolled_by + self->selection.anchor_scroll_offset;
+                    y1 = self->selection.anchor_y;
                     found = screen_selection_range_for_word(self, self->selection.anchor_x, &y1, &y2, &start, &end);
                     if (found) {
                         self->selection.start_x = start; self->selection.start_y = y1;
