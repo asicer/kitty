@@ -55,6 +55,9 @@ Changelog
 
 - macOS: Fix touch scrolling sensitivity low on retina screens (:iss:`1112`)
 
+- Linux: Fix incorrect rendering of some fonts when hinting is disabled at
+  small sizes (:iss:`1173`)
+
 - Linux: Fix match rules used as aliases in Fontconfig configuration not being
   respected (:iss:`1085`)
 
@@ -91,6 +94,8 @@ Changelog
 
 - When double or triple clicking ignore clicks if they are "far" from each
   other (:iss:`1093`)
+
+- Follow xterm's behavior for the menu key (:iss:`597`)
 
 0.12.3 [2018-09-29]
 ------------------------------
