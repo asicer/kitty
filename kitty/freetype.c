@@ -460,6 +460,8 @@ render_color_bitmap(Face *self, int glyph_id, ProcessedBitmap *ans, unsigned int
     ans->rows = bitmap->rows;
     ans->pixel_mode = bitmap->pixel_mode;
     if (ans->width > num_cells * cell_width + 2) downsample_bitmap(ans, num_cells * cell_width, cell_height);
+    ans->bitmap_top = (float)self->face->glyph->bitmap_top / ans->factor;
+    ans->bitmap_left = (float)self->face->glyph->bitmap_left / ans->factor;
     detect_right_edge(ans);
     return true;
 }
@@ -521,7 +523,7 @@ render_glyphs_in_cells(PyObject *f, bool bold, bool italic, hb_glyph_info_t *inf
     Face *self = (Face*)f;
     bool is_emoji = *was_colored; *was_colored = is_emoji && self->has_color;
     float x = 0.f, y = 0.f, x_offset = 0.f;
-    ProcessedBitmap bm = EMPTY_PBM;
+    ProcessedBitmap bm;
     unsigned int canvas_width = cell_width * num_cells;
     for (unsigned int i = 0; i < num_glyphs; i++) {
         bm = EMPTY_PBM;
@@ -536,12 +538,14 @@ render_glyphs_in_cells(PyObject *f, bool bold, bool italic, hb_glyph_info_t *inf
         }
         x_offset = x + (float)positions[i].x_offset / 64.0f;
         y = (float)positions[i].y_offset / 64.0f;
-        if ((*was_colored || self->face->glyph->metrics.width > 0) && bm.width > 0) place_bitmap_in_canvas(canvas, &bm, canvas_width, cell_height, x_offset, y, baseline);
+        if ((*was_colored || self->face->glyph->metrics.width > 0) && bm.width > 0) {
+            place_bitmap_in_canvas(canvas, &bm, canvas_width, cell_height, x_offset, y, baseline);
+        }
         x += (float)positions[i].x_advance / 64.0f;
         free_processed_bitmap(&bm);
     }
 
-    if (center_glyph) {
+    if (center_glyph && num_glyphs) {
         unsigned int right_edge = (unsigned int)x, delta;
         // x_advance is wrong for colored bitmaps that have been downsampled
         if (*was_colored) right_edge = num_glyphs == 1 ? bm.right_edge : canvas_width;

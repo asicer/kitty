@@ -50,18 +50,25 @@ cell_text(CPUCell *cell) {
 
 static const char* url_prefixes[4] = {"https", "http", "file", "ftp"};
 static size_t url_prefix_lengths[sizeof(url_prefixes)/sizeof(url_prefixes[0])] = {0};
-typedef enum URL_PARSER_STATES {ANY, FIRST_SLASH, SECOND_SLASH} URL_PARSER_STATE;
 
 static inline index_type
 find_colon_slash(Line *self, index_type x, index_type limit) {
     // Find :// at or before x
     index_type pos = x;
-    URL_PARSER_STATE state = ANY;
+    enum URL_PARSER_STATES {ANY, FIRST_SLASH, SECOND_SLASH};
+    enum URL_PARSER_STATES state = ANY;
     limit = MAX(2, limit);
     if (pos < limit) return 0;
     do {
         char_type ch = self->cpu_cells[pos].ch;
         if (!is_url_char(ch)) return false;
+        if (pos == x) {
+            if (ch == ':') {
+                if (pos + 2 < self->xnum && self->cpu_cells[pos+1].ch == '/' && self->cpu_cells[pos + 2].ch == '/') state = SECOND_SLASH;
+            } else if (ch == '/') {
+                if (pos + 1 < self->xnum && self->cpu_cells[pos+1].ch == '/') state = FIRST_SLASH;
+            }
+        }
         switch(state) {
             case ANY:
                 if (ch == '/') state = FIRST_SLASH;
