@@ -25,7 +25,7 @@
 #include "control-codes.h"
 
 static const ScreenModes empty_modes = {0, .mDECAWM=true, .mDECTCEM=true, .mDECARM=true};
-static Selection EMPTY_SELECTION = {0};
+static Selection EMPTY_SELECTION = {0, .start_x=UINT_MAX, .start_y=UINT_MAX, .end_x=UINT_MAX, .end_y=UINT_MAX};
 typedef struct {
     unsigned int x; int y;
 } FullSelectionBoundary;
@@ -336,7 +336,7 @@ move_widened_char(Screen *self, CPUCell* cpu_cell, GPUCell *gpu_cell, index_type
 
 static inline bool
 selection_has_screen_line(Selection *s, int y) {
-    if (s->start_scrolled_by == s->end_scrolled_by && s->start_x == s->end_x && s->start_y == s->end_y) return false;
+    if (s->start_scrolled_by == s->end_scrolled_by && s->start_x == UINT_MAX) return false;
     int top = (int)s->start_y - s->start_scrolled_by;
     int bottom = (int)s->end_y - s->end_scrolled_by;
     return top <= y && y <= bottom;
@@ -812,7 +812,7 @@ screen_cursor_to_column(Screen *self, unsigned int column) {
 
 static inline void
 index_selection(Screen *self, Selection *s, bool up) {
-    if (s->start_scrolled_by == s->end_scrolled_by && s->start_x == s->end_x && s->start_y == s->end_y) return;
+    if (s->start_scrolled_by == s->end_scrolled_by && s->start_x == UINT_MAX) return;
     if (up) {
         if (s->start_y == 0) s->start_scrolled_by += 1;
         else s->start_y--;
@@ -1500,12 +1500,14 @@ screen_update_cell_data(Screen *self, void *address, FONTS_DATA_HANDLE fonts_dat
 
 static inline bool
 is_selection_empty(Screen *self, unsigned int start_x, unsigned int start_y, unsigned int end_x, unsigned int end_y) {
-    return (start_x >= self->columns || start_y >= self->lines || end_x >= self->columns || end_y >= self->lines || (start_x == end_x && start_y == end_y)) ? true : false;
+    return start_x >= self->columns || start_y >= self->lines || end_x >= self->columns || end_y >= self->lines;
 }
 
 static inline void
 selection_coord(Screen *self, unsigned int x, unsigned int y, unsigned int ydelta, SelectionBoundary *ans) {
-    if (y + self->scrolled_by < ydelta) {
+    if (x == UINT_MAX) {
+        ans->x = UINT_MAX; ans->y = UINT_MAX;
+    } else if (y + self->scrolled_by < ydelta) {
         ans->x = 0; ans->y = 0;
     } else {
         y = y - ydelta + self->scrolled_by;
@@ -1923,7 +1925,7 @@ text_for_selection(Screen *self, PyObject *a UNUSED) {
     FullSelectionBoundary start, end;
     full_selection_limits_(selection, &start, &end);
     PyObject *ans = NULL;
-    if (start.y == end.y && start.x == end.x) ans = PyTuple_New(0);
+    if (start.x == UINT_MAX) ans = PyTuple_New(0);
     else text_for_range(ans, start, end, self->selection.rectangle_select, true, range_line_, int);
     return ans;
 }
@@ -2030,7 +2032,15 @@ screen_is_selection_dirty(Screen *self) {
 void
 screen_start_selection(Screen *self, index_type x, index_type y, bool rectangle_select, SelectionExtendMode extend_mode) {
 #define A(attr, val) self->selection.attr = val;
-    A(start_x, x); A(end_x, x); A(start_y, y); A(end_y, y); A(start_scrolled_by, self->scrolled_by); A(end_scrolled_by, self->scrolled_by);
+    A(anchor_x, x);
+    A(anchor_y, y);
+    A(start_x, UINT_MAX);
+    A(start_y, UINT_MAX);
+    A(end_x, UINT_MAX);
+    A(end_y, UINT_MAX);
+    A(anchor_scrolled_by, self->scrolled_by);
+    A(start_scrolled_by, self->scrolled_by);
+    A(end_scrolled_by, self->scrolled_by);
     A(in_progress, true); A(rectangle_select, rectangle_select); A(extend_mode, extend_mode);
 #undef A
 }
@@ -2042,29 +2052,86 @@ screen_mark_url(Screen *self, index_type start_x, index_type start_y, index_type
 #undef A
 }
 
+static int
+compare_positions(index_type x1, index_type y1, index_type scrolled_by1,
+                  index_type x2, index_type y2, index_type scrolled_by2) {
+    if (y1 < scrolled_by1) {
+        if (y2 < scrolled_by2) {
+            y1 = scrolled_by1 - y1; y2 = scrolled_by2 - y2;
+            if (y1 > y2) return -1;
+            if (y1 == y2) { if (x1 > x2) return -1; if (x1 == x2) return 0; }
+            return 1;
+        }
+        return -1;
+    }
+    if (y2 < scrolled_by2) {
+        return 1;
+    }
+    y1 -= scrolled_by1; y2 -= scrolled_by2;
+    if (y1 < y2) return -1;
+    if (y1 == y2) { if (x1 < x2) return -1; if (x1 == x2) return 0; }
+    return 1;
+}
+
 void
 screen_update_selection(Screen *self, index_type x, index_type y, bool ended) {
-    self->selection.end_x = x; self->selection.end_y = y; self->selection.end_scrolled_by = self->scrolled_by;
     if (ended) self->selection.in_progress = false;
-    index_type start, end;
-    bool found = false;
-    bool extending_leftwards = self->selection.end_y < self->selection.start_y || (self->selection.end_y == self->selection.start_y && self->selection.end_x < self->selection.start_x);
-    switch(self->selection.extend_mode) {
+    bool empty = false;
+    int extending_direction = compare_positions(x, y, self->scrolled_by, self->selection.anchor_x, self->selection.anchor_y, self->selection.anchor_scrolled_by);
+    if (self->selection.rectangle_select) {
+        if (extending_direction == 0) {
+            empty = true;
+        } else {
+            self->selection.start_x = MIN(self->selection.anchor_x, x);
+            self->selection.end_x = MAX(self->selection.anchor_x, x) - 1;
+            self->selection.start_y = MIN(self->selection.anchor_y, y);
+            self->selection.end_y = MAX(self->selection.anchor_y, y) - 1;
+        }
+    } else {
+        switch (extending_direction) {
+        case 0:
+            empty = true;
+            break;
+        case -1:
+            self->selection.start_x = x;
+            self->selection.start_y = y;
+            self->selection.start_scrolled_by = self->scrolled_by;
+            self->selection.end_x = self->selection.anchor_x - 1;
+            self->selection.end_y = self->selection.anchor_y;
+            self->selection.end_scrolled_by = self->selection.anchor_scrolled_by;
+            break;
+        default:
+            self->selection.start_x = self->selection.anchor_x;
+            self->selection.start_y = self->selection.anchor_y;
+            self->selection.start_scrolled_by = self->selection.anchor_scrolled_by;
+            self->selection.end_x = x - 1;
+            self->selection.end_y = y;
+            self->selection.end_scrolled_by = self->scrolled_by;
+            break;
+        }
+    }
+
+    if (empty) {
+        self->selection.start_x = self->selection.start_y = self->selection.end_x = self->selection.end_y = UINT_MAX;
+    } else {
+        index_type start, end;
+        bool found = false;
+        switch(self->selection.extend_mode) {
         case EXTEND_WORD: {
             index_type y1 = y, y2;
-            found = screen_selection_range_for_word(self, x, &y1, &y2, &start, &end);
+            found = screen_selection_range_for_word(self, x - (extending_direction <= 0 ? 0 : 1), &y1, &y2, &start, &end);
             if (found) {
-                if (extending_leftwards) {
+                if (extending_direction <= 0) {
                     self->selection.end_x = start; self->selection.end_y = y1;
-                    y1 = self->selection.start_y;
-                    found = screen_selection_range_for_word(self, self->selection.start_x, &y1, &y2, &start, &end);
+                    y1 = self->selection.anchor_y;
+                    found = screen_selection_range_for_word(self, self->selection.anchor_x, &y1, &y2, &start, &end);
                     if (found) {
                         self->selection.start_x = end; self->selection.start_y = y2;
                     }
                 } else {
                     self->selection.end_x = end; self->selection.end_y = y2;
-                    y1 = self->selection.start_y;
-                    found = screen_selection_range_for_word(self, self->selection.start_x, &y1, &y2, &start, &end);
+                    y1 = self->selection.anchor_y;
+                    found = screen_selection_range_for_word(self, self->selection.anchor_x, &y1, &y2, &start, &end);
                     if (found) {
                         self->selection.start_x = start; self->selection.start_y = y1;
                     }
@@ -2074,13 +2141,13 @@ screen_update_selection(Screen *self, index_type x, index_type y, bool ended) {
             break;
         }
         case EXTEND_LINE: {
-            index_type top_line = extending_leftwards ? self->selection.end_y : self->selection.start_y;
-            index_type bottom_line = extending_leftwards ? self->selection.start_y : self->selection.end_y;
+            index_type top_line = self->selection.start_y;
+            index_type bottom_line = self->selection.end_y;
             while(top_line > 0 && visual_line_(self, top_line)->continued) top_line--;
             while(bottom_line < self->lines - 1 && visual_line_(self, bottom_line + 1)->continued) bottom_line++;
             found = screen_selection_range_for_line(self, top_line, &start, &end);
             if (found) {
-                if (extending_leftwards) {
+                if (extending_direction <= 0) {
                     self->selection.end_x = start; self->selection.end_y = top_line;
                 } else {
                     self->selection.start_x = start; self->selection.start_y = top_line;
@@ -2088,7 +2155,7 @@ screen_update_selection(Screen *self, index_type x, index_type y, bool ended) {
             }
             found = screen_selection_range_for_line(self, bottom_line, &start, &end);
             if (found) {
-                if (extending_leftwards) {
+                if (extending_direction <= 0) {
                     self->selection.start_x = end; self->selection.start_y = bottom_line;
                 } else {
                     self->selection.end_x = end; self->selection.end_y = bottom_line;
@@ -2098,6 +2165,7 @@ screen_update_selection(Screen *self, index_type x, index_type y, bool ended) {
         }
         case EXTEND_CELL:
             break;
+        }
     }
     call_boss(set_primary_selection, NULL);
 }
