@@ -72,8 +72,14 @@ def find_best_match(family, bold=False, italic=False, monospaced=True):
         if val:
             candidates = font_map[map_key].get(family_name_to_key(val))
             if candidates:
-                candidates.sort(key=score)
-                return candidates[0]
+                if len(candidates) == 1:
+                    # happens if the family name is an alias, so we search with
+                    # the actual family name to see if we can find all the
+                    # fonts in the family.
+                    family_name_candidates = font_map['family_map'].get(family_name_to_key(candidates[0]['family']))
+                    if family_name_candidates and len(family_name_candidates) > 1:
+                        candidates = family_name_candidates
+                return sorted(candidates, key=score)[0]
 
     # Use fc-match with a generic family
     family = 'monospace' if monospaced else 'sans-serif'
