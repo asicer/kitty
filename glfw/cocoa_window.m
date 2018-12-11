@@ -455,6 +455,7 @@ static const NSRange kEmptyRange = { NSNotFound, 0 };
 
     _glfwInputWindowFocus(window, GLFW_TRUE);
     updateCursorMode(window);
+    if (window->cursorMode == GLFW_CURSOR_HIDDEN) hideCursor(window);
     if (_glfw.ns.disabledCursorWindow != window && cursorInClientArea(window))
     {
         double x = 0, y = 0;
@@ -467,6 +468,7 @@ static const NSRange kEmptyRange = { NSNotFound, 0 };
 {
     if (window->monitor && window->autoIconify)
         _glfwPlatformIconifyWindow(window);
+    showCursor(window);
 
     _glfwInputWindowFocus(window, GLFW_FALSE);
 }
@@ -713,17 +715,11 @@ static GLFWapplicationshouldhandlereopenfun handle_reopen_callback = NULL;
 
 - (void)mouseExited:(NSEvent *)event
 {
-    if (window->cursorMode == GLFW_CURSOR_HIDDEN)
-        showCursor(window);
-
     _glfwInputCursorEnter(window, GLFW_FALSE);
 }
 
 - (void)mouseEntered:(NSEvent *)event
 {
-    //if (window->cursorMode == GLFW_CURSOR_HIDDEN)
-    //    hideCursor(window);
-
     _glfwInputCursorEnter(window, GLFW_TRUE);
 }
 
