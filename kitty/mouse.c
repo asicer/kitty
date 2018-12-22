@@ -586,6 +586,11 @@ scroll_event(double UNUSED xoffset, double yoffset, int flags) {
     }
 
     s = (int)round(pixels) / cell_height;
+
+    int test = abs(((int)round(pixels))) / cell_height;
+    if (pixels < 0) test *= -1;
+    assert(test == s);
+
     global_state.callback_os_window->pending_scroll_pixels = pixels - s * cell_height;
 
     if (s == 0) return;
