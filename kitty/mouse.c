@@ -577,22 +577,29 @@ scroll_event(double UNUSED xoffset, double yoffset, int flags) {
 
     int s;
     bool is_high_resolution = flags & 1;
+    int cell_height = (int) global_state.callback_os_window->fonts_data->cell_height;
     if (is_high_resolution) {
         yoffset *= OPT(touch_scroll_multiplier);
-        double pixels = global_state.callback_os_window->pending_scroll_pixels + yoffset;
-        if (fabs(pixels) < global_state.callback_os_window->fonts_data->cell_height) {
-            global_state.callback_os_window->pending_scroll_pixels = pixels;
-            return;
-        }
-        s = abs(((int)round(pixels))) / global_state.callback_os_window->fonts_data->cell_height;
-        if (pixels < 0) s *= -1;
-        global_state.callback_os_window->pending_scroll_pixels = pixels - s * (int) global_state.callback_os_window->fonts_data->cell_height;
     } else {
-        s = (int) round(yoffset * OPT(wheel_scroll_multiplier));
-        // apparently on cocoa some mice generate really small yoffset values
-        // when scrolling slowly https://github.com/kovidgoyal/kitty/issues/1238
-        if (s == 0 && yoffset != 0) s = yoffset > 0 ? 1 : -1;
+        yoffset *= cell_height;
+        yoffset *= OPT(wheel_scroll_multiplier);
     }
+    double pixels = yoffset + global_state.callback_os_window->pending_scroll_pixels;
+    if (!is_high_resolution) {
+        // Scroll at least one line, see https://github.com/kovidgoyal/kitty/issues/1238
+        if (pixels != 0 && fabs(pixels) < cell_height) {
+            pixels = yoffset >= 0 ? cell_height : -cell_height;
+        }
+    }
+
+    s = (int)round(pixels) / cell_height;
+
+    int test = abs(((int)round(pixels))) / cell_height;
+    if (pixels < 0) test *= -1;
+    assert(test == s);
+
+    global_state.callback_os_window->pending_scroll_pixels = pixels - s * cell_height;
+
     if (s == 0) return;
     bool upwards = s > 0;
     Screen *screen = w->render_data.screen;
@@ -603,13 +610,7 @@ scroll_event(double UNUSED xoffset, double yoffset, int flags) {
             int sz = encode_mouse_event(w, upwards ? GLFW_MOUSE_BUTTON_4 : GLFW_MOUSE_BUTTON_5, PRESS, 0);
             if (sz > 0) {
                 mouse_event_buf[sz] = 0;
-                if (is_high_resolution) {
-                    for (s = abs(s); s > 0; s--) {
-                        write_escape_code_to_child(screen, CSI, mouse_event_buf);
-                    }
-                } else {
-                    // Since we are sending a mouse button 4/5 event, we ignore 's'
-                    // and simply send one event per received scroll event
+                for (s = abs(s); s > 0; s--) {
                     write_escape_code_to_child(screen, CSI, mouse_event_buf);
                 }
             }
