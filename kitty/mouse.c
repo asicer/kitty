@@ -578,11 +578,16 @@ scroll_event(double UNUSED xoffset, double yoffset, int flags) {
     int s;
     bool is_high_resolution = flags & 1;
     int cell_height = (int) global_state.callback_os_window->fonts_data->cell_height;
+    Screen *screen = w->render_data.screen;
     if (is_high_resolution) {
         yoffset *= OPT(touch_scroll_multiplier);
     } else {
         yoffset *= cell_height;
-        yoffset *= OPT(wheel_scroll_multiplier);
+        if (screen->linebuf == screen->main_linebuf || !screen->modes.mouse_tracking_mode) {
+            // Only use wheel_scroll_multiplier if we are scrolling kitty scrollback or in mouse
+            // tracking mode, where the application is responsible for interpreting scroll events
+            yoffset *= OPT(wheel_scroll_multiplier);
+        }
     }
     double pixels = yoffset + global_state.callback_os_window->pending_scroll_pixels;
     if (!is_high_resolution) {
@@ -602,7 +607,6 @@ scroll_event(double UNUSED xoffset, double yoffset, int flags) {
 
     if (s == 0) return;
     bool upwards = s > 0;
-    Screen *screen = w->render_data.screen;
     if (screen->linebuf == screen->main_linebuf) {
         screen_history_scroll(screen, abs(s), upwards);
     } else {
