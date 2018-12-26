@@ -47,7 +47,6 @@
  #define NSEventModifierFlagDeviceIndependentFlagsMask NSDeviceIndependentModifierFlagsMask
  #define NSEventMaskAny NSAnyEventMask
  #define NSEventTypeApplicationDefined NSApplicationDefined
- #define NSEventTypeKeyUp NSKeyUp
 #endif
 
 #if (MAC_OS_X_VERSION_MAX_ALLOWED < 101400)
@@ -345,6 +344,8 @@ static NSUInteger translateKeyToModifierFlag(int key)
         case GLFW_KEY_LEFT_SUPER:
         case GLFW_KEY_RIGHT_SUPER:
             return NSEventModifierFlagCommand;
+        case GLFW_KEY_CAPS_LOCK:
+            return NSEventModifierFlagCapsLock;
     }
 
     return 0;
@@ -626,6 +627,11 @@ static GLFWapplicationshouldhandlereopenfun handle_reopen_callback = NULL;
 - (void)cursorUpdate:(NSEvent *)event
 {
     updateCursorImage(window);
+}
+
+- (BOOL)acceptsFirstMouse:(NSEvent *)event
+{
+    return NO;  // changed by Kovid, to follow cocoa platform conventions
 }
 
 - (void)mouseDown:(NSEvent *)event
@@ -912,6 +918,17 @@ is_ascii_control_char(char x) {
         if (yscale > 0) deltaY *= yscale;
     }
 
+    switch([event momentumPhase]) {
+        case NSEventPhaseBegan:
+            flags |= (1 << 1); break;
+        case NSEventPhaseChanged:
+            flags |= (2 << 1); break;
+        case NSEventPhaseEnded:
+            flags |= (3 << 1); break;
+        default:
+            break;
+    }
+
     if (fabs(deltaX) > 0.0 || fabs(deltaY) > 0.0)
         _glfwInputScroll(window, deltaX, deltaY, flags);
 }
@@ -1065,67 +1082,6 @@ is_ascii_control_char(char x) {
 @end
 
 
-//------------------------------------------------------------------------
-// GLFW application class
-//------------------------------------------------------------------------
-
-@interface GLFWApplication : NSApplication
-{
-    NSArray* nibObjects;
-}
-
-@end
-
-@implementation GLFWApplication
-
-- (void)sendEvent:(NSEvent *)event
-{
-    NSEventType etype = [event type];
-    NSEventModifierFlags flags;
-    switch(etype) {
-        case NSEventTypeKeyUp:
-            flags = [event modifierFlags] & NSEventModifierFlagDeviceIndependentFlagsMask;
-            if (flags & NSEventModifierFlagCommand) {
-                // From http://cocoadev.com/index.pl?GameKeyboardHandlingAlmost
-                // This works around an AppKit bug, where key up events while holding
-                // down the command key don't get sent to the key window.
-                [[self keyWindow] sendEvent:event];
-                return;
-            }
-            if (event.keyCode == kVK_Tab && (flags == NSEventModifierFlagControl || flags == (NSEventModifierFlagControl | NSEventModifierFlagShift))) {
-                // Cocoa swallows Ctrl+Tab to cycle between views
-                [[self keyWindow].contentView keyUp:event];
-                return;
-            }
-            break;
-        case NSEventTypeKeyDown:
-            flags = [event modifierFlags] & NSEventModifierFlagDeviceIndependentFlagsMask;
-            if (event.keyCode == kVK_Tab && (flags == NSEventModifierFlagControl || flags == (NSEventModifierFlagControl | NSEventModifierFlagShift))) {
-                // Cocoa swallows Ctrl+Tab to cycle between views
-                [[self keyWindow].contentView keyDown:event];
-                return;
-            }
-            break;
-        default:
-            break;
-    }
-
-    [super sendEvent:event];
-}
-
-
-// No-op thread entry point
-//
-- (void)doNothing:(id)object
-{
-}
-
-- (void)loadMainMenu
-{ // removed by Kovid as it generated compiler warnings
-}
-
-@end
-
 // Set up the menu bar (manually)
 // This is nasty, nasty stuff -- calls to undocumented semi-private APIs that
 // could go away at any moment, lots of stuff that really should be
@@ -1235,31 +1191,8 @@ static void createMenuBar(void)
 //
 static GLFWbool initializeAppKit(void)
 {
-    if (NSApp)
+    if (_glfw.ns.delegate)
         return GLFW_TRUE;
-
-    // Implicitly create shared NSApplication instance
-    [GLFWApplication sharedApplication];
-
-    // Make Cocoa enter multi-threaded mode
-    [NSThread detachNewThreadSelector:@selector(doNothing:)
-                             toTarget:NSApp
-                           withObject:nil];
-
-    if (_glfw.hints.init.ns.menubar)
-    {
-        // In case we are unbundled, make us a proper UI application
-        [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
-
-        // Menu bar setup must go between sharedApplication above and
-        // finishLaunching below, in order to properly emulate the behavior
-        // of NSApplicationMain
-
-        if ([[NSBundle mainBundle] pathForResource:@"MainMenu" ofType:@"nib"])
-            [NSApp loadMainMenu];
-        else
-            createMenuBar();
-    }
 
     // There can only be one application delegate, but we allocate it the
     // first time a window is created to keep all window code in this file
@@ -1270,15 +1203,29 @@ static GLFWbool initializeAppKit(void)
                         "Cocoa: Failed to create application delegate");
         return GLFW_FALSE;
     }
-
     [NSApp setDelegate:_glfw.ns.delegate];
+
+    if (_glfw.hints.init.ns.menubar)
+    {
+        // In case we are unbundled, make us a proper UI application
+        [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
+
+        // Menu bar setup must go between sharedApplication above and
+        // finishLaunching below, in order to properly emulate the behavior
+        // of NSApplicationMain
+
+        // disabled by Kovid
+        /* if ([[NSBundle mainBundle] pathForResource:@"MainMenu" ofType:@"nib"]) */
+        /*     [NSApp loadMainMenu]; */
+        /* else */
+            createMenuBar();
+    }
+
     [NSApp run];
 
     // Press and Hold prevents some keys from emitting repeated characters
-    NSDictionary* defaults =
-        [NSDictionary dictionaryWithObjectsAndKeys:[NSNumber numberWithBool:NO],
-                                                   @"ApplePressAndHoldEnabled",
-                                                   nil];
+    NSDictionary* defaults = @{@"ApplePressAndHoldEnabled":@NO};
+
     [[NSUserDefaults standardUserDefaults] registerDefaults:defaults];
 
     return GLFW_TRUE;
@@ -1790,9 +1737,6 @@ void _glfwPlatformSetWindowOpacity(_GLFWwindow* window, float opacity)
 
 void _glfwPlatformPollEvents(void)
 {
-    if (!initializeAppKit())
-        return;
-
     for (;;)
     {
         NSEvent* event = [NSApp nextEventMatchingMask:NSEventMaskAny
@@ -1933,8 +1877,6 @@ int _glfwPlatformCreateCursor(_GLFWcursor* cursor,
     NSImage* native;
     NSBitmapImageRep* rep;
 
-    if (!initializeAppKit())
-        return GLFW_FALSE;
     native = [[NSImage alloc] initWithSize:NSMakeSize(image->width, image->height)];
     if (native == nil)
         return GLFW_FALSE;
@@ -1971,8 +1913,6 @@ int _glfwPlatformCreateCursor(_GLFWcursor* cursor,
 
 int _glfwPlatformCreateStandardCursor(_GLFWcursor* cursor, int shape)
 {
-    if (!initializeAppKit())
-        return GLFW_FALSE;
 
     if (shape == GLFW_ARROW_CURSOR)
         cursor->ns.object = [NSCursor arrowCursor];
@@ -2012,10 +1952,8 @@ void _glfwPlatformSetCursor(_GLFWwindow* window, _GLFWcursor* cursor)
 
 void _glfwPlatformSetClipboardString(const char* string)
 {
-    NSArray* types = [NSArray arrayWithObjects:NSPasteboardTypeString, nil];
-
     NSPasteboard* pasteboard = [NSPasteboard generalPasteboard];
-    [pasteboard declareTypes:types owner:nil];
+    [pasteboard declareTypes:@[NSPasteboardTypeString] owner:nil];
     [pasteboard setString:[NSString stringWithUTF8String:string]
                   forType:NSPasteboardTypeString];
 }
