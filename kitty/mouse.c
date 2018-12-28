@@ -247,7 +247,7 @@ get_url_sentinel(Line *line, index_type url_start) {
 }
 
 static inline void
-detect_url(Screen *screen, unsigned int x, unsigned int y) {
+detect_url(Screen *screen, unsigned int x, unsigned int y, int modifiers) {
     bool has_url = false;
     index_type url_start, url_end = 0;
     Line *line = screen_visual_line(screen, y);
@@ -259,7 +259,10 @@ detect_url(Screen *screen, unsigned int x, unsigned int y) {
         has_url = url_end > url_start;
     }
     if (has_url) {
-        mouse_cursor_shape = HAND;
+        printf("%d\n", modifiers);
+        if (modifiers == (int)OPT(open_url_modifiers)) {
+            mouse_cursor_shape = HAND;
+        }
         index_type y_extended = y;
         extend_url(screen, line, &url_end, &y_extended, sentinel);
         screen_mark_url(screen, url_start, y, url_end, y_extended);
@@ -281,7 +284,7 @@ HANDLER(handle_move_event) {
     if (!cell_for_pos(w, &x, &y, &edge_x, &edge_y, global_state.callback_os_window)) return;
 
     Screen *screen = w->render_data.screen;
-    detect_url(screen, x, y);
+    detect_url(screen, x, y, modifiers);
     bool mouse_cell_changed = x != w->mouse_pos.cell_x || y != w->mouse_pos.cell_y;
     bool mouse_edge_changed = edge_x != w->mouse_pos.edge_x || edge_y != w->mouse_pos.edge_y;
     w->mouse_pos.cell_x = x; w->mouse_pos.cell_y = y;
