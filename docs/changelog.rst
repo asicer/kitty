@@ -3,12 +3,29 @@ Changelog
 
 |kitty| is a feature full, cross-platform, *fast*, GPU based terminal emulator.
 
-0.13.2 [future]
+0.13.3 [future]
+------------------------------
+
+- Fix a regression in the previous release that broke using ``background`` for
+  :opt:`cursor_text_color` (:iss:`1288`)
+
+
+0.13.2 [2019-01-04]
 ------------------------------
 
 - Add a new option :opt:`tab_title_template` to control how tab titles
   are formatted. In particular the template can be used to display
   the tab number next to the title (:iss:`1223`)
+
+- Report the current foreground processes as well as the original child process,
+  when using `kitty @ ls`
+
+- Use the current working directory of the foreground process for the
+  `*_with_cwd` actions that open a new window with the current working
+  directory.
+
+- Add a new ``copy_or_interrupt`` action that can be mapped to kbd:`ctrl+c`. It
+  will copy if there is a selection and interrupt otherwise (:iss:`1286`)
 
 - Fix setting :opt:`background_opacity` causing window margins/padding to be slightly
   different shade from background (:iss:`1221`)

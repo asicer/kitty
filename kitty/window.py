@@ -10,7 +10,6 @@ from collections import deque
 from enum import IntEnum
 from itertools import chain
 
-from .child import cwd_of_process
 from .config import build_ansi_color_table
 from .constants import (
     ScreenGeometry, WindowGeometry, appname, get_boss, wakeup
@@ -24,7 +23,7 @@ from .fast_data_types import (
     set_clipboard_string, set_titlebar_color, set_window_render_data,
     update_window_title, update_window_visibility, viewport_for_window
 )
-from .keys import keyboard_mode_name
+from .keys import keyboard_mode_name, extended_key_event, defines
 from .rgb import to_color
 from .terminfo import get_capabilities
 from .utils import (
@@ -94,7 +93,7 @@ def load_shader_programs(semi_transparent=0):
 def setup_colors(screen, opts):
     screen.color_profile.update_ansi_color_table(build_ansi_color_table(opts))
     cursor_text_color = opts.cursor_text_color or (12, 12, 12)
-    cursor_text_color_as_bg = 3 if cursor_text_color is None else 1
+    cursor_text_color_as_bg = 3 if opts.cursor_text_color is None else 1
     screen.color_profile.set_configured_colors(*map(color_as_int, (
         opts.foreground, opts.background, opts.cursor,
         cursor_text_color, (0, 0, cursor_text_color_as_bg),
@@ -168,6 +167,7 @@ class Window:
             cwd=self.child.current_cwd or self.child.cwd,
             cmdline=self.child.cmdline,
             env=self.child.environ,
+            foreground_processes=self.child.foreground_processes
         )
 
     @property
@@ -480,11 +480,7 @@ class Window:
 
     @property
     def cwd_of_child(self):
-        # TODO: Maybe use the cwd of the leader of the foreground process
-        # group in the session of the child process?
-        pid = self.child.pid
-        if pid is not None:
-            return cwd_of_process(pid) or None
+        return self.child.foreground_cwd or self.child.current_cwd
 
     def pipe_data(self, text, has_wrap_markers=False):
         text = text or ''
@@ -527,6 +523,15 @@ class Window:
         text = self.text_for_selection()
         if text:
             set_clipboard_string(text)
+
+    def copy_or_interrupt(self):
+        text = self.text_for_selection()
+        if text:
+            set_clipboard_string(text)
+        else:
+            mode = keyboard_mode_name(self.screen)
+            text = extended_key_event(defines.GLFW_KEY_C, defines.GLFW_MOD_CONTROL, defines.GLFW_PRESS) if mode == 'kitty' else b'\x03'
+            self.write_to_child(text)
 
     def pass_selection_to_program(self, *args):
         cwd = self.cwd_of_child
