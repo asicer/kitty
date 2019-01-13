@@ -6,8 +6,14 @@ Changelog
 0.13.3 [future]
 ------------------------------
 
+- hints kitten: Start hints numbering at one instead of zero by default. Added
+  an option ``--hints-offset`` to control it. (:iss:`1289`)
+
 - Fix a regression in the previous release that broke using ``background`` for
   :opt:`cursor_text_color` (:iss:`1288`)
+
+- macOS: Fix dragging kitty window tabs in traditional full screen mode causing
+  crashes (:iss:`1296`)
 
 
 0.13.2 [2019-01-04]
