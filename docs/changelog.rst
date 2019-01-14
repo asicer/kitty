@@ -15,6 +15,19 @@ Changelog
 - macOS: Fix dragging kitty window tabs in traditional full screen mode causing
   crashes (:iss:`1296`)
 
+- macOS: Ensure that when running from a bundle, the bundle kitty exe is
+  preferred over any kitty in PATH (:iss:`1280`)
+
+- macOS: Fix a regression that broke mapping of :kbd:`ctrl+tab` (:iss:`1304`)
+
+- Add a list of user-created kittens to the docs
+
+- Fix a regression that broke changing mouse wheel scroll direction with
+  negative :opt:`wheel_scroll_multiplier` values in full-screen applications
+  like vim (:iss:`1299`)
+
+- Fix :opt:`background_opacity` not working with pure white backgrounds
+  (:iss:`1285`)
 
 0.13.2 [2019-01-04]
 ------------------------------
