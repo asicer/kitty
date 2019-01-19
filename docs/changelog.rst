@@ -3,8 +3,11 @@ Changelog
 
 |kitty| is a feature full, cross-platform, *fast*, GPU based terminal emulator.
 
-0.13.3 [future]
+0.13.3 [2019-01-19]
 ------------------------------
+
+- icat kitten: Add a ``--stdin`` option to control if image data is read from
+  STDIN (:iss:`1308`)
 
 - hints kitten: Start hints numbering at one instead of zero by default. Added
   an option ``--hints-offset`` to control it. (:iss:`1289`)
@@ -28,6 +31,15 @@ Changelog
 
 - Fix :opt:`background_opacity` not working with pure white backgrounds
   (:iss:`1285`)
+
+- macOS: Fix "New OS Window" dock action not working when kitty is not focused
+  (:iss:`1312`)
+
+- macOS: Add aliases for close window and new tab actions that conform to common
+  Apple shortcuts for these actions (:iss:`1313`)
+
+- macOS: Fix some kittens causing 100% CPU usage
+
 
 0.13.2 [2019-01-04]
 ------------------------------
