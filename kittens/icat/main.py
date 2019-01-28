@@ -259,8 +259,10 @@ help_text = (
         ' You can specify multiple image files and/or directories.'
         ' Directories are scanned recursively for image files. If STDIN'
         ' is not a terminal, image data will be read from it as well.'
+        ' You can also specify HTTP(S) or FTP URLs which will be'
+        ' automatically downloaded and displayed.'
 )
-usage = 'image-file ...'
+usage = 'image-file-or-url-or-directory ...'
 
 
 def main(args=sys.argv):
@@ -318,6 +320,7 @@ def main(args=sys.argv):
         if len(items) > 1 or (isinstance(items[0], str) and os.path.isdir(items[0])):
             raise SystemExit(f'The --place option can only be used with a single image, not {items}')
         sys.stdout.buffer.write(b'\0337')  # save cursor
+    url_pat = re.compile(r'(?:https?|ftp)://', flags=re.I)
     for item in items:
         is_tempfile = False
         try:
@@ -326,11 +329,22 @@ def main(args=sys.argv):
                 tf.write(item), tf.close()
                 item = tf.name
                 is_tempfile = True
-            if os.path.isdir(item):
-                for x in scan(item):
-                    process(item, args)
-            else:
+            if url_pat.match(item) is not None:
+                from urllib.request import urlretrieve
+                with NamedTemporaryFile(prefix='url-image-data-', delete=False) as tf:
+                    try:
+                        urlretrieve(item, filename=tf.name)
+                    except Exception as e:
+                        raise SystemExit('Failed to download image at URL: {} with error: {}'.format(item, e))
+                    item = tf.name
+                is_tempfile = True
                 process(item, args, is_tempfile)
+            else:
+                if os.path.isdir(item):
+                    for x in scan(item):
+                        process(item, args)
+                else:
+                    process(item, args, is_tempfile)
         except NoImageMagick as e:
             raise SystemExit(str(e))
         except ConvertFailed as e:
