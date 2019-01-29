@@ -652,6 +652,7 @@ def package(args, for_bundle=False, sh_launcher=False):
             raise SystemExit('tic failed to output the compiled kitty terminfo file')
     shutil.copy2('__main__.py', libdir)
     shutil.copy2('logo/kitty.rgba', os.path.join(libdir, 'logo'))
+    shutil.copy2('logo/kitty.png', os.path.join(libdir, 'logo'))
     shutil.copy2('logo/beam-cursor.png', os.path.join(libdir, 'logo'))
     shutil.copy2('logo/beam-cursor@2x.png', os.path.join(libdir, 'logo'))
 
@@ -698,7 +699,7 @@ Categories=System;TerminalEmulator;
             )
     # }}}
 
-    if for_bundle or sh_launcher:  # OS X bundle gunk {{{
+    if for_bundle or sh_launcher:  # macOS bundle gunk {{{
         import plistlib
         logo_dir = os.path.abspath(os.path.join('logo', appname + '.iconset'))
         os.chdir(ddir)
