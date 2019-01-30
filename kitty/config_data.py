@@ -801,9 +801,6 @@ incompatible with :opt:`background_opacity`. If you want to use both, you are
 probably better off just hiding the titlebar with :opt:`hide_window_decorations`.
 '''))
 
-o('macos_hide_menu_bar_title', False, long_text=_('''
-Have kitty hide the current window title in the menu bar.'''))
-
 o('macos_option_as_alt', False, long_text=_('''
 Use the option key as an alt key. With this set to no, kitty will use
 the macOS native :kbd:`Option+Key` = unicode character behavior. This will
@@ -836,6 +833,10 @@ common font sizes.
 o('macos_traditional_fullscreen', False, long_text=_('''
 Use the traditional full-screen transition, that is faster, but less pretty.
 '''))
+
+o('macos_show_window_title_in_menubar', True, long_text=_('''
+Show the title of the currently active window in the macOS
+menu-bar, making use of otherwise wasted space.'''))
 
 # Disabled by default because of https://github.com/kovidgoyal/kitty/issues/794
 o('macos_custom_beam_cursor', False, long_text=_('''
