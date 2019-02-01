@@ -2,6 +2,7 @@ Changelog
 ==============
 
 |kitty| is a feature full, cross-platform, *fast*, GPU based terminal emulator.
+To update |kitty|, :doc:`follow the instructions <binary>`.
 
 0.13.4 [future]
 ---------------------
@@ -10,6 +11,10 @@ Changelog
 
 - A new option :opt:`strip_trailing_spaces` to optionally remove trailing
   spaces from lines when copying to clipboard.
+
+- Automatically check for new releases and notify when an update is available,
+  via the system notification facilities. Can be controlled by
+  :opt:`update_check_interval` (:iss:`1342`)
 
 - macOS: Fix :kbd:`cmd+period` key not working (:iss:`1318`)
 
