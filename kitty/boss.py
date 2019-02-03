@@ -106,6 +106,7 @@ class Boss:
 
     def __init__(self, os_window_id, opts, args, cached_values, new_os_window_trigger):
         set_draw_minimal_borders(opts)
+        self.update_check_process = None
         self.window_id_map = WeakValueDictionary()
         self.startup_colors = {k: opts[k] for k in opts if isinstance(opts[k], Color)}
         self.startup_cursor_text_color = opts.cursor_text_color
@@ -778,6 +779,8 @@ class Boss:
     def destroy(self):
         self.shutting_down = True
         self.child_monitor.shutdown_monitor()
+        self.set_update_check_process()
+        self.update_check_process = None
         del self.child_monitor
         for tm in self.os_window_map.values():
             tm.destroy()
@@ -982,7 +985,13 @@ class Boss:
             except FileNotFoundError:
                 pass
 
-    def set_update_check_process(self, process):
+    def set_update_check_process(self, process=None):
+        if self.update_check_process is not None:
+            try:
+                if self.update_check_process.poll() is None:
+                    self.update_check_process.kill()
+            except Exception:
+                pass
         self.update_check_process = process
 
     def on_monitored_pid_death(self, pid, exit_status):
@@ -990,9 +999,21 @@ class Boss:
         if update_check_process is not None and pid == update_check_process.pid:
             self.update_check_process = None
             from .update_check import process_current_release
-            process_current_release(update_check_process.stdout.read().decode('utf-8'))
+            try:
+                raw = update_check_process.stdout.read().decode('utf-8')
+            except Exception as e:
+                log_error('Failed to read data from update check process, with error: {}'.format(e))
+            else:
+                process_current_release(raw)
 
     def notification_activated(self, identifier):
         if identifier == 'new-version':
             from .update_check import notification_activated
             notification_activated()
+
+    def dbus_notification_callback(self, activated, *args):
+        from .notify import dbus_notification_created, dbus_notification_activated
+        if activated:
+            dbus_notification_activated(*args)
+        else:
+            dbus_notification_created(*args)

@@ -669,6 +669,14 @@ error_callback(int error, const char* description) {
 }
 
 
+#ifndef __APPLE__
+static void
+dbus_user_notification_activated(uint32_t notification_id, const char* action) {
+    unsigned long nid = notification_id;
+    call_boss(dbus_notification_callback, "Oks", Py_True, nid, action);
+}
+#endif
+
 PyObject*
 glfw_init(PyObject UNUSED *self, PyObject *args) {
     const char* path;
@@ -685,6 +693,10 @@ glfw_init(PyObject UNUSED *self, PyObject *args) {
 #ifdef __APPLE__
     glfwInitHint(GLFW_COCOA_CHDIR_RESOURCES, 0);
     glfwInitHint(GLFW_COCOA_MENUBAR, 0);
+#else
+    if (glfwDBusSetUserNotificationHandler) {
+        glfwDBusSetUserNotificationHandler(dbus_user_notification_activated);
+    }
 #endif
     PyObject *ans = glfwInit() ? Py_True: Py_False;
     if (ans == Py_True) {
@@ -1027,6 +1039,28 @@ wayland_request_frame_render(OSWindow *w) {
     w->wayland_render_state = RENDER_FRAME_REQUESTED;
 }
 
+#ifndef __APPLE__
+
+void
+dbus_notification_created_callback(unsigned long long notification_id, uint32_t new_notification_id, void* data UNUSED) {
+    unsigned long new_id = new_notification_id;
+    call_boss(dbus_notification_callback, "OKk", Py_False, notification_id, new_id);
+}
+
+static PyObject*
+dbus_send_notification(PyObject *self UNUSED, PyObject *args) {
+    char *app_name, *icon, *summary, *body, *action_name;
+    int timeout = -1;
+    if (!PyArg_ParseTuple(args, "sssss|i", &app_name, &icon, &summary, &body, &action_name, &timeout)) return NULL;
+    if (!glfwDBusUserNotify) {
+        PyErr_SetString(PyExc_RuntimeError, "Failed to load glfwDBusUserNotify, did you call glfw_init?");
+        return NULL;
+    }
+    unsigned long long notification_id = glfwDBusUserNotify(app_name, icon, summary, body, action_name, timeout, dbus_notification_created_callback, NULL);
+    return PyLong_FromUnsignedLongLong(notification_id);
+}
+#endif
+
 // Boilerplate {{{
 
 static PyMethodDef module_methods[] = {
@@ -1048,6 +1082,9 @@ static PyMethodDef module_methods[] = {
     METHODB(x11_window_id, METH_O),
     METHODB(set_primary_selection, METH_VARARGS),
     METHODB(glfw_poll_events, METH_NOARGS),
+#ifndef __APPLE__
+    METHODB(dbus_send_notification, METH_VARARGS),
+#endif
     {"glfw_init", (PyCFunction)glfw_init, METH_VARARGS, ""},
     {"glfw_terminate", (PyCFunction)glfw_terminate, METH_NOARGS, ""},
     {"glfw_post_empty_event", (PyCFunction)glfw_post_empty_event, METH_NOARGS, ""},

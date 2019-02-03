@@ -102,40 +102,6 @@ def build_wayland_protocols(env, run_tool, emphasis, newer, dest_dir):
                          desc='Generating {} ...'.format(emphasis(os.path.basename(dest))))
 
 
-def collect_source_information():
-    raw = open('src/CMakeLists.txt').read()
-    mraw = open('CMakeLists.txt').read()
-
-    def extract_sources(group, start_pos=0):
-        for which in 'HEADERS SOURCES'.split():
-            yield which.lower(), list(filter(
-                lambda x: x[0] not in '"$',
-                re.search(
-                    r'{0}_{1}\s+([^)]+?)[)]'.format(group, which),
-                    raw[start_pos:]
-                ).group(1).strip().split()
-            ))
-
-    wayland_protocols = re.search(r'WaylandProtocols\s+(\S+)\s+', mraw).group(1)
-    wayland_protocols = list(map(int, wayland_protocols.split('.')))
-    ans = {
-        'common': dict(extract_sources('common')),
-        'wayland_protocols': wayland_protocols,
-    }
-    for group in 'cocoa win32 x11 wayland osmesa'.split():
-        m = re.search('_GLFW_' + group.upper(), raw)
-        ans[group] = dict(extract_sources('glfw', m.start()))
-        if group in ('x11', 'wayland'):
-            for joystick in ('linux', 'null'):
-                ans[group]['headers'].append('{}_joystick.h'.format(joystick))
-                ans[group]['sources'].append('{}_joystick.c'.format(joystick))
-        if group == 'wayland':
-            ans[group]['protocols'] = p = []
-            for m in re.finditer(r'WAYLAND_PROTOCOLS_PKGDATADIR\}/(.+?)"?$', raw, flags=re.M):
-                p.append(m.group(1))
-    return ans
-
-
 class Arg:
 
     def __init__(self, decl):
@@ -212,6 +178,9 @@ def generate_wrappers(glfw_header):
     const char* glfwGetPrimarySelectionString(GLFWwindow* window, void)
     int glfwGetXKBScancode(const char* key_name, int case_sensitive)
     void glfwRequestWaylandFrameEvent(GLFWwindow *handle, unsigned long long id, GLFWwaylandframecallbackfunc callback)
+    unsigned long long glfwDBusUserNotify(const char *app_name, const char* icon, const char *summary, const char *body, \
+const char *action_text, int32_t timeout, GLFWDBusnotificationcreatedfun callback, void *data)
+    void glfwDBusSetUserNotificationHandler(GLFWDBusnotificationactivatedfun handler)
 '''.splitlines():
         if line:
             functions.append(Function(line.strip(), check_fail=False))
@@ -231,6 +200,8 @@ typedef int (* GLFWcocoatextinputfilterfun)(int,int,unsigned int);
 typedef int (* GLFWapplicationshouldhandlereopenfun)(int);
 typedef int (* GLFWcocoatogglefullscreenfun)(GLFWwindow*);
 typedef void (*GLFWwaylandframecallbackfunc)(unsigned long long id);
+typedef void (*GLFWDBusnotificationcreatedfun)(unsigned long long, uint32_t, void*);
+typedef void (*GLFWDBusnotificationactivatedfun)(uint32_t, const char*);
 {}
 
 const char* load_glfw(const char* path);

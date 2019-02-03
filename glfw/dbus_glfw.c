@@ -43,6 +43,7 @@ report_error(DBusError *err, const char *fmt, ...) {
 }
 
 static _GLFWDBUSData *dbus_data = NULL;
+static DBusConnection *session_bus = NULL;
 
 GLFWbool
 glfw_dbus_init(_GLFWDBUSData *dbus, EventLoopData *eld) {
@@ -172,10 +173,19 @@ glfw_dbus_dispatch(DBusConnection *conn) {
 }
 
 void
+glfw_dbus_session_bus_dispatch() {
+    if (session_bus) glfw_dbus_dispatch(session_bus);
+}
+
+void
 glfw_dbus_terminate(_GLFWDBUSData *dbus) {
     if (dbus_data) {
         dbus_data->eld = NULL;
         dbus_data = NULL;
+    }
+    if (session_bus) {
+        dbus_connection_unref(session_bus);
+        session_bus = NULL;
     }
 }
 
@@ -223,34 +233,43 @@ method_reply_received(DBusPendingCall *pending, void *user_data) {
     }
 }
 
+GLFWbool
+call_method_with_msg(DBusConnection *conn, DBusMessage *msg, int timeout, dbus_pending_callback callback, void *user_data) {
+    GLFWbool retval = GLFW_FALSE;
+#define REPORT(errs) _glfwInputError(GLFW_PLATFORM_ERROR, "Failed to call DBUS method: node=%s path=%s interface=%s method=%s, with error: %s", dbus_message_get_destination(msg), dbus_message_get_path(msg), dbus_message_get_interface(msg), dbus_message_get_member(msg), errs)
+    if (callback) {
+        DBusPendingCall *pending = NULL;
+        if (dbus_connection_send_with_reply(conn, msg, &pending, timeout)) {
+            MethodResponse *res = malloc(sizeof(MethodResponse));
+            if (!res) return GLFW_FALSE;
+            res->callback = callback;
+            res->user_data = user_data;
+            dbus_pending_call_set_notify(pending, method_reply_received, res, free);
+            retval = GLFW_TRUE;
+        } else {
+            REPORT("out of memory");
+        }
+    } else {
+        if (dbus_connection_send(conn, msg, NULL)) {
+            retval = GLFW_TRUE;
+        } else {
+            REPORT("out of memory");
+        }
+    }
+    return retval;
+#undef REPORT
+}
+
 static GLFWbool
 call_method(DBusConnection *conn, const char *node, const char *path, const char *interface, const char *method, int timeout, dbus_pending_callback callback, void *user_data, va_list ap) {
     if (!conn) return GLFW_FALSE;
     DBusMessage *msg = dbus_message_new_method_call(node, path, interface, method);
     if (!msg) return GLFW_FALSE;
     GLFWbool retval = GLFW_FALSE;
-    MethodResponse *res = malloc(sizeof(MethodResponse));
-    if (!res) { dbus_message_unref(msg); return GLFW_FALSE; }
-    res->callback = callback;
-    res->user_data = user_data;
 
     int firstarg = va_arg(ap, int);
     if ((firstarg == DBUS_TYPE_INVALID) || dbus_message_append_args_valist(msg, firstarg, ap)) {
-        if (callback) {
-            DBusPendingCall *pending = NULL;
-            if (dbus_connection_send_with_reply(conn, msg, &pending, timeout)) {
-                dbus_pending_call_set_notify(pending, method_reply_received, res, free);
-                retval = GLFW_TRUE;
-            } else {
-                _glfwInputError(GLFW_PLATFORM_ERROR, "Failed to call DBUS method: %s on node: %s and interface: %s out of memory", method, node, interface);
-            }
-        } else {
-            if (dbus_connection_send(conn, msg, NULL)) {
-                retval = GLFW_TRUE;
-            } else {
-                _glfwInputError(GLFW_PLATFORM_ERROR, "Failed to call DBUS method: %s on node: %s and interface: %s out of memory", method, node, interface);
-            }
-        }
+        retval = call_method_with_msg(conn, msg, timeout, callback, user_data);
     } else {
         _glfwInputError(GLFW_PLATFORM_ERROR, "Failed to call DBUS method: %s on node: %s and interface: %s could not add arguments", method, node, interface);
     }
@@ -292,4 +311,39 @@ glfw_dbus_match_signal(DBusMessage *msg, const char *interface, ...) {
     }
     va_end(ap);
     return ans;
+}
+
+static void
+glfw_dbus_connect_to_session_bus() {
+    DBusError error;
+    dbus_error_init(&error);
+    if (session_bus) {
+        dbus_connection_unref(session_bus);
+    }
+    session_bus = dbus_bus_get(DBUS_BUS_SESSION, &error);
+    if (dbus_error_is_set(&error)) {
+        report_error(&error, "Failed to connect to DBUS session bus");
+        session_bus = NULL;
+        return;
+    }
+    static const char *name = "session-bus";
+    if (!dbus_connection_set_watch_functions(session_bus, add_dbus_watch, remove_dbus_watch, toggle_dbus_watch, (void*)name, NULL)) {
+        _glfwInputError(GLFW_PLATFORM_ERROR, "Failed to set DBUS watches on connection to: %s", name);
+        dbus_connection_close(session_bus);
+        dbus_connection_unref(session_bus);
+        return;
+    }
+    if (!dbus_connection_set_timeout_functions(session_bus, add_dbus_timeout, remove_dbus_timeout, toggle_dbus_timeout, (void*)name, NULL)) {
+        _glfwInputError(GLFW_PLATFORM_ERROR, "Failed to set DBUS timeout functions on connection to: %s", name);
+        dbus_connection_close(session_bus);
+        dbus_connection_unref(session_bus);
+        return;
+    }
+
+}
+
+DBusConnection *
+glfw_dbus_session_bus() {
+    if (!session_bus) glfw_dbus_connect_to_session_bus();
+    return session_bus;
 }

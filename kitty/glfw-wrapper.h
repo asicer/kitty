@@ -36,14 +36,14 @@
  *  semantic sugar for the number 1.  You can also use `1` or `true` or `_True`
  *  or `GL_TRUE` or whatever you want.
  */
-#define GLFW_TRUE                   1
+#define GLFW_TRUE                   true
 /*! @brief Zero.
  *
  *  Zero.  Seriously.  You don't _need_ to use this symbol in your code.  It's
  *  semantic sugar for the number 0.  You can also use `0` or `false` or
  *  `_False` or `GL_FALSE` or whatever you want.
  */
-#define GLFW_FALSE                  0
+#define GLFW_FALSE                  false
 /*! @} */
 
 /*! @name Key and button actions
@@ -166,7 +166,7 @@
 #define GLFW_KEY_GRAVE_ACCENT       96  /* ` */
 #define GLFW_KEY_WORLD_1            161 /* non-US #1 */
 #define GLFW_KEY_WORLD_2            162 /* non-US #2 */
-#define GLFW_KEY_PLUS               163 /* non-US #2 */
+#define GLFW_KEY_PLUS               163
 
 /* Function keys */
 #define GLFW_KEY_ESCAPE             256
@@ -1139,7 +1139,13 @@ typedef void (* GLFWcursorenterfun)(GLFWwindow*,int);
  *  @param[in] window The window that received the event.
  *  @param[in] xoffset The scroll offset along the x-axis.
  *  @param[in] yoffset The scroll offset along the y-axis.
- *  @param[in] flags A bit-mask providing extra data about the event. flags & 1 will be true if and only if the offset values are "high-precision". Typically pixel values. Otherwise the offset values are number of lines.
+ *  @param[in] flags A bit-mask providing extra data about the event.
+ *  flags & 1 will be true if and only if the offset values are "high-precision".
+ *  Typically pixel values. Otherwise the offset values are number of lines.
+ *  (flags >> 1) & 7 will have value 1 for the start of momentum scrolling,
+ *  value 2 for stationary momentum scrolling, value 3 for momentum scrolling
+ *  in progress, value 4 for momentum scrolling ended, value 5 for momentum
+ *  scrolling cancelled and value 6 if scrolling may begin soon.
  *
  *  @sa @ref scrolling
  *  @sa @ref glfwSetScrollCallback
@@ -1389,6 +1395,8 @@ typedef int (* GLFWcocoatextinputfilterfun)(int,int,unsigned int);
 typedef int (* GLFWapplicationshouldhandlereopenfun)(int);
 typedef int (* GLFWcocoatogglefullscreenfun)(GLFWwindow*);
 typedef void (*GLFWwaylandframecallbackfunc)(unsigned long long id);
+typedef void (*GLFWDBusnotificationcreatedfun)(unsigned long long, uint32_t, void*);
+typedef void (*GLFWDBusnotificationactivatedfun)(uint32_t, const char*);
 typedef int (*glfwInit_func)();
 glfwInit_func glfwInit_impl;
 #define glfwInit glfwInit_impl
@@ -1900,5 +1908,13 @@ glfwGetXKBScancode_func glfwGetXKBScancode_impl;
 typedef void (*glfwRequestWaylandFrameEvent_func)(GLFWwindow*, unsigned long long, GLFWwaylandframecallbackfunc);
 glfwRequestWaylandFrameEvent_func glfwRequestWaylandFrameEvent_impl;
 #define glfwRequestWaylandFrameEvent glfwRequestWaylandFrameEvent_impl
+
+typedef unsigned long long (*glfwDBusUserNotify_func)(const char*, const char*, const char*, const char*, const char*, int32_t, GLFWDBusnotificationcreatedfun, void*);
+glfwDBusUserNotify_func glfwDBusUserNotify_impl;
+#define glfwDBusUserNotify glfwDBusUserNotify_impl
+
+typedef void (*glfwDBusSetUserNotificationHandler_func)(GLFWDBusnotificationactivatedfun);
+glfwDBusSetUserNotificationHandler_func glfwDBusSetUserNotificationHandler_impl;
+#define glfwDBusSetUserNotificationHandler glfwDBusSetUserNotificationHandler_impl
 
 const char* load_glfw(const char* path);

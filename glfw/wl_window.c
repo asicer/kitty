@@ -29,6 +29,7 @@
 #include "internal.h"
 #include "backend_utils.h"
 #include "memfd.h"
+#include "linux_notify.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -838,6 +839,7 @@ handleEvents(double timeout)
         wl_display_cancel_read(display);
     }
     glfw_ibus_dispatch(&_glfw.wl.xkb.ibus);
+    glfw_dbus_session_bus_dispatch();
 }
 
 // Translates a GLFW standard cursor to a theme cursor name
@@ -2129,4 +2131,12 @@ GLFWAPI void glfwRequestWaylandFrameEvent(GLFWwindow *handle, unsigned long long
         wl_callback_add_listener(window->wl.frameCallbackData.current_wl_callback, &frame_listener, window);
         wl_surface_commit(window->wl.surface);
     }
+}
+
+GLFWAPI unsigned long long glfwDBusUserNotify(const char *app_name, const char* icon, const char *summary, const char *body, const char *action_name, int32_t timeout, GLFWDBusnotificationcreatedfun callback, void *data) {
+    return glfw_dbus_send_user_notification(app_name, icon, summary, body, action_name, timeout, callback, data);
+}
+
+GLFWAPI void glfwDBusSetUserNotificationHandler(GLFWDBusnotificationactivatedfun handler) {
+    glfw_dbus_set_user_notification_activated_handler(handler);
 }

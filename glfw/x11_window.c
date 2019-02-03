@@ -28,6 +28,7 @@
 #define _GNU_SOURCE
 #include "internal.h"
 #include "backend_utils.h"
+#include "linux_notify.h"
 
 #include <X11/cursorfont.h>
 #include <X11/Xmd.h>
@@ -61,6 +62,7 @@ handleEvents(double timeout) {
     int display_read_ok = pollForEvents(&_glfw.x11.eventLoopData, timeout);
     if (display_read_ok) _glfwDispatchX11Events();
     glfw_ibus_dispatch(&_glfw.x11.xkb.ibus);
+    glfw_dbus_session_bus_dispatch();
 }
 
 static GLFWbool
@@ -401,15 +403,6 @@ static char* convertLatin1toUTF8(const char* source)
     return target;
 }
 
-// Centers the cursor over the window client area
-//
-static void centerCursor(_GLFWwindow* window)
-{
-    int width, height;
-    _glfwPlatformGetWindowSize(window, &width, &height);
-    _glfwPlatformSetCursorPos(window, width / 2.0, height / 2.0);
-}
-
 // Updates the cursor image according to its cursor mode
 //
 static void updateCursorImage(_GLFWwindow* window)
@@ -453,7 +446,7 @@ static void disableCursor(_GLFWwindow* window)
                               &_glfw.x11.restoreCursorPosX,
                               &_glfw.x11.restoreCursorPosY);
     updateCursorImage(window);
-    centerCursor(window);
+    _glfwCenterCursorInContentArea(window);
     XGrabPointer(_glfw.x11.display, window->x11.handle, True,
                  ButtonPressMask | ButtonReleaseMask | PointerMotionMask,
                  GrabModeAsync, GrabModeAsync,
@@ -2260,16 +2253,20 @@ void _glfwPlatformSetWindowMonitor(_GLFWwindow* window,
 
     _glfwInputWindowMonitor(window, monitor);
     updateNormalHints(window, width, height);
-    updateWindowMode(window);
 
     if (window->monitor)
     {
-        XMapRaised(_glfw.x11.display, window->x11.handle);
-        if (waitForVisibilityNotify(window))
-            acquireMonitor(window);
+       if (!_glfwPlatformWindowVisible(window))
+       {
+           XMapRaised(_glfw.x11.display, window->x11.handle);
+           waitForVisibilityNotify(window);
+       }
+       updateWindowMode(window);
+       acquireMonitor(window);
     }
     else
     {
+        updateWindowMode(window);
         XMoveResizeWindow(_glfw.x11.display, window->x11.handle,
                           xpos, ypos, width, height);
     }
@@ -2892,4 +2889,12 @@ GLFWAPI Window glfwGetX11Window(GLFWwindow* handle)
 
 GLFWAPI int glfwGetXKBScancode(const char* keyName, GLFWbool caseSensitive) {
     return glfw_xkb_keysym_from_name(keyName, caseSensitive);
+}
+
+GLFWAPI unsigned long long glfwDBusUserNotify(const char *app_name, const char* icon, const char *summary, const char *body, const char *action_name, int32_t timeout, GLFWDBusnotificationcreatedfun callback, void *data) {
+    return glfw_dbus_send_user_notification(app_name, icon, summary, body, action_name, timeout, callback, data);
+}
+
+GLFWAPI void glfwDBusSetUserNotificationHandler(GLFWDBusnotificationactivatedfun handler) {
+    glfw_dbus_set_user_notification_activated_handler(handler);
 }
