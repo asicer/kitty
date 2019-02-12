@@ -203,7 +203,7 @@ cocoa_send_notification(PyObject *self UNUSED, PyObject *args) {
 }
 
 - (void)openFilesFromPasteboard:(NSPasteboard *)pasteboard type:(int)type {
-    NSDictionary *options = [NSDictionary dictionaryWithObject:@YES forKey:NSPasteboardURLReadingFileURLsOnlyKey];
+    NSDictionary *options = @{ NSPasteboardURLReadingFileURLsOnlyKey: @YES };
     NSArray *filePathArray = [pasteboard readObjectsForClasses:[NSArray arrayWithObject:[NSURL class]] options:options];
     for (NSURL *url in filePathArray) {
         NSString *path = [url path];

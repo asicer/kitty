@@ -900,11 +900,13 @@ main_loop(ChildMonitor *self, PyObject *a UNUSED) {
         if (cocoa_pending_actions) {
             if (cocoa_pending_actions & PREFERENCES_WINDOW) { call_boss(edit_config_file, NULL); }
             if (cocoa_pending_actions & NEW_OS_WINDOW) { call_boss(new_os_window, NULL); }
-            if (cocoa_pending_actions & NEW_OS_WINDOW_WITH_WD) { call_boss(new_os_window_with_wd, "s", cocoa_pending_actions_wd); }
-            if (cocoa_pending_actions & NEW_TAB_WITH_WD) { call_boss(new_tab_with_wd, "s", cocoa_pending_actions_wd); }
+            if (cocoa_pending_actions_wd) {
+                if (cocoa_pending_actions & NEW_OS_WINDOW_WITH_WD) { call_boss(new_os_window_with_wd, "s", cocoa_pending_actions_wd); }
+                if (cocoa_pending_actions & NEW_TAB_WITH_WD) { call_boss(new_tab_with_wd, "s", cocoa_pending_actions_wd); }
+                free(cocoa_pending_actions_wd);
+                cocoa_pending_actions_wd = NULL;
+            }
             cocoa_pending_actions = 0;
-            free(cocoa_pending_actions_wd);
-            cocoa_pending_actions_wd = NULL;
         }
 #endif
         parse_input(self);
