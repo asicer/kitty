@@ -232,7 +232,7 @@ format_text(const char *src) {
     char *p = buf;
     if (!src[0]) return "<none>";
     while (*src) {
-        p += snprintf(p, sizeof(buf) - (p - buf), "%x ", (unsigned char)*(src++));
+        p += snprintf(p, sizeof(buf) - (p - buf), "0x%x ", (unsigned char)*(src++));
     }
     if (p != buf) *(--p) = 0;
     return buf;
@@ -818,7 +818,7 @@ is_ascii_control_char(char x) {
     const NSUInteger flags = [event modifierFlags];
     const int mods = translateFlags(flags);
     const int key = translateKey(scancode, GLFW_TRUE);
-    const GLFWbool process_text = !window->ns.textInputFilterCallback || window->ns.textInputFilterCallback(key, mods, scancode) != 1;
+    const GLFWbool process_text = !window->ns.textInputFilterCallback || window->ns.textInputFilterCallback(key, mods, scancode, flags) != 1;
     _glfw.ns.text[0] = 0;
     if (!_glfw.ns.unicodeData) {
         // Using the cocoa API for key handling is disabled, as there is no
@@ -856,7 +856,7 @@ is_ascii_control_char(char x) {
         }
         if (window->ns.deadKeyState && (char_count == 0 || scancode == 0x75)) {
             // 0x75 is the delete key which needs to be ignored during a compose sequence
-            debug_key(@"Ignoring dead key.\n");
+            debug_key(@"Ignoring dead key (text: %s).\n", format_text(_glfw.ns.text));
             return;
         }
     }
@@ -1033,7 +1033,9 @@ is_ascii_control_char(char x) {
         characters = [string string];
     else
         characters = (NSString*) string;
-    snprintf(_glfw.ns.text, sizeof(_glfw.ns.text), "%s", [characters UTF8String]);
+    // insertText can be called multiple times for a single key event
+    char *s = _glfw.ns.text + strnlen(_glfw.ns.text, sizeof(_glfw.ns.text));
+    snprintf(s, sizeof(_glfw.ns.text) - (s - _glfw.ns.text), "%s", [characters UTF8String]);
     _glfw.ns.text[sizeof(_glfw.ns.text) - 1] = 0;
 }
 

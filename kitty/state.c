@@ -249,7 +249,7 @@ add_borders_rect(id_type os_window_id, id_type tab_id, uint32_t left, uint32_t t
 
 void
 os_window_regions(OSWindow *os_window, Region *central, Region *tab_bar) {
-    if (!global_state.tab_bar_hidden && os_window->num_tabs > 1) {
+    if (!global_state.tab_bar_hidden && os_window->num_tabs >= OPT(tab_bar_min_tabs)) {
         switch(OPT(tab_bar_edge)) {
             case TOP_EDGE:
                 central->left = 0; central->top = os_window->fonts_data->cell_height; central->right = os_window->viewport_width - 1;
@@ -389,13 +389,14 @@ PYWRAP1(set_options) {
     S(close_on_child_death, PyObject_IsTrue);
     S(window_alert_on_bell, PyObject_IsTrue);
     S(hide_title, PyObject_IsTrue);
-    S(macos_option_as_alt, PyObject_IsTrue);
+    S(macos_option_as_alt, PyLong_AsUnsignedLong);
     S(macos_traditional_fullscreen, PyObject_IsTrue);
     S(macos_quit_when_last_window_closed, PyObject_IsTrue);
     S(macos_show_window_title_in_menubar, PyObject_IsTrue);
     S(macos_window_resizable, PyObject_IsTrue);
     S(macos_hide_from_tasks, PyObject_IsTrue);
     S(macos_thicken_font, PyFloat_AsDouble);
+    S(tab_bar_min_tabs, PyLong_AsUnsignedLong);
 
     GA(tab_bar_style);
     global_state.tab_bar_hidden = PyUnicode_CompareWithASCIIString(ret, "hidden") == 0 ? true: false;

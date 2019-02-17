@@ -4,8 +4,12 @@ Changelog
 |kitty| is a feature full, cross-platform, *fast*, GPU based terminal emulator.
 To update |kitty|, :doc:`follow the instructions <binary>`.
 
-0.13.4 [future]
+0.14.0 [future]
 ---------------------
+
+- macOS: The default behavior of the Option key has changed, to generating
+  unicode characters rather than acting as the Alt modifier. See
+  :opt:`macos_option_as_alt`.
 
 - macOS: Allow opening new kitty tabs/top-level windows from Finder
   (:pull:`1350`)
@@ -17,6 +21,9 @@ To update |kitty|, :doc:`follow the instructions <binary>`.
 
 - A new option :opt:`strip_trailing_spaces` to optionally remove trailing
   spaces from lines when copying to clipboard.
+
+- A new option :opt:`tab_bar_min_tabs` to control how many tabs must be
+  present before the tab-bar is shown (:iss:`1382`)
 
 - Automatically check for new releases and notify when an update is available,
   via the system notification facilities. Can be controlled by
@@ -30,11 +37,27 @@ To update |kitty|, :doc:`follow the instructions <binary>`.
 - macOS: Workaround for cocoa bug that could cause the mouse cursor to become
   hidden in other applications in rare circumstances (:iss:`1218`)
 
+- macOS: Allow assigning only the left or right :kbd:`Option` key to work as the
+  :kbd:`Alt` key. See :opt:`macos_option_as_alt` for details (:iss:`1022`)
+
 - Fix using remote control to set cursor text color causing errors when
   creating new windows (:iss:`1326`)
 
 - Fix window title for minimized windows not being updated (:iss:`1332`)
 
+- macOS: Fix using multi-key sequences to input text ignoring the
+  first few key presses if the sequence is aborted (:iss:`1311`)
+
+- macOS: Add a number of common macOS keyboard shortcuts
+
+- Fix scrollback pager history not being cleared when clearing the
+  main scrollback buffer (:iss:`1387`)
+
+- macOS: When closing a top-level window only switch focus to the previous kitty
+  window if it is on the same workspace (:iss:`1379`)
+
+- macOS: Fix v-sync to monitor refresh rate no longer working under Mojave. See
+  :opt:`sync_to_monitor`
 
 0.13.3 [2019-01-19]
 ------------------------------

@@ -14,6 +14,8 @@ extern bool cocoa_toggle_fullscreen(void *w, bool);
 extern void cocoa_create_global_menu(void);
 extern void cocoa_set_hide_from_tasks(void);
 extern void cocoa_set_titlebar_color(void *w, color_type color);
+extern bool cocoa_alt_option_key_pressed(unsigned long);
+extern int cocoa_get_workspace_id(void *w);
 
 
 #if GLFW_KEY_LAST >= MAX_KEY_COUNT
@@ -212,31 +214,7 @@ scroll_callback(GLFWwindow *w, double xoffset, double yoffset, int flags) {
     global_state.callback_os_window = NULL;
 }
 
-static struct {
-    id_type entries[16];
-    int next_entry;
-} focus_history;
-
-#ifdef __APPLE__
-static inline id_type
-pop_focus_history() {
-    int index = --focus_history.next_entry;
-    if (index < 0) {
-        focus_history.next_entry = index = 0;
-    }
-
-    id_type result = focus_history.entries[index];
-    focus_history.entries[index] = 0;
-
-    return result;
-}
-#endif
-
-static inline void
-push_focus_history(OSWindow *w) {
-    focus_history.entries[focus_history.next_entry++] = w->id;
-    focus_history.next_entry %= (sizeof(focus_history.entries) / sizeof(*(focus_history.entries)));
-}
+static id_type focus_counter = 0;
 
 static void
 window_focus_callback(GLFWwindow *w, int focused) {
@@ -246,7 +224,7 @@ window_focus_callback(GLFWwindow *w, int focused) {
     if (focused) {
         show_mouse_cursor(w);
         focus_in_event();
-        push_focus_history(global_state.callback_os_window);
+        global_state.callback_os_window->last_focused_counter = ++focus_counter;
     }
     double now = monotonic();
     global_state.callback_os_window->last_mouse_activity_at = now;
@@ -421,8 +399,12 @@ toggle_fullscreen_for_os_window(OSWindow *w) {
 
 #ifdef __APPLE__
 static int
-filter_option(int key UNUSED, int mods, unsigned int scancode UNUSED) {
-    return ((mods == GLFW_MOD_ALT) || (mods == (GLFW_MOD_ALT | GLFW_MOD_SHIFT))) ? 1 : 0;
+filter_option(int key UNUSED, int mods, unsigned int scancode UNUSED, unsigned long flags) {
+    if ((mods == GLFW_MOD_ALT) || (mods == (GLFW_MOD_ALT | GLFW_MOD_SHIFT))) {
+        if (OPT(macos_option_as_alt) == 3) return 1;
+        if (cocoa_alt_option_key_pressed(flags)) return 1;
+    }
+    return 0;
 }
 
 static GLFWwindow *application_quit_canary = NULL;
@@ -572,7 +554,7 @@ create_os_window(PyObject UNUSED *self, PyObject *args) {
     w->logical_dpi_x = dpi_x; w->logical_dpi_y = dpi_y;
     w->fonts_data = fonts_data;
     w->shown_once = true;
-    push_focus_history(w);
+    w->last_focused_counter = ++focus_counter;
     glfwSwapInterval(OPT(sync_to_monitor) && !global_state.is_wayland ? 1 : 0);
 #ifdef __APPLE__
     if (OPT(macos_option_as_alt)) glfwSetCocoaTextInputFilter(glfw_window, filter_option);
@@ -613,7 +595,13 @@ create_os_window(PyObject UNUSED *self, PyObject *args) {
 
 void
 destroy_os_window(OSWindow *w) {
+#ifdef __APPLE__
+    int workspace_id = -1;
+#endif
     if (w->handle) {
+#ifdef __APPLE__
+        workspace_id = cocoa_get_workspace_id(glfwGetCocoaWindow(w->handle));
+#endif
         // Ensure mouse cursor is visible and reset to default shape, needed on macOS
         show_mouse_cursor(w->handle);
         glfwSetCursor(w->handle, NULL);
@@ -623,18 +611,21 @@ destroy_os_window(OSWindow *w) {
 #ifdef __APPLE__
     // On macOS when closing a window, any other existing windows belonging to the same application do not
     // automatically get focus, so we do it manually.
-    bool change_focus = true;
-    while (change_focus) {
-        id_type new_focus_id = pop_focus_history();
-        if (new_focus_id == 0) break;
-        for (size_t i = 0; i < global_state.num_os_windows; i++) {
-            OSWindow *c = global_state.os_windows + i;
-            if (c->id != w->id && c->handle && c->shown_once && (c->id == new_focus_id)) {
-                glfwFocusWindow(c->handle);
-                change_focus = false;
-                break;
-            }
+    id_type highest_focus_number = 0;
+    OSWindow *window_to_focus = NULL;
+    for (size_t i = 0; i < global_state.num_os_windows; i++) {
+        OSWindow *c = global_state.os_windows + i;
+        if (
+                c->id != w->id && c->handle && c->shown_once &&
+                c->last_focused_counter >= highest_focus_number &&
+                (workspace_id == -1 || cocoa_get_workspace_id(glfwGetCocoaWindow(c->handle)) == workspace_id)
+        ) {
+            highest_focus_number = c->last_focused_counter;
+            window_to_focus = c;
         }
+    }
+    if (window_to_focus) {
+        glfwFocusWindow(window_to_focus->handle);
     }
 #endif
 }

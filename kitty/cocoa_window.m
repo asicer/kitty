@@ -21,6 +21,12 @@
 #define NSEventModifierFlagControl NSControlKeyMask
 #endif
 
+typedef int CGSConnectionID;
+typedef int CGSWindowID;
+typedef int CGSWorkspaceID;
+extern CGSConnectionID _CGSDefaultConnection(void);
+extern void CGSGetWindowWorkspace(const CGSConnectionID cid, CGSWindowID wid, CGSWorkspaceID *workspace);
+
 static NSMenuItem* title_menu = NULL;
 
 
@@ -348,10 +354,27 @@ cocoa_make_window_resizable(void *w, bool resizable) {
     return true;
 }
 
+#define NSLeftAlternateKeyMask  (0x000020 | NSEventModifierFlagOption)
+#define NSRightAlternateKeyMask (0x000040 | NSEventModifierFlagOption)
+
+bool
+cocoa_alt_option_key_pressed(NSUInteger flags) {
+    NSUInteger q = (OPT(macos_option_as_alt) == 1) ? NSRightAlternateKeyMask : NSLeftAlternateKeyMask;
+    return ((q & flags) == q) ? true : false;
+}
+
 void
 cocoa_focus_window(void *w) {
     NSWindow *window = (NSWindow*)w;
     [window makeKeyWindow];
+}
+
+int
+cocoa_get_workspace_id(void *w) {
+    NSWindow *window = (NSWindow*)w;
+    int ans = -1;
+    if (window) CGSGetWindowWorkspace(_CGSDefaultConnection(), [window windowNumber], &ans);
+    return ans;
 }
 
 bool
