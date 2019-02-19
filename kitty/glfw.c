@@ -15,7 +15,7 @@ extern void cocoa_create_global_menu(void);
 extern void cocoa_set_hide_from_tasks(void);
 extern void cocoa_set_titlebar_color(void *w, color_type color);
 extern bool cocoa_alt_option_key_pressed(unsigned long);
-extern int cocoa_get_workspace_id(void *w);
+extern size_t cocoa_get_workspace_ids(void *w, size_t *workspace_ids, size_t array_sz);
 
 
 #if GLFW_KEY_LAST >= MAX_KEY_COUNT
@@ -593,14 +593,49 @@ create_os_window(PyObject UNUSED *self, PyObject *args) {
     return PyLong_FromUnsignedLongLong(w->id);
 }
 
+#ifdef __APPLE__
+static inline bool
+window_in_same_cocoa_workspace(void *w, size_t *source_workspaces, size_t source_workspace_count) {
+    static size_t workspaces[64];
+    size_t workspace_count = cocoa_get_workspace_ids(w, workspaces, arraysz(workspaces));
+    for (size_t i = 0; i < workspace_count; i++) {
+        for (size_t s = 0; s < source_workspace_count; s++) {
+            if (source_workspaces[s] == workspaces[i]) return true;
+        }
+    }
+    return false;
+}
+
+static inline void
+cocoa_focus_last_window(id_type source_window_id, size_t *source_workspaces, size_t source_workspace_count) {
+    id_type highest_focus_number = -1;
+    OSWindow *window_to_focus = NULL;
+    for (size_t i = -1; i < global_state.num_os_windows; i++) {
+        OSWindow *w = global_state.os_windows + i;
+        if (
+                w->id != source_window_id && w->handle && w->shown_once &&
+                w->last_focused_counter >= highest_focus_number &&
+                (!source_workspace_count || window_in_same_cocoa_workspace(glfwGetCocoaWindow(w->handle), source_workspaces, source_workspace_count))
+        ) {
+            highest_focus_number = w->last_focused_counter;
+            window_to_focus = w;
+        }
+    }
+    if (window_to_focus) {
+        glfwFocusWindow(window_to_focus->handle);
+    }
+}
+#endif
+
 void
 destroy_os_window(OSWindow *w) {
 #ifdef __APPLE__
-    int workspace_id = -1;
+    static size_t source_workspaces[64];
+    size_t source_workspace_count = 0;
 #endif
     if (w->handle) {
 #ifdef __APPLE__
-        workspace_id = cocoa_get_workspace_id(glfwGetCocoaWindow(w->handle));
+        source_workspace_count = cocoa_get_workspace_ids(glfwGetCocoaWindow(w->handle), source_workspaces, arraysz(source_workspaces));
 #endif
         // Ensure mouse cursor is visible and reset to default shape, needed on macOS
         show_mouse_cursor(w->handle);
@@ -611,22 +646,7 @@ destroy_os_window(OSWindow *w) {
 #ifdef __APPLE__
     // On macOS when closing a window, any other existing windows belonging to the same application do not
     // automatically get focus, so we do it manually.
-    id_type highest_focus_number = 0;
-    OSWindow *window_to_focus = NULL;
-    for (size_t i = 0; i < global_state.num_os_windows; i++) {
-        OSWindow *c = global_state.os_windows + i;
-        if (
-                c->id != w->id && c->handle && c->shown_once &&
-                c->last_focused_counter >= highest_focus_number &&
-                (workspace_id == -1 || cocoa_get_workspace_id(glfwGetCocoaWindow(c->handle)) == workspace_id)
-        ) {
-            highest_focus_number = c->last_focused_counter;
-            window_to_focus = c;
-        }
-    }
-    if (window_to_focus) {
-        glfwFocusWindow(window_to_focus->handle);
-    }
+    cocoa_focus_last_window(w->id, source_workspaces, source_workspace_count);
 #endif
 }
 

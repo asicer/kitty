@@ -7,9 +7,15 @@ To update |kitty|, :doc:`follow the instructions <binary>`.
 0.14.0 [future]
 ---------------------
 
-- macOS: The default behavior of the Option key has changed, to generating
+- macOS: The default behavior of the Option key has changed. It now generates
   unicode characters rather than acting as the Alt modifier. See
   :opt:`macos_option_as_alt`.
+
+- Support for an arbitrary number of internal clipboard buffers to copy/paste
+  from, see (:ref:`cpbuf`)
+
+- Allow using the new private internal clipboard buffers with the
+  :opt:`copy_on_select` option (:iss:`1390`)
 
 - macOS: Allow opening new kitty tabs/top-level windows from Finder
   (:pull:`1350`)
@@ -57,9 +63,6 @@ To update |kitty|, :doc:`follow the instructions <binary>`.
 
 - macOS: When closing a top-level window only switch focus to the previous kitty
   window if it is on the same workspace (:iss:`1379`)
-
-- macOS: Fix v-sync to monitor refresh rate no longer working under Mojave. See
-  :opt:`sync_to_monitor`
 
 0.13.3 [2019-01-19]
 ------------------------------
