@@ -81,6 +81,11 @@ Shell providing the right terminfo path::
     sudo … env TERMINFO=$HOME/.terminfo bash -i
     TERMINFO=/home/ORIGINALUSER/.terminfo exec bash -i
 
+You can configure sudo to preserve TERMINFO by running ``sudo
+visudo`` and adding the following line::
+
+    Defaults env_keep += "TERM TERMINFO"
+
 If you have double width characters in your prompt, you may also need to
 explicitly set a UTF-8 locale, like::
 

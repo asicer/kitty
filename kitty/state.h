@@ -106,7 +106,7 @@ typedef struct {
     bool is_set;
 } OSWindowGeometry;
 
-enum WAYLAND_RENDER_STATE { RENDER_FRAME_NOT_REQUESTED, RENDER_FRAME_REQUESTED, RENDER_FRAME_READY };
+enum RENDER_STATE { RENDER_FRAME_NOT_REQUESTED, RENDER_FRAME_REQUESTED, RENDER_FRAME_READY };
 
 typedef struct {
     void *handle;
@@ -136,7 +136,7 @@ typedef struct {
     FONTS_DATA_HANDLE fonts_data;
     id_type temp_font_group_id;
     double pending_scroll_pixels;
-    enum WAYLAND_RENDER_STATE wayland_render_state;
+    enum RENDER_STATE render_state;
     id_type last_focused_counter;
 } OSWindow;
 
@@ -151,6 +151,7 @@ typedef struct {
     OSWindow *callback_os_window;
     bool terminate;
     bool is_wayland;
+    bool has_render_frames;
     bool debug_gl, debug_font_fallback;
     bool has_pending_resizes;
     bool in_sequence_mode;
@@ -204,6 +205,7 @@ void update_surface_size(int, int, uint32_t);
 void free_texture(uint32_t*);
 void send_image_to_gpu(uint32_t*, const void*, int32_t, int32_t, bool, bool);
 void send_sprite_to_gpu(FONTS_DATA_HANDLE fg, unsigned int, unsigned int, unsigned int, pixel*);
+void blank_canvas(float);
 void blank_os_window(OSWindow *);
 void set_titlebar_color(OSWindow *w, color_type color);
 FONTS_DATA_HANDLE load_fonts_data(double, double, double);
@@ -216,9 +218,8 @@ typedef enum {
     NEW_OS_WINDOW_WITH_WD = 4,
     NEW_TAB_WITH_WD = 8
 } CocoaPendingAction;
-void set_cocoa_pending_action(CocoaPendingAction action);
-void set_cocoa_pending_action_with_wd(CocoaPendingAction action, const char *wd);
+void set_cocoa_pending_action(CocoaPendingAction action, const char*);
 bool application_quit_requested();
 void request_application_quit();
 #endif
-void wayland_request_frame_render(OSWindow *w);
+void request_frame_render(OSWindow *w);

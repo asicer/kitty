@@ -16,6 +16,7 @@ extern void cocoa_set_hide_from_tasks(void);
 extern void cocoa_set_titlebar_color(void *w, color_type color);
 extern bool cocoa_alt_option_key_pressed(unsigned long);
 extern size_t cocoa_get_workspace_ids(void *w, size_t *workspace_ids, size_t array_sz);
+extern double cocoa_cursor_blink_interval(void);
 
 
 #if GLFW_KEY_LAST >= MAX_KEY_COUNT
@@ -113,6 +114,11 @@ show_mouse_cursor(GLFWwindow *w) {
 }
 
 static int min_width = 100, min_height = 100;
+
+void
+blank_os_window(OSWindow *w) {
+    blank_canvas(w->is_semi_transparent ? w->background_opacity : 1.0f);
+}
 
 static void
 framebuffer_size_callback(GLFWwindow *w, int width, int height) {
@@ -412,7 +418,7 @@ static GLFWwindow *application_quit_canary = NULL;
 static int
 on_application_reopen(int has_visible_windows) {
     if (has_visible_windows) return true;
-    set_cocoa_pending_action(NEW_OS_WINDOW);
+    set_cocoa_pending_action(NEW_OS_WINDOW, NULL);
     // Without unjam wait_for_events() blocks until the next event
     unjam_event_loop();
     return false;
@@ -515,6 +521,15 @@ create_os_window(PyObject UNUSED *self, PyObject *args) {
     GLFWwindow *glfw_window = glfwCreateWindow(width, height, title, NULL, temp_window);
     glfwDestroyWindow(temp_window); temp_window = NULL;
     if (glfw_window == NULL) { PyErr_SetString(PyExc_ValueError, "Failed to create GLFWwindow"); return NULL; }
+    glfwMakeContextCurrent(glfw_window);
+    if (is_first_window) {
+        gl_init();
+    }
+    bool is_semi_transparent = glfwGetWindowAttrib(glfw_window, GLFW_TRANSPARENT_FRAMEBUFFER);
+    // blank the window once so that there is no initial flash of color
+    // changing, in case the background color is not black
+    blank_canvas(is_semi_transparent ? OPT(background_opacity) : 1.0f);
+    glfwSwapBuffers(glfw_window);
     if (!global_state.is_wayland) {
         PyObject *pret = PyObject_CallFunction(pre_show_callback, "N", native_window_handle(glfw_window));
         if (pret == NULL) return NULL;
@@ -522,16 +537,16 @@ create_os_window(PyObject UNUSED *self, PyObject *args) {
         if (x != -1 && y != -1) glfwSetWindowPos(glfw_window, x, y);
         glfwShowWindow(glfw_window);
     }
-    glfwMakeContextCurrent(glfw_window);
     if (is_first_window) {
-        gl_init();
-        PyObject *ret = PyObject_CallFunction(load_programs, "i", glfwGetWindowAttrib(glfw_window, GLFW_TRANSPARENT_FRAMEBUFFER));
+        PyObject *ret = PyObject_CallFunction(load_programs, "O", is_semi_transparent ? Py_True : Py_False);
         if (ret == NULL) return NULL;
         Py_DECREF(ret);
 #ifdef __APPLE__
         cocoa_create_global_menu();
         // This needs to be done only after the first window has been created, because glfw only sets the activation policy once upon initialization.
         if (OPT(macos_hide_from_tasks)) cocoa_set_hide_from_tasks();
+#else
+        glfwSwapInterval(OPT(sync_to_monitor) && !global_state.is_wayland ? 1 : 0);
 #endif
 #define CC(dest, shape) {\
     if (!dest##_cursor) { \
@@ -541,6 +556,13 @@ create_os_window(PyObject UNUSED *self, PyObject *args) {
     CC(standard, IBEAM); CC(click, HAND); CC(arrow, ARROW);
 #undef CC
         if (OPT(click_interval) < 0) OPT(click_interval) = glfwGetDoubleClickInterval(glfw_window);
+        if (OPT(cursor_blink_interval) < 0) {
+            OPT(cursor_blink_interval) = 0.5;
+#ifdef __APPLE__
+            double cbi = cocoa_cursor_blink_interval();
+            if (cbi >= 0) OPT(cursor_blink_interval) = cbi / 2000.0;
+#endif
+        }
         is_first_window = false;
     }
     OSWindow *w = add_os_window();
@@ -555,7 +577,6 @@ create_os_window(PyObject UNUSED *self, PyObject *args) {
     w->fonts_data = fonts_data;
     w->shown_once = true;
     w->last_focused_counter = ++focus_counter;
-    glfwSwapInterval(OPT(sync_to_monitor) && !global_state.is_wayland ? 1 : 0);
 #ifdef __APPLE__
     if (OPT(macos_option_as_alt)) glfwSetCocoaTextInputFilter(glfw_window, filter_option);
     glfwSetCocoaToggleFullscreenIntercept(glfw_window, intercept_cocoa_fullscreen);
@@ -582,7 +603,7 @@ create_os_window(PyObject UNUSED *self, PyObject *args) {
     w->is_focused = true;
     w->cursor_blink_zero_time = now;
     w->last_mouse_activity_at = now;
-    w->is_semi_transparent = glfwGetWindowAttrib(w->handle, GLFW_TRANSPARENT_FRAMEBUFFER);
+    w->is_semi_transparent = is_semi_transparent;
     if (want_semi_transparent && !w->is_semi_transparent) {
         static bool warned = false;
         if (!warned) {
@@ -608,9 +629,9 @@ window_in_same_cocoa_workspace(void *w, size_t *source_workspaces, size_t source
 
 static inline void
 cocoa_focus_last_window(id_type source_window_id, size_t *source_workspaces, size_t source_workspace_count) {
-    id_type highest_focus_number = -1;
+    id_type highest_focus_number = 0;
     OSWindow *window_to_focus = NULL;
-    for (size_t i = -1; i < global_state.num_os_windows; i++) {
+    for (size_t i = 0; i < global_state.num_os_windows; i++) {
         OSWindow *w = global_state.os_windows + i;
         if (
                 w->id != source_window_id && w->handle && w->shown_once &&
@@ -1037,25 +1058,40 @@ void
 get_cocoa_key_equivalent(int key, int mods, unsigned short *cocoa_key, int *cocoa_mods) {
     glfwGetCocoaKeyEquivalent(key, mods, cocoa_key, cocoa_mods);
 }
-#endif
 
-void
-wayland_frame_request_callback(id_type os_window_id) {
+static void
+cocoa_frame_request_callback(GLFWwindow *window) {
     for (size_t i = 0; i < global_state.num_os_windows; i++) {
-        if (global_state.os_windows[i].id == os_window_id) {
-            global_state.os_windows[i].wayland_render_state = RENDER_FRAME_READY;
+        if (global_state.os_windows[i].handle == window) {
+            global_state.os_windows[i].render_state = RENDER_FRAME_READY;
             break;
         }
     }
 }
 
 void
-wayland_request_frame_render(OSWindow *w) {
-    glfwRequestWaylandFrameEvent(w->handle, w->id, wayland_frame_request_callback);
-    w->wayland_render_state = RENDER_FRAME_REQUESTED;
+request_frame_render(OSWindow *w) {
+    glfwCocoaRequestRenderFrame(w->handle, cocoa_frame_request_callback);
+    w->render_state = RENDER_FRAME_REQUESTED;
 }
 
-#ifndef __APPLE__
+#else
+
+static void
+wayland_frame_request_callback(id_type os_window_id) {
+    for (size_t i = 0; i < global_state.num_os_windows; i++) {
+        if (global_state.os_windows[i].id == os_window_id) {
+            global_state.os_windows[i].render_state = RENDER_FRAME_READY;
+            break;
+        }
+    }
+}
+
+void
+request_frame_render(OSWindow *w) {
+    glfwRequestWaylandFrameEvent(w->handle, w->id, wayland_frame_request_callback);
+    w->render_state = RENDER_FRAME_REQUESTED;
+}
 
 void
 dbus_notification_created_callback(unsigned long long notification_id, uint32_t new_notification_id, void* data UNUSED) {

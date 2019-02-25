@@ -128,8 +128,9 @@ run_search(Options *opts, GlobalData *global, const char * const *lines, const s
     Chars chars = {0};
 
     ALLOC_VEC(text_t, chars, 8192 * 20);
+    if (chars.data == NULL) return 1;
     ALLOC_VEC(Candidate, candidates, 8192);
-    if (chars.data == NULL || candidates.data == NULL) return 1;
+    if (candidates.data == NULL) { FREE_VEC(candidates) return 1; }
 
     for (size_t i = 0; i < num_lines; i++) {
         sz = sizes[i];
@@ -204,8 +205,9 @@ match(PyObject *self, PyObject *args) {
     opts.delimiter_sz = copy_unicode_object(delimiter, opts.delimiter, arraysz(opts.delimiter));
     size_t num_lines = PyList_GET_SIZE(lines);
     char **clines = malloc(sizeof(char*) * num_lines);
+    if (!clines) { return PyErr_NoMemory(); }
     size_t *sizes = malloc(sizeof(size_t) * num_lines);
-    if (!lines || !sizes) { return PyErr_NoMemory(); }
+    if (!sizes) { free(clines); clines = NULL; return PyErr_NoMemory(); }
     for (size_t i = 0; i < num_lines; i++) {
         clines[i] = PyBytes_AS_STRING(PyList_GET_ITEM(lines, i));
         sizes[i] = PyBytes_GET_SIZE(PyList_GET_ITEM(lines, i));

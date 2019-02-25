@@ -74,12 +74,12 @@ find_app_name(void) {
 
 - (void) show_preferences              : (id)sender {
     (void)sender;
-    set_cocoa_pending_action(PREFERENCES_WINDOW);
+    set_cocoa_pending_action(PREFERENCES_WINDOW, NULL);
 }
 
 - (void) new_os_window              : (id)sender {
     (void)sender;
-    set_cocoa_pending_action(NEW_OS_WINDOW);
+    set_cocoa_pending_action(NEW_OS_WINDOW, NULL);
 }
 
 
@@ -222,7 +222,7 @@ cocoa_send_notification(PyObject *self UNUSED, PyObject *args) {
             if (!isDirectory) {
                 path = [path stringByDeletingLastPathComponent];
             }
-            set_cocoa_pending_action_with_wd(type, [path UTF8String]);
+            set_cocoa_pending_action(type, [path UTF8String]);
         }
     }
 }
@@ -425,6 +425,21 @@ cocoa_get_lang(PyObject UNUSED *self) {
     }
     if (!locale) { Py_RETURN_NONE; }
     return Py_BuildValue("s", [locale UTF8String]);
+}
+
+double
+cocoa_cursor_blink_interval(void) {
+    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+    double on_period_ms = [defaults doubleForKey:@"NSTextInsertionPointBlinkPeriodOn"];
+    double off_period_ms = [defaults doubleForKey:@"NSTextInsertionPointBlinkPeriodOff"];
+    double period_ms = [defaults doubleForKey:@"NSTextInsertionPointBlinkPeriod"];
+    double max_value = 60 * 1000.0, ans = -1.0;
+    if (on_period_ms || off_period_ms) {
+        ans = on_period_ms + off_period_ms;
+    } else if (period_ms) {
+        ans = period_ms;
+    }
+    return ans > max_value ? 0.0 : ans;
 }
 
 void

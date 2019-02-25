@@ -227,6 +227,7 @@ def adjust_line_height(x):
         if ans < 0:
             log_error('Percentage adjustments of cell sizes must be positive numbers')
             return 0
+        return ans
     return int(x)
 
 
@@ -308,13 +309,15 @@ Choose the color of text under the cursor. If you want it rendered with the
 background color of the cell underneath instead, use the special keyword: background'''))
 o('cursor_shape', 'block', option_type=to_cursor_shape, long_text=_(
     'The cursor shape can be one of (block, beam, underline)'))
-o('cursor_blink_interval', 0.5, option_type=positive_float, long_text=_('''
+o('cursor_blink_interval', -1, option_type=float, long_text=_('''
 The interval (in seconds) at which to blink the cursor. Set to zero to disable
-blinking. Note that numbers smaller than :opt:`repaint_delay` will be limited
-to :opt:`repaint_delay`. Stop blinking cursor after the specified number of
-seconds of keyboard inactivity. Set to zero to never stop blinking.
+blinking. Negative values mean use system default. Note that numbers smaller
+than :opt:`repaint_delay` will be limited to :opt:`repaint_delay`.
 '''))
-o('cursor_stop_blinking_after', 15.0, option_type=positive_float)
+o('cursor_stop_blinking_after', 15.0, option_type=positive_float, long_text=_('''
+Stop blinking cursor after the specified number of seconds of keyboard
+inactivity.  Set to zero to never stop blinking.
+'''))
 
 # }}}
 
@@ -368,7 +371,7 @@ Use negative numbers to change scroll direction.'''))
 
 g('mouse')  # {{{
 
-o('url_color', '#0087BD', option_type=to_color, long_text=_('''
+o('url_color', '#0087bd', option_type=to_color, long_text=_('''
 The color and style for highlighting URLs on mouse-over.
 :code:`url_style` can be one of: none, single, double, curly'''))
 
@@ -693,7 +696,7 @@ def selection_foreground(x):
 
 o('selection_foreground', '#000000', option_type=selection_foreground, long_text=_('''
 The foreground for text selected with the mouse. A value of none means to leave the color unchanged.'''))
-o('selection_background', '#FFFACD', option_type=to_color, long_text=_('''
+o('selection_background', '#fffacd', option_type=to_color, long_text=_('''
 The background for text selected with the mouse.'''))
 
 g('colors.table')
@@ -1033,9 +1036,11 @@ g('shortcuts.tab')  # {{{
 k('next_tab', 'kitty_mod+right', 'next_tab', _('Next tab'))
 if is_macos:
     k('next_tab', 'ctrl+tab', 'next_tab', _('Next tab'), add_to_docs=False)
+    k('next_tab', 'shift+cmd+]', 'next_tab', _('Next tab'), add_to_docs=False)
 k('previous_tab', 'kitty_mod+left', 'previous_tab', _('Previous tab'))
 if is_macos:
     k('previous_tab', 'shift+ctrl+tab', 'previous_tab', _('Previous tab'), add_to_docs=False)
+    k('previous_tab', 'shift+cmd+[', 'previous_tab', _('Previous tab'), add_to_docs=False)
 k('new_tab', 'kitty_mod+t', 'new_tab', _('New tab'))
 if is_macos:
     k('new_tab', 'cmd+t', 'new_tab', _('New tab'), add_to_docs=False)

@@ -26,6 +26,7 @@ extern PyTypeObject Screen_Type;
 // Apple does not implement MSG_NOSIGNAL
 #define MSG_NOSIGNAL 0
 #endif
+#define USE_RENDER_FRAMES (global_state.has_render_frames && OPT(sync_to_monitor))
 
 static void (*parse_func)(Screen*, PyObject*, double);
 
@@ -638,7 +639,7 @@ render_os_window(OSWindow *os_window, double now, unsigned int active_window_id,
     os_window->last_active_tab = os_window->active_tab; os_window->last_num_tabs = os_window->num_tabs; os_window->last_active_window_id = active_window_id;
     os_window->focused_at_last_render = os_window->is_focused;
     os_window->is_damaged = false;
-    if (global_state.is_wayland && OPT(sync_to_monitor)) wayland_request_frame_render(os_window);
+    if (USE_RENDER_FRAMES) request_frame_render(os_window);
 #undef WD
 #undef TD
 }
@@ -667,8 +668,8 @@ render(double now) {
             update_os_window_title(w);
             continue;
         }
-        if (global_state.is_wayland && w->wayland_render_state != RENDER_FRAME_READY && OPT(sync_to_monitor)) {
-            if (w->wayland_render_state == RENDER_FRAME_NOT_REQUESTED) wayland_request_frame_render(w);
+        if (USE_RENDER_FRAMES && w->render_state != RENDER_FRAME_READY) {
+            if (w->render_state == RENDER_FRAME_NOT_REQUESTED) request_frame_render(w);
             continue;
         }
         bool needs_render = w->is_damaged;
@@ -872,17 +873,15 @@ static unsigned int cocoa_pending_actions = 0;
 static char *cocoa_pending_actions_wd = NULL;
 
 void
-set_cocoa_pending_action(CocoaPendingAction action) {
+set_cocoa_pending_action(CocoaPendingAction action, const char *wd) {
+    if (wd) {
+        if (cocoa_pending_actions_wd) free(cocoa_pending_actions_wd);
+        cocoa_pending_actions_wd = strdup(wd);
+    }
     cocoa_pending_actions |= action;
     // The main loop may be blocking on the event queue, if e.g. unfocused.
     // Unjam it so the pending action is processed right now.
     unjam_event_loop();
-}
-
-void
-set_cocoa_pending_action_with_wd(CocoaPendingAction action, const char *wd) {
-    cocoa_pending_actions_wd = strdup(wd);
-    set_cocoa_pending_action(action);
 }
 #endif
 
@@ -921,6 +920,9 @@ main_loop(ChildMonitor *self, PyObject *a UNUSED) {
         has_open_windows = process_pending_closes(self);
     }
     remove_all_timers(&main_event_loop);
+#ifdef __APPLE__
+    if (cocoa_pending_actions_wd) { free(cocoa_pending_actions_wd); cocoa_pending_actions_wd = NULL; }
+#endif
     if (PyErr_Occurred()) return NULL;
     Py_RETURN_NONE;
 }
