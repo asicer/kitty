@@ -460,7 +460,7 @@ cocoa_set_titlebar_color(void *w, color_type titlebar_color)
         [NSColor colorWithSRGBRed:red
                             green:green
                              blue:blue
-                            alpha:1.0];
+                            alpha:0.5];
     [window setTitlebarAppearsTransparent:YES];
     [window setBackgroundColor:background];
 

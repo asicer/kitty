@@ -599,9 +599,6 @@ def finalize_keys(opts):
 def load_config(*paths, overrides=None):
     opts = _load_config(Options, defaults, parse_config, merge_configs, *paths, overrides=overrides)
     finalize_keys(opts)
-    if opts.background_opacity < 1.0 and opts.macos_titlebar_color:
-        log_error('Cannot use both macos_titlebar_color and background_opacity')
-        opts.macos_titlebar_color = 0
     if (is_macos and getattr(opts, 'macos_hide_titlebar', False)) or (not is_macos and getattr(opts, 'x11_hide_window_decorations', False)):
         opts.hide_window_decorations = True
     return opts

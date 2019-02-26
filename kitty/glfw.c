@@ -488,6 +488,7 @@ create_os_window(PyObject UNUSED *self, PyObject *args) {
         PyErr_SetString(PyExc_ValueError, "Too many windows");
         return NULL;
     }
+    OPT(background_opacity) = 0.0;
     bool want_semi_transparent = (1.0 - OPT(background_opacity) >= 0.01) || OPT(dynamic_background_opacity);
     glfwWindowHint(GLFW_TRANSPARENT_FRAMEBUFFER, want_semi_transparent);
     // We use a temp window to avoid the need to set the window size after
