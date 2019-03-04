@@ -139,6 +139,14 @@ void _glfwInputFramebufferSize(_GLFWwindow* window, int width, int height)
         window->callbacks.fbsize((GLFWwindow*) window, width, height);
 }
 
+// Notifies shared code that a window live resize is in progress
+//
+void _glfwInputLiveResize(_GLFWwindow* window, bool started)
+{
+    if (window->callbacks.liveResize)
+        window->callbacks.liveResize((GLFWwindow*) window, started);
+}
+
 // Notifies shared code that a window content scale has changed
 // The scale is specified as the ratio between the current and default DPI
 //
@@ -1122,6 +1130,17 @@ GLFWAPI GLFWframebuffersizefun glfwSetFramebufferSizeCallback(GLFWwindow* handle
     return cbfun;
 }
 
+GLFWAPI GLFWliveresizefun glfwSetLiveResizeCallback(GLFWwindow* handle,
+                                                              GLFWliveresizefun cbfun)
+{
+    _GLFWwindow* window = (_GLFWwindow*) handle;
+    assert(window != NULL);
+
+    _GLFW_REQUIRE_INIT_OR_RETURN(NULL);
+    _GLFW_SWAP_POINTERS(window->callbacks.liveResize, cbfun);
+    return cbfun;
+}
+
 GLFWAPI GLFWwindowcontentscalefun glfwSetWindowContentScaleCallback(GLFWwindow* handle,
                                                                     GLFWwindowcontentscalefun cbfun)
 {
@@ -1131,35 +1150,6 @@ GLFWAPI GLFWwindowcontentscalefun glfwSetWindowContentScaleCallback(GLFWwindow* 
     _GLFW_REQUIRE_INIT_OR_RETURN(NULL);
     _GLFW_SWAP_POINTERS(window->callbacks.scale, cbfun);
     return cbfun;
-}
-
-GLFWAPI void glfwPollEvents(void)
-{
-    _GLFW_REQUIRE_INIT();
-    _glfwPlatformPollEvents();
-}
-
-GLFWAPI void glfwWaitEvents(void)
-{
-    _GLFW_REQUIRE_INIT();
-
-    _glfwPlatformWaitEvents();
-}
-
-GLFWAPI void glfwWaitEventsTimeout(double timeout)
-{
-    _GLFW_REQUIRE_INIT();
-    assert(timeout == timeout);
-    assert(timeout >= 0.0);
-    assert(timeout <= DBL_MAX);
-
-    if (timeout != timeout || timeout < 0.0 || timeout > DBL_MAX)
-    {
-        _glfwInputError(GLFW_INVALID_VALUE, "Invalid time %f", timeout);
-        return;
-    }
-
-    _glfwPlatformWaitEventsTimeout(timeout);
 }
 
 GLFWAPI void glfwPostEmptyEvent(void)

@@ -1231,6 +1231,8 @@ typedef void (* GLFWkeyboardfun)(GLFWwindow*, int, int, int, int, const char*, i
  */
 typedef void (* GLFWdropfun)(GLFWwindow*,int,const char**);
 
+typedef void (* GLFWliveresizefun)(GLFWwindow*, bool);
+
 /*! @brief The function signature for monitor configuration callbacks.
  *
  *  This is the function signature for monitor configuration callback functions.
@@ -1265,6 +1267,9 @@ typedef void (* GLFWmonitorfun)(GLFWmonitor*,int);
  *  @ingroup input
  */
 typedef void (* GLFWjoystickfun)(int,int);
+
+typedef void (* GLFWuserdatafun)(unsigned long long, void*);
+typedef void (* GLFWtickcallback)(void*);
 
 /*! @brief Video mode type.
  *
@@ -1423,6 +1428,30 @@ typedef void (*GLFWDBusnotificationactivatedfun)(uint32_t, const char*);
 typedef int (*glfwInit_func)();
 glfwInit_func glfwInit_impl;
 #define glfwInit glfwInit_impl
+
+typedef void (*glfwRunMainLoop_func)(GLFWtickcallback, void*);
+glfwRunMainLoop_func glfwRunMainLoop_impl;
+#define glfwRunMainLoop glfwRunMainLoop_impl
+
+typedef void (*glfwStopMainLoop_func)();
+glfwStopMainLoop_func glfwStopMainLoop_impl;
+#define glfwStopMainLoop glfwStopMainLoop_impl
+
+typedef void (*glfwRequestTickCallback_func)();
+glfwRequestTickCallback_func glfwRequestTickCallback_impl;
+#define glfwRequestTickCallback glfwRequestTickCallback_impl
+
+typedef unsigned long long (*glfwAddTimer_func)(double, bool, GLFWuserdatafun, void *, GLFWuserdatafun);
+glfwAddTimer_func glfwAddTimer_impl;
+#define glfwAddTimer glfwAddTimer_impl
+
+typedef void (*glfwUpdateTimer_func)(unsigned long long, double, bool);
+glfwUpdateTimer_func glfwUpdateTimer_impl;
+#define glfwUpdateTimer glfwUpdateTimer_impl
+
+typedef void (*glfwRemoveTimer_func)(unsigned long);
+glfwRemoveTimer_func glfwRemoveTimer_impl;
+#define glfwRemoveTimer glfwRemoveTimer_impl
 
 typedef void (*glfwTerminate_func)();
 glfwTerminate_func glfwTerminate_impl;
@@ -1684,18 +1713,6 @@ typedef GLFWwindowcontentscalefun (*glfwSetWindowContentScaleCallback_func)(GLFW
 glfwSetWindowContentScaleCallback_func glfwSetWindowContentScaleCallback_impl;
 #define glfwSetWindowContentScaleCallback glfwSetWindowContentScaleCallback_impl
 
-typedef void (*glfwPollEvents_func)();
-glfwPollEvents_func glfwPollEvents_impl;
-#define glfwPollEvents glfwPollEvents_impl
-
-typedef void (*glfwWaitEvents_func)();
-glfwWaitEvents_func glfwWaitEvents_impl;
-#define glfwWaitEvents glfwWaitEvents_impl
-
-typedef void (*glfwWaitEventsTimeout_func)(double);
-glfwWaitEventsTimeout_func glfwWaitEventsTimeout_impl;
-#define glfwWaitEventsTimeout glfwWaitEventsTimeout_impl
-
 typedef void (*glfwPostEmptyEvent_func)();
 glfwPostEmptyEvent_func glfwPostEmptyEvent_impl;
 #define glfwPostEmptyEvent glfwPostEmptyEvent_impl
@@ -1775,6 +1792,10 @@ glfwSetScrollCallback_func glfwSetScrollCallback_impl;
 typedef GLFWdropfun (*glfwSetDropCallback_func)(GLFWwindow*, GLFWdropfun);
 glfwSetDropCallback_func glfwSetDropCallback_impl;
 #define glfwSetDropCallback glfwSetDropCallback_impl
+
+typedef GLFWliveresizefun (*glfwSetLiveResizeCallback_func)(GLFWwindow*, GLFWliveresizefun);
+glfwSetLiveResizeCallback_func glfwSetLiveResizeCallback_impl;
+#define glfwSetLiveResizeCallback glfwSetLiveResizeCallback_impl
 
 typedef int (*glfwJoystickPresent_func)(int);
 glfwJoystickPresent_func glfwJoystickPresent_impl;

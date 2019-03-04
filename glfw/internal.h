@@ -419,6 +419,7 @@ struct _GLFWwindow
         GLFWscrollfun           scroll;
         GLFWkeyboardfun         keyboard;
         GLFWdropfun             drop;
+        GLFWliveresizefun       liveResize;
     } callbacks;
 
     // This is defined in the window API's platform.h
@@ -653,6 +654,7 @@ void _glfwPlatformSetWindowSizeLimits(_GLFWwindow* window,
                                       int maxwidth, int maxheight);
 void _glfwPlatformSetWindowAspectRatio(_GLFWwindow* window, int numer, int denom);
 void _glfwPlatformGetFramebufferSize(_GLFWwindow* window, int* width, int* height);
+void _glfwInputLiveResize(_GLFWwindow* window, bool started);
 void _glfwPlatformGetWindowFrameSize(_GLFWwindow* window,
                                      int* left, int* top,
                                      int* right, int* bottom);
@@ -783,5 +785,11 @@ void _glfwTerminateVulkan(void);
 const char* _glfwGetVulkanResultString(VkResult result);
 _GLFWwindow* _glfwFocusedWindow();
 _GLFWwindow* _glfwWindowForId(GLFWid id);
+void _glfwPlatformRunMainLoop(GLFWtickcallback, void*);
+void _glfwPlatformRequestTickCallback();
+void _glfwPlatformStopMainLoop(void);
+unsigned long long _glfwPlatformAddTimer(double interval, bool repeats, GLFWuserdatafun callback, void *callback_data, GLFWuserdatafun free_callback);
+void _glfwPlatformUpdateTimer(unsigned long long timer_id, double interval, GLFWbool enabled);
+void _glfwPlatformRemoveTimer(unsigned long long timer_id);
 
 char* _glfw_strdup(const char* source);

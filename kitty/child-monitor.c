@@ -10,7 +10,6 @@
 #include "screen.h"
 #include "fonts.h"
 #include "charsets.h"
-#include "timers.h"
 #include <termios.h>
 #include <unistd.h>
 #include <float.h>
@@ -664,7 +663,7 @@ render(double now) {
     for (size_t i = 0; i < global_state.num_os_windows; i++) {
         OSWindow *w = global_state.os_windows + i;
         if (!w->num_tabs) continue;
-        if (!should_os_window_be_rendered(w)) {
+        if ((w->live_resize.in_progress && (now - w->live_resize.last_resize_event_at) < 1) || !should_os_window_be_rendered(w)) {
             update_os_window_title(w);
             continue;
         }
@@ -769,16 +768,6 @@ cm_thread_write(PyObject UNUSED *self, PyObject *args) {
     Py_RETURN_NONE;
 }
 
-static EventLoopData main_event_loop = {0};
-
-static inline void
-wait_for_events() {
-    maximum_wait = prepare_for_poll(&main_event_loop, maximum_wait);
-    event_loop_wait(maximum_wait);
-    dispatch_timers(&main_event_loop);
-    maximum_wait = -1;
-}
-
 static void
 python_timer_callback(id_type timer_id, void *data) {
     PyObject *callback = (PyObject*)data;
@@ -797,9 +786,9 @@ static PyObject*
 add_python_timer(PyObject *self UNUSED, PyObject *args) {
     PyObject *callback;
     double interval;
-    const char *name;
-    if (!PyArg_ParseTuple(args, "sOd", &name, &callback, &interval)) return NULL;
-    unsigned long long timer_id = add_timer(&main_event_loop, name, interval, 1, python_timer_callback, callback, python_timer_cleanup);
+    int repeats = 1;
+    if (!PyArg_ParseTuple(args, "Od|p", &callback, &interval, &repeats)) return NULL;
+    unsigned long long timer_id = add_main_loop_timer(interval, repeats ? true: false, python_timer_callback, callback, python_timer_cleanup);
     Py_INCREF(callback);
     return Py_BuildValue("K", timer_id);
 }
@@ -808,16 +797,7 @@ static PyObject*
 remove_python_timer(PyObject *self UNUSED, PyObject *args) {
     unsigned long long timer_id;
     if (!PyArg_ParseTuple(args, "K", &timer_id)) return NULL;
-    remove_timer(&main_event_loop, timer_id);
-    Py_RETURN_NONE;
-}
-
-static PyObject*
-change_python_timer_interval(PyObject *self UNUSED, PyObject *args) {
-    unsigned long long timer_id;
-    double interval;
-    if (!PyArg_ParseTuple(args, "Kd", &timer_id, &interval)) return NULL;
-    change_timer_interval(&main_event_loop, timer_id, interval);
+    remove_main_loop_timer(timer_id);
     Py_RETURN_NONE;
 }
 
@@ -827,11 +807,21 @@ process_pending_resizes(double now) {
     global_state.has_pending_resizes = false;
     for (size_t i = 0; i < global_state.num_os_windows; i++) {
         OSWindow *w = global_state.os_windows + i;
-        if (w->has_pending_resizes) {
-            if (now - w->last_resize_event_at >= RESIZE_DEBOUNCE_TIME) update_os_window_viewport(w, true);
-            else {
-                global_state.has_pending_resizes = true;
-                set_maximum_wait(RESIZE_DEBOUNCE_TIME - now + w->last_resize_event_at);
+        if (w->live_resize.in_progress) {
+            bool update_viewport = false;
+            if (w->live_resize.from_os_notification) {
+                if (w->live_resize.os_says_resize_complete || (now - w->live_resize.last_resize_event_at) > 1) update_viewport = true;
+            } else {
+                if (now - w->live_resize.last_resize_event_at >= RESIZE_DEBOUNCE_TIME) update_viewport = true;
+                else {
+                    global_state.has_pending_resizes = true;
+                    set_maximum_wait(RESIZE_DEBOUNCE_TIME - now + w->live_resize.last_resize_event_at);
+                }
+            }
+            if (update_viewport) {
+                static const LiveResizeInfo empty = {0};
+                update_os_window_viewport(w, true);
+                w->live_resize = empty;
             }
         }
     }
@@ -844,6 +834,7 @@ close_all_windows() {
 
 static inline bool
 process_pending_closes(ChildMonitor *self) {
+    global_state.has_pending_closes = false;
     bool has_open_windows = false;
     for (size_t w = global_state.num_os_windows; w > 0; w--) {
         OSWindow *os_window = global_state.os_windows + w - 1;
@@ -881,20 +872,29 @@ set_cocoa_pending_action(CocoaPendingAction action, const char *wd) {
     cocoa_pending_actions |= action;
     // The main loop may be blocking on the event queue, if e.g. unfocused.
     // Unjam it so the pending action is processed right now.
-    unjam_event_loop();
+    wakeup_main_loop();
 }
 #endif
 
-static PyObject*
-main_loop(ChildMonitor *self, PyObject *a UNUSED) {
-#define main_loop_doc "The main thread loop"
-    bool has_open_windows = true;
+static void process_global_state(void *data);
 
-    while (has_open_windows) {
-        double now = monotonic();
-        if (global_state.has_pending_resizes) process_pending_resizes(now);
-        render(now);
-        wait_for_events();
+static void
+do_state_check(id_type timer_id UNUSED, void *data) {
+    ChildMonitor *self = data;
+    process_global_state(self);
+}
+
+static id_type state_check_timer = 0;
+
+static void
+process_global_state(void *data) {
+    ChildMonitor *self = data;
+    maximum_wait = -1;
+    bool state_check_timer_enabled = false;
+
+    double now = monotonic();
+    if (global_state.has_pending_resizes) process_pending_resizes(now);
+    render(now);
 #ifdef __APPLE__
         if (cocoa_pending_actions) {
             if (cocoa_pending_actions & PREFERENCES_WINDOW) { call_boss(edit_config_file, NULL); }
@@ -908,18 +908,33 @@ main_loop(ChildMonitor *self, PyObject *a UNUSED) {
             cocoa_pending_actions = 0;
         }
 #endif
-        parse_input(self);
-        if (global_state.terminate) {
-            global_state.terminate = false;
-            close_all_windows();
+    parse_input(self);
+    if (global_state.terminate) {
+        global_state.terminate = false;
+        close_all_windows();
 #ifdef __APPLE__
-            request_application_quit();
+        request_application_quit();
 #endif
-        }
-        report_reaped_pids();
-        has_open_windows = process_pending_closes(self);
     }
-    remove_all_timers(&main_event_loop);
+    report_reaped_pids();
+    bool has_open_windows = true;
+    if (global_state.has_pending_closes) has_open_windows = process_pending_closes(self);
+    if (has_open_windows) {
+        if (maximum_wait >= 0) {
+            if (maximum_wait == 0) request_tick_callback();
+            else state_check_timer_enabled = true;
+        }
+    } else {
+        stop_main_loop();
+    }
+    update_main_loop_timer(state_check_timer, MAX(0, maximum_wait), state_check_timer_enabled);
+}
+
+static PyObject*
+main_loop(ChildMonitor *self, PyObject *a UNUSED) {
+#define main_loop_doc "The main thread loop"
+    state_check_timer = add_main_loop_timer(1000, true, do_state_check, self, NULL);
+    run_main_loop(process_global_state, self);
 #ifdef __APPLE__
     if (cocoa_pending_actions_wd) { free(cocoa_pending_actions_wd); cocoa_pending_actions_wd = NULL; }
 #endif
@@ -1528,7 +1543,6 @@ static PyMethodDef module_methods[] = {
     METHODB(safe_pipe, METH_NOARGS),
     {"add_timer", (PyCFunction)add_python_timer, METH_VARARGS, ""},
     {"remove_timer", (PyCFunction)remove_python_timer, METH_VARARGS, ""},
-    {"change_timer_interval", (PyCFunction)change_python_timer_interval, METH_VARARGS, ""},
     METHODB(monitor_pid, METH_VARARGS),
     {"set_iutf8", (PyCFunction)pyset_iutf8, METH_VARARGS, ""},
     {NULL}  /* Sentinel */

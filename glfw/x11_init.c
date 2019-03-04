@@ -675,6 +675,7 @@ int _glfwPlatformInit(void)
 
 void _glfwPlatformTerminate(void)
 {
+    removeAllTimers(&_glfw.x11.eventLoopData);
     if (_glfw.x11.helperWindowHandle)
     {
         if (XGetSelectionOwner(_glfw.x11.display, _glfw.x11.CLIPBOARD) ==
@@ -768,3 +769,5 @@ const char* _glfwPlatformGetVersionString(void)
 #endif
         ;
 }
+
+#include "main_loop.h"

@@ -1474,6 +1474,8 @@ typedef void (* GLFWkeyboardfun)(GLFWwindow*, int, int, int, int, const char*, i
  */
 typedef void (* GLFWdropfun)(GLFWwindow*,int,const char**);
 
+typedef void (* GLFWliveresizefun)(GLFWwindow*, bool);
+
 /*! @brief The function signature for monitor configuration callbacks.
  *
  *  This is the function signature for monitor configuration callback functions.
@@ -1508,6 +1510,9 @@ typedef void (* GLFWmonitorfun)(GLFWmonitor*,int);
  *  @ingroup input
  */
 typedef void (* GLFWjoystickfun)(int,int);
+
+typedef void (* GLFWuserdatafun)(unsigned long long, void*);
+typedef void (* GLFWtickcallback)(void*);
 
 /*! @brief Video mode type.
  *
@@ -1655,6 +1660,12 @@ typedef struct GLFWgamepadstate
  *  @ingroup init
  */
 GLFWAPI int glfwInit(void);
+GLFWAPI void glfwRunMainLoop(GLFWtickcallback callback, void *callback_data);
+GLFWAPI void glfwStopMainLoop(void);
+GLFWAPI void glfwRequestTickCallback(void);
+GLFWAPI unsigned long long glfwAddTimer(double interval, bool repeats, GLFWuserdatafun callback, void * callback_data, GLFWuserdatafun free_callback);
+GLFWAPI void glfwUpdateTimer(unsigned long long timer_id, double interval, bool enabled);
+GLFWAPI void glfwRemoveTimer(unsigned long long);
 
 /*! @brief Terminates the GLFW library.
  *
@@ -3726,135 +3737,6 @@ GLFWAPI GLFWframebuffersizefun glfwSetFramebufferSizeCallback(GLFWwindow* window
  */
 GLFWAPI GLFWwindowcontentscalefun glfwSetWindowContentScaleCallback(GLFWwindow* window, GLFWwindowcontentscalefun cbfun);
 
-/*! @brief Processes all pending events.
- *
- *  This function processes only those events that are already in the event
- *  queue and then returns immediately.  Processing events will cause the window
- *  and input callbacks associated with those events to be called.
- *
- *  On some platforms, a window move, resize or menu operation will cause event
- *  processing to block.  This is due to how event processing is designed on
- *  those platforms.  You can use the
- *  [window refresh callback](@ref window_refresh) to redraw the contents of
- *  your window when necessary during such operations.
- *
- *  Do not assume that callbacks you set will _only_ be called in response to
- *  event processing functions like this one.  While it is necessary to poll for
- *  events, window systems that require GLFW to register callbacks of its own
- *  can pass events to GLFW in response to many window system function calls.
- *  GLFW will pass those events on to the application callbacks before
- *  returning.
- *
- *  Event processing is not required for joystick input to work.
- *
- *  @errors Possible errors include @ref GLFW_NOT_INITIALIZED and @ref
- *  GLFW_PLATFORM_ERROR.
- *
- *  @reentrancy This function must not be called from a callback.
- *
- *  @thread_safety This function must only be called from the main thread.
- *
- *  @sa @ref events
- *  @sa @ref glfwWaitEvents
- *  @sa @ref glfwWaitEventsTimeout
- *
- *  @since Added in version 1.0.
- *
- *  @ingroup window
- */
-GLFWAPI void glfwPollEvents(void);
-
-/*! @brief Waits until events are queued and processes them.
- *
- *  This function puts the calling thread to sleep until at least one event is
- *  available in the event queue.  Once one or more events are available,
- *  it behaves exactly like @ref glfwPollEvents, i.e. the events in the queue
- *  are processed and the function then returns immediately.  Processing events
- *  will cause the window and input callbacks associated with those events to be
- *  called.
- *
- *  Since not all events are associated with callbacks, this function may return
- *  without a callback having been called even if you are monitoring all
- *  callbacks.
- *
- *  On some platforms, a window move, resize or menu operation will cause event
- *  processing to block.  This is due to how event processing is designed on
- *  those platforms.  You can use the
- *  [window refresh callback](@ref window_refresh) to redraw the contents of
- *  your window when necessary during such operations.
- *
- *  Do not assume that callbacks you set will _only_ be called in response to
- *  event processing functions like this one.  While it is necessary to poll for
- *  events, window systems that require GLFW to register callbacks of its own
- *  can pass events to GLFW in response to many window system function calls.
- *  GLFW will pass those events on to the application callbacks before
- *  returning.
- *
- *  Event processing is not required for joystick input to work.
- *
- *  @errors Possible errors include @ref GLFW_NOT_INITIALIZED and @ref
- *  GLFW_PLATFORM_ERROR.
- *
- *  @reentrancy This function must not be called from a callback.
- *
- *  @thread_safety This function must only be called from the main thread.
- *
- *  @sa @ref events
- *  @sa @ref glfwPollEvents
- *  @sa @ref glfwWaitEventsTimeout
- *
- *  @since Added in version 2.5.
- *
- *  @ingroup window
- */
-GLFWAPI void glfwWaitEvents(void);
-
-/*! @brief Waits with timeout until events are queued and processes them.
- *
- *  This function puts the calling thread to sleep until at least one event is
- *  available in the event queue, or until the specified timeout is reached.  If
- *  one or more events are available, it behaves exactly like @ref
- *  glfwPollEvents, i.e. the events in the queue are processed and the function
- *  then returns immediately.  Processing events will cause the window and input
- *  callbacks associated with those events to be called.
- *
- *  The timeout value must be a positive finite number.
- *
- *  Since not all events are associated with callbacks, this function may return
- *  without a callback having been called even if you are monitoring all
- *  callbacks.
- *
- *  On some platforms, a window move, resize or menu operation will cause event
- *  processing to block.  This is due to how event processing is designed on
- *  those platforms.  You can use the
- *  [window refresh callback](@ref window_refresh) to redraw the contents of
- *  your window when necessary during such operations.
- *
- *  Do not assume that callbacks you set will _only_ be called in response to
- *  event processing functions like this one.  While it is necessary to poll for
- *  events, window systems that require GLFW to register callbacks of its own
- *  can pass events to GLFW in response to many window system function calls.
- *  GLFW will pass those events on to the application callbacks before
- *  returning.
- *
- *  Event processing is not required for joystick input to work.
- *
- *  @param[in] timeout The maximum amount of time, in seconds, to wait.
- *
- *  @reentrancy This function must not be called from a callback.
- *
- *  @thread_safety This function must only be called from the main thread.
- *
- *  @sa @ref events
- *  @sa @ref glfwPollEvents
- *  @sa @ref glfwWaitEvents
- *
- *  @since Added in version 3.2.
- *
- *  @ingroup window
- */
-GLFWAPI void glfwWaitEventsTimeout(double timeout);
-
 /*! @brief Posts an empty event to the event queue.
  *
  *  This function posts an empty event from the current thread to the event
@@ -4463,6 +4345,7 @@ GLFWAPI GLFWscrollfun glfwSetScrollCallback(GLFWwindow* window, GLFWscrollfun cb
  *  @ingroup input
  */
 GLFWAPI GLFWdropfun glfwSetDropCallback(GLFWwindow* window, GLFWdropfun cbfun);
+GLFWAPI GLFWliveresizefun glfwSetLiveResizeCallback(GLFWwindow* window, GLFWliveresizefun cbfun);
 
 /*! @brief Returns whether the specified joystick is present.
  *

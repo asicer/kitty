@@ -21,7 +21,7 @@ typedef struct {
     unsigned int url_style;
     unsigned int scrollback_pager_history_size;
     char_type select_by_word_characters[256]; size_t select_by_word_characters_count;
-    color_type url_color, background, active_border_color, inactive_border_color, bell_border_color;
+    color_type url_color, background, foreground, active_border_color, inactive_border_color, bell_border_color;
     double repaint_delay, input_delay;
     bool focus_follows_mouse, hide_window_decorations;
     bool macos_hide_from_tasks, macos_quit_when_last_window_closed, macos_window_resizable, macos_traditional_fullscreen, macos_show_window_title_in_menubar;
@@ -109,6 +109,14 @@ typedef struct {
 enum RENDER_STATE { RENDER_FRAME_NOT_REQUESTED, RENDER_FRAME_REQUESTED, RENDER_FRAME_READY };
 
 typedef struct {
+    double last_resize_event_at;
+    bool in_progress;
+    bool from_os_notification;
+    bool os_says_resize_complete;
+} LiveResizeInfo;
+
+
+typedef struct {
     void *handle;
     id_type id;
     OSWindowGeometry before_fullscreen;
@@ -127,7 +135,7 @@ typedef struct {
     PyObject *window_title;
     bool is_key_pressed[MAX_KEY_COUNT];
     bool viewport_size_dirty;
-    double last_resize_event_at;
+    LiveResizeInfo live_resize;
     bool has_pending_resizes, is_semi_transparent, shown_once, is_damaged;
     uint32_t offscreen_texture_id;
     unsigned int clear_count;
@@ -138,6 +146,7 @@ typedef struct {
     double pending_scroll_pixels;
     enum RENDER_STATE render_state;
     id_type last_focused_counter;
+    ssize_t gvao_idx;
 } OSWindow;
 
 
@@ -153,7 +162,7 @@ typedef struct {
     bool is_wayland;
     bool has_render_frames;
     bool debug_gl, debug_font_fallback;
-    bool has_pending_resizes;
+    bool has_pending_resizes, has_pending_closes;
     bool in_sequence_mode;
     bool tab_bar_hidden;
     double font_sz_in_pts;
@@ -178,11 +187,9 @@ void make_os_window_context_current(OSWindow *w);
 void update_os_window_references();
 void mark_os_window_for_close(OSWindow* w, bool yes);
 void update_os_window_viewport(OSWindow *window, bool);
-void unjam_event_loop();
 bool should_os_window_close(OSWindow* w);
 bool should_os_window_be_rendered(OSWindow* w);
 void wakeup_main_loop();
-void event_loop_wait(double timeout);
 void swap_window_buffers(OSWindow *w);
 void make_window_context_current(OSWindow *w);
 void hide_mouse(OSWindow *w);
@@ -201,6 +208,7 @@ ssize_t create_graphics_vao();
 ssize_t create_border_vao();
 bool send_cell_data_to_gpu(ssize_t, ssize_t, float, float, float, float, Screen *, OSWindow *);
 void draw_cells(ssize_t, ssize_t, float, float, float, float, Screen *, OSWindow *, bool, bool);
+void draw_centered_alpha_mask(ssize_t gvao_idx, size_t screen_width, size_t screen_height, size_t width, size_t height, uint8_t *canvas);
 void update_surface_size(int, int, uint32_t);
 void free_texture(uint32_t*);
 void send_image_to_gpu(uint32_t*, const void*, int32_t, int32_t, bool, bool);
@@ -223,3 +231,11 @@ bool application_quit_requested();
 void request_application_quit();
 #endif
 void request_frame_render(OSWindow *w);
+typedef void (* timer_callback_fun)(id_type, void*);
+typedef void (* tick_callback_fun)(void*);
+id_type add_main_loop_timer(double interval, bool repeats, timer_callback_fun callback, void *callback_data, timer_callback_fun free_callback);
+void remove_main_loop_timer(id_type timer_id);
+void update_main_loop_timer(id_type timer_id, double interval, bool enabled);
+void run_main_loop(tick_callback_fun, void*);
+void request_tick_callback(void);
+void stop_main_loop(void);
