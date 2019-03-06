@@ -158,6 +158,8 @@ class Tab:  # {{{
                          tm.blank_rects, self.current_layout.needs_window_borders and len(visible_windows) > 1)
             if w is not None:
                 w.change_titlebar_color()
+                if self.opts.hide_title:
+                    w.hide_window_title()
 
     def create_layout_object(self, name):
         return create_layout_object_for(
