@@ -469,7 +469,7 @@ cocoa_set_titlebar_color(void *w, color_type titlebar_color)
         [NSColor colorWithSRGBRed:red
                             green:green
                              blue:blue
-                            alpha:1.0];
+                            alpha:0.3];
     [window setTitlebarAppearsTransparent:YES];
     [window setBackgroundColor:background];
 
@@ -506,30 +506,7 @@ cocoa_set_titlebar_color(void *w, color_type titlebar_color)
     //NSView* vibrant_view = [window vibrantView];
 
 
-    [window setTitlebarAppearsTransparent:YES];
-    [window setBackgroundColor:[NSColor clearColor]];
 
-    //NSVisualEffectView* effect_view = (NSVisualEffectView*)vibrant_view;
-    NSVisualEffectView* effect_view = nil;
-    if (effect_view == nil) {
-      effect_view = [[[NSVisualEffectView alloc]
-          initWithFrame:[[window contentView] bounds]] autorelease];
-      //[window setAllowsVibrancy:true];
-      //[window setVibrantView:(NSView*)effect_view];
-
-      [effect_view
-          setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable];
-      [effect_view setBlendingMode:NSVisualEffectBlendingModeBehindWindow];
-      [effect_view setState:NSVisualEffectStateActive];
-      [[window contentView] addSubview:effect_view
-                             positioned:NSWindowBelow
-                             relativeTo:nil];
-    }
-
-    NSVisualEffectMaterial vibrancyType = NSVisualEffectMaterialLight;
-
-
-    [effect_view setMaterial:vibrancyType];
 }
 
 void

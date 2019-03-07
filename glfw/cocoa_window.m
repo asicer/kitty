@@ -1311,6 +1311,48 @@ static GLFWbool createNativeWindow(_GLFWwindow* window,
 
     window->ns.view = [[GLFWContentView alloc] initWithGlfwWindow:window];
 
+
+
+
+
+    [window->ns.object setTitlebarAppearsTransparent:YES];
+    [window->ns.object setBackgroundColor:[NSColor clearColor]];
+
+    //NSVisualEffectView* effect_view = (NSVisualEffectView*)vibrant_view;
+    NSVisualEffectView* effect_view = nil;
+    if (effect_view == nil) {
+        effect_view = [[NSVisualEffectView alloc]
+          initWithFrame:[[window->ns.object contentView] bounds]];
+
+        [effect_view
+          setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable];
+        [effect_view setBlendingMode:NSVisualEffectBlendingModeBehindWindow];
+        [effect_view setState:NSVisualEffectStateActive];
+
+        NSVisualEffectMaterial vibrancyType = NSVisualEffectMaterialLight;
+
+        [effect_view setMaterial:vibrancyType];
+
+        //[window->ns.object setAllowsVibrancy:true];
+        //[window->ns.object setVibrantView:(NSView*)effect_view];
+
+        NSView* view = [[NSView alloc]
+            initWithFrame:[[window->ns.object contentView] bounds]];
+        [view addSubview:effect_view
+                             positioned:NSWindowBelow
+                             relativeTo:window->ns.view];
+        window->ns.view = view;
+        //[window->ns.object setContentView:window->ns.view];
+        //[effect_view addSubview:[window->ns.object contentView]
+        //                     positioned:NSWindowBelow
+        //                     relativeTo:window->ns.view];
+        //window->ns.view = effect_view;
+        //[window->ns.object setContentView:window->ns.view];
+    }
+
+
+
+
     if (wndconfig->ns.retina)
         [window->ns.view setWantsBestResolutionOpenGLSurface:YES];
 
