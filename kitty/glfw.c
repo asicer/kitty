@@ -580,6 +580,9 @@ create_os_window(PyObject UNUSED *self, PyObject *args) {
     // blank the window once so that there is no initial flash of color
     // changing, in case the background color is not black
     blank_canvas(is_semi_transparent ? OPT(background_opacity) : 1.0f);
+#ifndef __APPLE__
+    if (is_first_window) glfwSwapInterval(OPT(sync_to_monitor) && !global_state.is_wayland ? 1 : 0);
+#endif
     glfwSwapBuffers(glfw_window);
     if (!global_state.is_wayland) {
         PyObject *pret = PyObject_CallFunction(pre_show_callback, "N", native_window_handle(glfw_window));
@@ -596,8 +599,6 @@ create_os_window(PyObject UNUSED *self, PyObject *args) {
         cocoa_create_global_menu();
         // This needs to be done only after the first window has been created, because glfw only sets the activation policy once upon initialization.
         if (OPT(macos_hide_from_tasks)) cocoa_set_hide_from_tasks();
-#else
-        glfwSwapInterval(OPT(sync_to_monitor) && !global_state.is_wayland ? 1 : 0);
 #endif
 #define CC(dest, shape) {\
     if (!dest##_cursor) { \
