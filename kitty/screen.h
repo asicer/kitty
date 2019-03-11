@@ -66,6 +66,7 @@ typedef struct {
 
     unsigned int columns, lines, margin_top, margin_bottom, charset, scrolled_by, last_selection_scrolled_by;
     unsigned int last_rendered_cursor_x, last_rendered_cursor_y;
+    double scrolled_by_pixels;
     CellPixelSize cell_size;
     OverlayLine overlay_line;
     id_type window_id;
@@ -179,11 +180,13 @@ bool screen_is_selection_dirty(Screen *self);
 bool screen_has_selection(Screen*);
 bool screen_invert_colors(Screen *self);
 void screen_update_cell_data(Screen *self, void *address, FONTS_DATA_HANDLE, bool cursor_has_moved);
+double get_scrolled_by_pixels(Screen *self);
 bool screen_is_cursor_visible(Screen *self);
 bool screen_selection_range_for_line(Screen *self, index_type y, index_type *start, index_type *end);
 bool screen_selection_range_for_word(Screen *self, index_type x, index_type *, index_type *, index_type *start, index_type *end, bool);
 void screen_start_selection(Screen *self, index_type x, index_type y, bool, SelectionExtendMode);
 void screen_update_selection(Screen *self, index_type x, index_type y, bool ended);
+void pixel_scroll(Screen *self, double amt);
 bool screen_history_scroll(Screen *self, int amt, bool upwards);
 Line* screen_visual_line(Screen *self, index_type y);
 unsigned long screen_current_char_width(Screen *self);

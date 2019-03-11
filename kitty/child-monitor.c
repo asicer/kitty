@@ -615,6 +615,11 @@ prepare_to_render_os_window(OSWindow *os_window, double now, unsigned int *activ
 
 static inline void
 render_os_window(OSWindow *os_window, double now, unsigned int active_window_id, color_type active_window_bg, unsigned int num_visible_windows) {
+    static bool first_time = true;
+    if (first_time) {
+        setup_scroll(os_window->viewport_width, os_window->viewport_height);
+        first_time = false;
+    }
     // ensure all pixels are cleared to background color at least once in every buffer
     if (os_window->clear_count++ < 3) blank_os_window(os_window);
     Tab *tab = os_window->tabs + os_window->active_tab;
@@ -631,9 +636,11 @@ render_os_window(OSWindow *os_window, double now, unsigned int active_window_id,
         br->is_dirty = false;
     }
     if (TD.screen && os_window->num_tabs >= OPT(tab_bar_min_tabs)) draw_cells(TD.vao_idx, 0, TD.xstart, TD.ystart, TD.dx * x_ratio, TD.dy * y_ratio, TD.screen, os_window, true, false);
+    double pixels = 0.0;
     for (unsigned int i = 0; i < tab->num_windows; i++) {
         Window *w = tab->windows + i;
         if (w->visible && WD.screen) {
+            pixels = get_scrolled_by_pixels(WD.screen);
             bool is_active_window = i == tab->active_window;
             draw_cells(WD.vao_idx, WD.gvao_idx, WD.xstart, WD.ystart, WD.dx * x_ratio, WD.dy * y_ratio, WD.screen, os_window, is_active_window, true);
             if (WD.screen->start_visual_bell_at != 0) {
@@ -643,7 +650,7 @@ render_os_window(OSWindow *os_window, double now, unsigned int active_window_id,
             w->cursor_visible_at_last_render = WD.screen->cursor_render_info.is_visible; w->last_cursor_x = WD.screen->cursor_render_info.x; w->last_cursor_y = WD.screen->cursor_render_info.y; w->last_cursor_shape = WD.screen->cursor_render_info.shape;
         }
     }
-    after_render();
+    after_render(pixels / os_window->viewport_height * 2);
     swap_window_buffers(os_window);
     os_window->last_active_tab = os_window->active_tab; os_window->last_num_tabs = os_window->num_tabs; os_window->last_active_window_id = active_window_id;
     os_window->focused_at_last_render = os_window->is_focused;

@@ -175,11 +175,18 @@ init_cell_program(void) {
     }
 #undef C
     glGenFramebuffers(1, &offscreen_framebuffer);
+
+    blit_vertex_array = create_vao();
+}
+
+void setup_scroll(int UNUSED width, int UNUSED height) {
     glGenFramebuffers(1, &scroll_framebuffer);
     glBindFramebuffer(GL_FRAMEBUFFER, scroll_framebuffer);
     glGenTextures(1, &scroll_texture);
     glBindTexture(GL_TEXTURE_2D, scroll_texture);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 650, 400, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+    printf("%d %d\n", width, height);
+    //glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 640, 400, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glBindTexture(GL_TEXTURE_2D, 0);
@@ -205,8 +212,6 @@ init_cell_program(void) {
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(1);
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
-
-    blit_vertex_array = create_vao();
 }
 
 void before_render() {
@@ -216,13 +221,15 @@ void before_render() {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // we're not using the stencil buffer now
 }
 
-void after_render() {
+void after_render(double pixels) {
     // second pass
     glBindFramebuffer(GL_FRAMEBUFFER, 0); // back to default
     glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
 
+    printf("%f\n", pixels);
     bind_program(SCROLL_PROGRAM);
+    glUniform1f(glGetUniformLocation(program_id(SCROLL_PROGRAM), "offset"), pixels);
     glBindVertexArray(quadVAO);
     glBindTexture(GL_TEXTURE_2D, scroll_texture);
     glDrawArrays(GL_TRIANGLES, 0, 6);

@@ -1513,6 +1513,10 @@ screen_update_cell_data(Screen *self, void *address, FONTS_DATA_HANDLE fonts_dat
     }
 }
 
+double get_scrolled_by_pixels(Screen *self) {
+    return self->scrolled_by_pixels;
+}
+
 
 static inline bool
 is_selection_empty(Screen *self, unsigned int start_x, unsigned int start_y, unsigned int end_x, unsigned int end_y) {
@@ -2037,6 +2041,11 @@ screen_selection_range_for_word(Screen *self, index_type x, index_type *y1, inde
     *s = start; *e = end;
     return true;
 #undef is_ok
+}
+
+void pixel_scroll(Screen *self, double amt) {
+    self->scrolled_by_pixels = amt;
+    self->scroll_changed = true;
 }
 
 bool
