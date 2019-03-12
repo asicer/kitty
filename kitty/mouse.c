@@ -625,21 +625,9 @@ scroll_event(double UNUSED xoffset, double yoffset, int flags) {
     //printf("asdf %f\n", pixels);
     if (screen->linebuf == screen->main_linebuf) {
         screen_history_scroll(screen, abs(s), upwards);
-        if (screen->scrolled_by != 0) {
-            if (screen->scrolled_by != screen->historybuf->count) {
-                pixel_scroll(screen, pixels);
-            } else {
-                if (pixels < 0) pixel_scroll(screen, pixels);
-                else pixel_scroll(screen, 0);
-            }
-        } else {
-            if (screen->scrolled_by != screen->historybuf->count) {
-                if (pixels > 0) pixel_scroll(screen, pixels);
-                else pixel_scroll(screen, 0);
-            } else {
-                pixel_scroll(screen, 0);
-            }
-        }
+        if (screen->scrolled_by == 0 && pixels < 0) pixels = 0;
+        if (screen->scrolled_by == screen->historybuf->count && pixels > 0) pixels = 0;
+        pixel_scroll(screen, pixels);
     } else {
         pixel_scroll(screen, 0);
         if (screen->modes.mouse_tracking_mode) {
