@@ -630,26 +630,25 @@ render_os_window(OSWindow *os_window, double now, unsigned int active_window_id,
         x_ratio = os_window->viewport_width / (double) os_window->live_resize.width;
         y_ratio = os_window->viewport_height / (double) os_window->live_resize.height;
     }
-    before_render();
     if (!static_live_resize_in_progress) {
         draw_borders(br->vao_idx, br->num_border_rects, br->rect_buf, br->is_dirty, os_window->viewport_width, os_window->viewport_height, active_window_bg, num_visible_windows, os_window);
         br->is_dirty = false;
     }
-    double pixels = 0.0;
     for (unsigned int i = 0; i < tab->num_windows; i++) {
         Window *w = tab->windows + i;
         if (w->visible && WD.screen) {
-            pixels = get_scrolled_by_pixels(WD.screen);
+            before_render();
             bool is_active_window = i == tab->active_window;
             draw_cells(WD.vao_idx, WD.gvao_idx, WD.xstart, WD.ystart, WD.dx * x_ratio, WD.dy * y_ratio, WD.screen, os_window, is_active_window, true);
             if (WD.screen->start_visual_bell_at != 0) {
                 double bell_left = global_state.opts.visual_bell_duration - (now - WD.screen->start_visual_bell_at);
                 set_maximum_wait(bell_left);
             }
+            double pixels = get_scrolled_by_pixels(WD.screen);
+            after_render(pixels / os_window->viewport_height * 2);
             w->cursor_visible_at_last_render = WD.screen->cursor_render_info.is_visible; w->last_cursor_x = WD.screen->cursor_render_info.x; w->last_cursor_y = WD.screen->cursor_render_info.y; w->last_cursor_shape = WD.screen->cursor_render_info.shape;
         }
     }
-    after_render(pixels / os_window->viewport_height * 2);
     if (TD.screen && os_window->num_tabs >= OPT(tab_bar_min_tabs)) draw_cells(TD.vao_idx, 0, TD.xstart, TD.ystart, TD.dx, TD.dy, TD.screen, os_window, true, false);
     swap_window_buffers(os_window);
     os_window->last_active_tab = os_window->active_tab; os_window->last_num_tabs = os_window->num_tabs; os_window->last_active_window_id = active_window_id;
