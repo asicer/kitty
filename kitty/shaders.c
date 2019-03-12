@@ -227,7 +227,7 @@ void after_render(double pixels) {
     glClearColor(0.5f, 0.5f, 0.5f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
 
-    printf("%f\n", pixels);
+    //printf("%f\n", pixels);
     bind_program(SCROLL_PROGRAM);
     glUniform1f(glGetUniformLocation(program_id(SCROLL_PROGRAM), "offset"), pixels);
     glBindVertexArray(quadVAO);
