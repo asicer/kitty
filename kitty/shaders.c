@@ -155,7 +155,6 @@ typedef struct {
 static CellProgramLayout cell_program_layouts[NUM_PROGRAMS];
 static GLuint offscreen_framebuffer = 0;
 static GLuint scroll_framebuffer = 0;
-static unsigned int scroll_texture = 0;
 static unsigned int quadVAO, quadVBO;
 static ssize_t blit_vertex_array;
 
@@ -179,18 +178,18 @@ init_cell_program(void) {
     blit_vertex_array = create_vao();
 }
 
-void setup_scroll(int UNUSED width, int UNUSED height) {
+void setup_scroll(OSWindow *os_window) {
     glGenFramebuffers(1, &scroll_framebuffer);
     glBindFramebuffer(GL_FRAMEBUFFER, scroll_framebuffer);
-    glGenTextures(1, &scroll_texture);
-    glBindTexture(GL_TEXTURE_2D, scroll_texture);
-    printf("%d %d\n", width, height);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
-    //glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 640, 400, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+    glGenTextures(1, &os_window->scroll_texture_id);
+    glBindTexture(GL_TEXTURE_2D, os_window->scroll_texture_id);
+    printf("%d %d\n", os_window->viewport_width, os_window->viewport_height);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, os_window->viewport_width, os_window->viewport_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+    //glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 640, 400, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glBindTexture(GL_TEXTURE_2D, 0);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, scroll_texture, 0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, os_window->scroll_texture_id, 0);
 
     float quadVertices[] = { // vertex attributes for a quad that fills the entire screen in Normalized Device Coordinates.
         // positions   // texCoords
@@ -221,7 +220,7 @@ void before_render() {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // we're not using the stencil buffer now
 }
 
-void after_render(double pixels) {
+void after_render(OSWindow *os_window, double pixels) {
     // second pass
     glBindFramebuffer(GL_FRAMEBUFFER, 0); // back to default
     glClearColor(0.5f, 0.5f, 0.5f, 1.0f);
@@ -231,7 +230,7 @@ void after_render(double pixels) {
     bind_program(SCROLL_PROGRAM);
     glUniform1f(glGetUniformLocation(program_id(SCROLL_PROGRAM), "offset"), pixels);
     glBindVertexArray(quadVAO);
-    glBindTexture(GL_TEXTURE_2D, scroll_texture);
+    glBindTexture(GL_TEXTURE_2D, os_window->scroll_texture_id);
     glDrawArrays(GL_TRIANGLES, 0, 6);
 }
 
