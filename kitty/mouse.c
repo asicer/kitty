@@ -187,6 +187,7 @@ drag_scroll(Window *w, OSWindow *frame) {
         Screen *screen = w->render_data.screen;
         if (screen->linebuf == screen->main_linebuf) {
             screen_history_scroll(screen, SCROLL_LINE, upwards);
+            pixel_scroll(screen, 0);
             update_drag(false, w, false, 0);
             frame->last_mouse_activity_at = monotonic();
             if (mouse_cursor_shape != ARROW) {
@@ -620,11 +621,27 @@ scroll_event(double UNUSED xoffset, double yoffset, int flags) {
         if (s == 0 && yoffset != 0) s = yoffset > 0 ? 1 : -1;
     }
     bool upwards = s > 0;
+    int pixels = global_state.callback_os_window->pending_scroll_pixels;
+    //printf("asdf %f\n", pixels);
     if (screen->linebuf == screen->main_linebuf) {
         screen_history_scroll(screen, abs(s), upwards);
-        printf("asdf %f\n", global_state.callback_os_window->pending_scroll_pixels);
-        pixel_scroll(screen, global_state.callback_os_window->pending_scroll_pixels);
+        if (screen->scrolled_by != 0) {
+            if (screen->scrolled_by != screen->historybuf->count) {
+                pixel_scroll(screen, pixels);
+            } else {
+                if (pixels < 0) pixel_scroll(screen, pixels);
+                else pixel_scroll(screen, 0);
+            }
+        } else {
+            if (screen->scrolled_by != screen->historybuf->count) {
+                if (pixels > 0) pixel_scroll(screen, pixels);
+                else pixel_scroll(screen, 0);
+            } else {
+                pixel_scroll(screen, 0);
+            }
+        }
     } else {
+        pixel_scroll(screen, 0);
         if (screen->modes.mouse_tracking_mode) {
             int sz = encode_mouse_event(w, upwards ? GLFW_MOUSE_BUTTON_4 : GLFW_MOUSE_BUTTON_5, PRESS, 0);
             if (sz > 0) {

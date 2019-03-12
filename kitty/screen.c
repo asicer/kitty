@@ -604,6 +604,7 @@ screen_toggle_screen_buffer(Screen *self) {
         self->grman = self->main_grman;
     }
     screen_history_scroll(self, SCROLL_FULL, false);
+    pixel_scroll(self, 0);
     self->is_dirty = true;
     self->selection = EMPTY_SELECTION;
 }
@@ -2082,6 +2083,7 @@ static PyObject*
 scroll(Screen *self, PyObject *args) {
     int amt, upwards;
     if (!PyArg_ParseTuple(args, "ip", &amt, &upwards)) return NULL;
+    pixel_scroll(self, 0);
     if (screen_history_scroll(self, amt, upwards)) { Py_RETURN_TRUE; }
     Py_RETURN_FALSE;
 }
