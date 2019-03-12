@@ -351,6 +351,11 @@ cell_prepare_to_render(ssize_t vao_idx, ssize_t gvao_idx, Screen *screen, GLfloa
 
     ensure_sprite_map(fonts_data);
 
+    if (screen->pixel_scroll_changed) {
+        screen->pixel_scroll_changed = false;
+        changed = true;
+    }
+
     bool cursor_pos_changed = screen->cursor->x != screen->last_rendered_cursor_x
                            || screen->cursor->y != screen->last_rendered_cursor_y;
     bool disable_ligatures = screen->disable_ligatures == DISABLE_LIGATURES_CURSOR;

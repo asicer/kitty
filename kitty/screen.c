@@ -99,6 +99,7 @@ new(PyTypeObject *type, PyObject *args, PyObject UNUSED *kwds) {
         self->modes = empty_modes;
         self->is_dirty = true;
         self->scroll_changed = false;
+        self->pixel_scroll_changed = false;
         self->margin_top = 0; self->margin_bottom = self->lines - 1;
         self->history_line_added_count = 0;
         RESET_CHARSETS;
@@ -1129,6 +1130,7 @@ screen_erase_in_display(Screen *self, unsigned int how, bool private) {
             self->scrolled_by = 0;
             self->scroll_changed = true;
         }
+        pixel_scroll(self, 0);
     }
 }
 
@@ -1490,6 +1492,7 @@ screen_update_cell_data(Screen *self, void *address, FONTS_DATA_HANDLE fonts_dat
     if (self->scrolled_by) self->scrolled_by = MIN(self->scrolled_by + history_line_added_count, self->historybuf->count);
     screen_reset_dirty(self);
     self->scroll_changed = false;
+    self->pixel_scroll_changed = false;
     for (index_type y = 0; y < MIN(self->lines, self->scrolled_by); y++) {
         lnum = self->scrolled_by - 1 - y;
         historybuf_init_line(self->historybuf, lnum, self->historybuf->line);
@@ -2046,7 +2049,7 @@ screen_selection_range_for_word(Screen *self, index_type x, index_type *y1, inde
 
 void pixel_scroll(Screen *self, double amt) {
     self->scrolled_by_pixels = amt;
-    self->scroll_changed = true;
+    self->pixel_scroll_changed = true;
 }
 
 bool
