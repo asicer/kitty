@@ -1492,7 +1492,6 @@ screen_update_cell_data(Screen *self, void *address, FONTS_DATA_HANDLE fonts_dat
     if (self->scrolled_by) self->scrolled_by = MIN(self->scrolled_by + history_line_added_count, self->historybuf->count);
     screen_reset_dirty(self);
     self->scroll_changed = false;
-    self->pixel_scroll_changed = false;
     for (index_type y = 0; y < MIN(self->lines, self->scrolled_by); y++) {
         lnum = self->scrolled_by - 1 - y;
         historybuf_init_line(self->historybuf, lnum, self->historybuf->line);
