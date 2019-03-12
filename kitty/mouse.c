@@ -600,11 +600,12 @@ scroll_event(double UNUSED xoffset, double yoffset, int flags) {
     int s;
     bool is_high_resolution = flags & 1;
 
+    double pixels = screen->pending_scroll_pixels;
     if (is_high_resolution) {
         yoffset *= OPT(touch_scroll_multiplier);
-        double pixels = screen->pending_scroll_pixels + yoffset;
+        pixels += yoffset;
         s = (int)round(pixels) / (int)global_state.callback_os_window->fonts_data->cell_height;
-        screen->pending_scroll_pixels = pixels - s * (int) global_state.callback_os_window->fonts_data->cell_height;
+        pixels = pixels - s * (int) global_state.callback_os_window->fonts_data->cell_height;
     } else {
         if (screen->linebuf == screen->main_linebuf || !screen->modes.mouse_tracking_mode) {
             // Only use wheel_scroll_multiplier if we are scrolling kitty scrollback or in mouse
@@ -621,14 +622,15 @@ scroll_event(double UNUSED xoffset, double yoffset, int flags) {
         if (s == 0 && yoffset != 0) s = yoffset > 0 ? 1 : -1;
     }
     bool upwards = s > 0;
-    int pixels = screen->pending_scroll_pixels;
     //printf("asdf %f\n", pixels);
     if (screen->linebuf == screen->main_linebuf) {
         screen_history_scroll(screen, abs(s), upwards);
         if (screen->scrolled_by == 0 && pixels < 0) pixels = 0;
         if (screen->scrolled_by == screen->historybuf->count && pixels > 0) pixels = 0;
-        pixel_scroll(screen, pixels);
+        screen->pending_scroll_pixels = pixels;
+        pixel_scroll(screen, (int)pixels);
     } else {
+        screen->pending_scroll_pixels = 0.0;
         pixel_scroll(screen, 0);
         if (screen->modes.mouse_tracking_mode) {
             int sz = encode_mouse_event(w, upwards ? GLFW_MOUSE_BUTTON_4 : GLFW_MOUSE_BUTTON_5, PRESS, 0);
