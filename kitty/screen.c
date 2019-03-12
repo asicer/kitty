@@ -2043,7 +2043,7 @@ screen_selection_range_for_word(Screen *self, index_type x, index_type *y1, inde
 }
 
 void pixel_scroll(Screen *self, int amt) {
-    printf("pixel_scroll(%d)\n", amt);
+    //printf("pixel_scroll(%d)\n", amt);
     self->scrolled_by_pixels = amt;
     self->pixel_scroll_changed = true;
 }

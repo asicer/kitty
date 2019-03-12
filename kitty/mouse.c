@@ -622,7 +622,7 @@ scroll_event(double UNUSED xoffset, double yoffset, int flags) {
     }
     bool upwards = s > 0;
     int pixels = screen->pending_scroll_pixels;
-    printf("asdf %d\n", pixels);
+    //printf("asdf %f\n", pixels);
     if (screen->linebuf == screen->main_linebuf) {
         screen_history_scroll(screen, abs(s), upwards);
         if (screen->scrolled_by != 0) {
