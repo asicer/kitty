@@ -224,7 +224,7 @@ void before_render() {
 void after_render(double pixels) {
     // second pass
     glBindFramebuffer(GL_FRAMEBUFFER, 0); // back to default
-    glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+    glClearColor(0.5f, 0.5f, 0.5f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
 
     printf("%f\n", pixels);
