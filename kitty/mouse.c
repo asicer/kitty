@@ -630,8 +630,8 @@ scroll_event(double UNUSED xoffset, double yoffset, int flags) {
         screen->pending_scroll_pixels = pixels;
         pixel_scroll(screen, (int)pixels);
     } else {
-        screen->pending_scroll_pixels = 0.0;
-        pixel_scroll(screen, 0);
+        pixels = 0.0;
+        pixel_scroll(screen, (int)pixels);
         if (screen->modes.mouse_tracking_mode) {
             int sz = encode_mouse_event(w, upwards ? GLFW_MOUSE_BUTTON_4 : GLFW_MOUSE_BUTTON_5, PRESS, 0);
             if (sz > 0) {
@@ -644,6 +644,7 @@ scroll_event(double UNUSED xoffset, double yoffset, int flags) {
             fake_scroll(abs(s), upwards);
         }
     }
+    screen->pending_scroll_pixels = pixels;
 }
 
 static PyObject*
