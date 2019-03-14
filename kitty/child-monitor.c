@@ -286,7 +286,7 @@ schedule_write_to_child(unsigned long id, unsigned int num, ...) {
                 }
                 screen->write_buf_sz = screen->write_buf_used + sz;
                 screen->write_buf = PyMem_RawRealloc(screen->write_buf, screen->write_buf_sz);
-                if (screen->write_buf == NULL) { fatal("Out of memory."); }
+                if (screen->write_buf == NULL) fatal("Out of memory.");
             }
             va_start(ap, num);
             for (unsigned int i = 0; i < num; i++) {
@@ -299,7 +299,7 @@ schedule_write_to_child(unsigned long id, unsigned int num, ...) {
             if (screen->write_buf_sz > BUFSIZ && screen->write_buf_used < BUFSIZ) {
                 screen->write_buf_sz = BUFSIZ;
                 screen->write_buf = PyMem_RawRealloc(screen->write_buf, screen->write_buf_sz);
-                if (screen->write_buf == NULL) { fatal("Out of memory."); }
+                if (screen->write_buf == NULL) fatal("Out of memory.");
             }
             if (screen->write_buf_used) wakeup_io_loop(false);
             screen_mutex(unlock, write);
@@ -639,10 +639,13 @@ render_os_window(OSWindow *os_window, double now, unsigned int active_window_id,
         if (w->visible && WD.screen) {
             before_render();
             bool is_active_window = i == tab->active_window;
-            draw_cells(WD.vao_idx, WD.gvao_idx, WD.xstart, WD.ystart, WD.dx * x_ratio, WD.dy * y_ratio, WD.screen, os_window, is_active_window, true);
-            if (WD.screen->start_visual_bell_at != 0) {
-                double bell_left = global_state.opts.visual_bell_duration - (now - WD.screen->start_visual_bell_at);
-                set_maximum_wait(bell_left);
+            if (WD.screen->render_not_only_pixel_scroll) {
+                WD.screen->render_not_only_pixel_scroll = false;
+                draw_cells(WD.vao_idx, WD.gvao_idx, WD.xstart, WD.ystart, WD.dx * x_ratio, WD.dy * y_ratio, WD.screen, os_window, is_active_window, true);
+                if (WD.screen->start_visual_bell_at != 0) {
+                    double bell_left = global_state.opts.visual_bell_duration - (now - WD.screen->start_visual_bell_at);
+                    set_maximum_wait(bell_left);
+                }
             }
             after_render(os_window, (WD.screen->scrolled_by_pixels * 2.0) / os_window->viewport_height);
             w->cursor_visible_at_last_render = WD.screen->cursor_render_info.is_visible; w->last_cursor_x = WD.screen->cursor_render_info.x; w->last_cursor_y = WD.screen->cursor_render_info.y; w->last_cursor_shape = WD.screen->cursor_render_info.shape;

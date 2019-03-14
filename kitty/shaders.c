@@ -184,7 +184,7 @@ void setup_scroll(OSWindow *os_window) {
     glGenTextures(1, &os_window->scroll_texture_id);
     glBindTexture(GL_TEXTURE_2D, os_window->scroll_texture_id);
     printf("%d %d\n", os_window->viewport_width, os_window->viewport_height);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, os_window->viewport_width, os_window->viewport_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, os_window->viewport_width, os_window->viewport_height + 100, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
     //glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 640, 400, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -217,7 +217,7 @@ void before_render() {
     // first pass
     glBindFramebuffer(GL_FRAMEBUFFER, scroll_framebuffer);
     //glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // we're not using the stencil buffer now
+    //glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // we're not using the stencil buffer now
 }
 
 void after_render(OSWindow *os_window, double pixels) {
@@ -360,6 +360,7 @@ cell_prepare_to_render(ssize_t vao_idx, ssize_t gvao_idx, Screen *screen, GLfloa
     bool disable_ligatures = screen->disable_ligatures == DISABLE_LIGATURES_CURSOR;
 
     if (screen->scroll_changed || screen->is_dirty || (disable_ligatures && cursor_pos_changed)) {
+        screen->render_not_only_pixel_scroll = true;
         sz = sizeof(GPUCell) * screen->lines * screen->columns;
         address = alloc_and_map_vao_buffer(vao_idx, sz, cell_data_buffer, GL_STREAM_DRAW, GL_WRITE_ONLY);
         screen_update_cell_data(screen, address, fonts_data, disable_ligatures && cursor_pos_changed);
@@ -373,6 +374,7 @@ cell_prepare_to_render(ssize_t vao_idx, ssize_t gvao_idx, Screen *screen, GLfloa
     }
 
     if (screen_is_selection_dirty(screen)) {
+        screen->render_not_only_pixel_scroll = true;
         sz = screen->lines * screen->columns;
         address = alloc_and_map_vao_buffer(vao_idx, sz, selection_buffer, GL_STREAM_DRAW, GL_WRITE_ONLY);
         screen_apply_selection(screen, address, sz);
@@ -381,6 +383,7 @@ cell_prepare_to_render(ssize_t vao_idx, ssize_t gvao_idx, Screen *screen, GLfloa
     }
 
     if (gvao_idx && grman_update_layers(screen->grman, screen->scrolled_by, xstart, ystart, dx, dy, screen->columns, screen->lines, screen->cell_size)) {
+        screen->render_not_only_pixel_scroll = true;
         send_graphics_data_to_gpu(screen->grman->count, gvao_idx, screen->grman->render_data);
         changed = true;
     }

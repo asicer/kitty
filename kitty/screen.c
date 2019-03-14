@@ -100,6 +100,7 @@ new(PyTypeObject *type, PyObject *args, PyObject UNUSED *kwds) {
         self->is_dirty = true;
         self->scroll_changed = false;
         self->pixel_scroll_changed = false;
+        self->render_not_only_pixel_scroll = false;
         self->margin_top = 0; self->margin_bottom = self->lines - 1;
         self->history_line_added_count = 0;
         RESET_CHARSETS;
