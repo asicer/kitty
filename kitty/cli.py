@@ -626,7 +626,9 @@ type=bool-set
 
 
 def options_for_completion():
-    return parse_option_spec(options_spec())[0]
+    raw = '--help -h\ntype=bool-set\nShow help for {appname} command line options\n\n{raw}'.format(
+            appname=appname, raw=options_spec())
+    return parse_option_spec(raw)[0]
 
 
 def option_spec_as_rst(ospec=options_spec, usage=None, message=None, appname=None, heading_char='-'):
