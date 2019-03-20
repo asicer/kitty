@@ -51,11 +51,6 @@ update_os_window_viewport(OSWindow *window, bool notify_boss) {
     window->window_height = MAX(h, 100);
     if (notify_boss) {
         call_boss(on_window_resize, "KiiO", window->id, window->viewport_width, window->viewport_height, dpi_changed ? Py_True : Py_False);
-        if (dpi_changed && global_state.is_wayland) {
-           // Fake resize event needed on weston to ensure surface is
-           // positioned correctly after DPI change
-            glfwSetWindowSize(window->handle, window->window_width, window->window_height);
-        }
     }
 }
 
@@ -123,6 +118,14 @@ window_close_callback(GLFWwindow* window) {
     request_tick_callback();
     global_state.callback_os_window = NULL;
 }
+
+#ifdef __APPLE__
+static void
+application_quit_canary_close_requested(GLFWwindow *window UNUSED) {
+    global_state.has_pending_closes = true;
+    request_tick_callback();
+}
+#endif
 
 static void
 window_occlusion_callback(GLFWwindow *window, bool occluded UNUSED) {
@@ -379,9 +382,9 @@ get_window_content_scale(GLFWwindow *w, float *xscale, float *yscale, double *xd
         GLFWmonitor *monitor = glfwGetPrimaryMonitor();
         if (monitor) glfwGetMonitorContentScale(monitor, xscale, yscale);
     }
-    // check for zero or NaN values of xscale/yscale
-    if (!*xscale || *xscale != *xscale) *xscale = 1.0;
-    if (!*yscale || *yscale != *yscale) *yscale = 1.0;
+    // check for zero, negative, NaN or excessive values of xscale/yscale
+    if (*xscale <= 0 || *xscale != *xscale || *xscale >= 24) *xscale = 1.0;
+    if (*yscale <= 0 || *yscale != *yscale || *yscale >= 24) *yscale = 1.0;
 #ifdef __APPLE__
     const double factor = 72.0;
 #else
@@ -549,6 +552,7 @@ create_os_window(PyObject UNUSED *self, PyObject *args) {
 #ifdef __APPLE__
     if (is_first_window && !application_quit_canary) {
         application_quit_canary = glfwCreateWindow(100, 200, "quit_canary", NULL, NULL);
+        glfwSetWindowCloseCallback(application_quit_canary, application_quit_canary_close_requested);
     }
     if (!common_context) common_context = application_quit_canary;
 #endif
