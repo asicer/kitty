@@ -295,15 +295,20 @@ static GLFWbool initializeTIS(void)
 @end  // GLFWHelper
 
 @interface GLFWApplication : NSApplication
+- (void)tick_callback;
+- (void)render_frame_received:(id)displayIDAsID;
 @end
 
-extern void dispatchCustomEvent(NSEvent *event);
-
 @implementation GLFWApplication
-- (void)sendEvent:(NSEvent *)event {
-    if (event.type == NSEventTypeApplicationDefined) {
-        dispatchCustomEvent(event);
-    } else [super sendEvent:event];
+- (void)tick_callback
+{
+    _glfwDispatchTickCallback();
+}
+
+- (void)render_frame_received:(id)displayIDAsID
+{
+    CGDirectDisplayID displayID = [(NSNumber*)displayIDAsID unsignedIntValue];
+    _glfwDispatchRenderFrame(displayID);
 }
 @end
 
@@ -462,6 +467,7 @@ static GLFWtickcallback tick_callback = NULL;
 static void* tick_callback_data = NULL;
 static bool tick_callback_requested = false;
 
+
 void _glfwDispatchTickCallback() {
     if (tick_callback) {
         tick_callback_requested = false;
@@ -472,7 +478,7 @@ void _glfwDispatchTickCallback() {
 void _glfwPlatformRequestTickCallback() {
     if (!tick_callback_requested) {
         tick_callback_requested = true;
-        _glfwCocoaPostEmptyEvent(TICK_CALLBACK_EVENT_TYPE, 0, false);
+        [NSApp performSelectorOnMainThread:@selector(tick_callback) withObject:nil waitUntilDone:NO];
     }
 }
 

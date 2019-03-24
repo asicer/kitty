@@ -1741,7 +1741,7 @@ void _glfwPlatformSetWindowOpacity(_GLFWwindow* window, float opacity)
     [window->ns.object setAlphaValue:opacity];
 }
 
-static inline CGDirectDisplayID displayIDForWindow(_GLFWwindow *w) {
+CGDirectDisplayID displayIDForWindow(_GLFWwindow *w) {
     NSWindow *nw = w->ns.object;
     NSDictionary *dict = [nw.screen deviceDescription];
     NSNumber *displayIDns = [dict objectForKey:@"NSScreenNumber"];
@@ -1750,31 +1750,14 @@ static inline CGDirectDisplayID displayIDForWindow(_GLFWwindow *w) {
 }
 
 void
-dispatchCustomEvent(NSEvent *event) {
-    switch(event.subtype) {
-        case RENDER_FRAME_REQUEST_EVENT_TYPE:
-            {
-                CGDirectDisplayID displayID = (CGDirectDisplayID)event.data1;
-                _GLFWwindow *w = _glfw.windowListHead;
-                while (w) {
-                    if (w->ns.renderFrameRequested && displayID == displayIDForWindow(w)) {
-                        w->ns.renderFrameRequested = GLFW_FALSE;
-                        w->ns.renderFrameCallback((GLFWwindow*)w);
-                    }
-                    w = w->next;
-                }
-            }
-            break;
-
-        case EMPTY_EVENT_TYPE:
-            break;
-
-        case TICK_CALLBACK_EVENT_TYPE:
-            _glfwDispatchTickCallback();
-            break;
-
-        default:
-            break;
+_glfwDispatchRenderFrame(CGDirectDisplayID displayID) {
+    _GLFWwindow *w = _glfw.windowListHead;
+    while (w) {
+        if (w->ns.renderFrameRequested && displayID == displayIDForWindow(w)) {
+            w->ns.renderFrameRequested = GLFW_FALSE;
+            w->ns.renderFrameCallback((GLFWwindow*)w);
+        }
+        w = w->next;
     }
 }
 
@@ -1940,21 +1923,26 @@ int _glfwPlatformCreateCursor(_GLFWcursor* cursor,
     return GLFW_TRUE;
 }
 
-int _glfwPlatformCreateStandardCursor(_GLFWcursor* cursor, int shape)
+int _glfwPlatformCreateStandardCursor(_GLFWcursor* cursor, GLFWCursorShape shape)
 {
-
-    if (shape == GLFW_ARROW_CURSOR)
-        cursor->ns.object = [NSCursor arrowCursor];
-    else if (shape == GLFW_IBEAM_CURSOR)
-        cursor->ns.object = [NSCursor IBeamCursor];
-    else if (shape == GLFW_CROSSHAIR_CURSOR)
-        cursor->ns.object = [NSCursor crosshairCursor];
-    else if (shape == GLFW_HAND_CURSOR)
-        cursor->ns.object = [NSCursor pointingHandCursor];
-    else if (shape == GLFW_HRESIZE_CURSOR)
-        cursor->ns.object = [NSCursor resizeLeftRightCursor];
-    else if (shape == GLFW_VRESIZE_CURSOR)
-        cursor->ns.object = [NSCursor resizeUpDownCursor];
+#define C(name, val) case name: cursor->ns.object = [NSCursor val]; break;
+#define U(name, val) case name: cursor->ns.object = [[NSCursor class] performSelector:@selector(val)]; break;
+    switch(shape) {
+        C(GLFW_ARROW_CURSOR, arrowCursor);
+        C(GLFW_IBEAM_CURSOR, IBeamCursor);
+        C(GLFW_CROSSHAIR_CURSOR, crosshairCursor);
+        C(GLFW_HAND_CURSOR, pointingHandCursor);
+        C(GLFW_HRESIZE_CURSOR, resizeLeftRightCursor);
+        C(GLFW_VRESIZE_CURSOR, resizeUpDownCursor);
+        U(GLFW_NW_RESIZE_CURSOR, _windowResizeNorthWestSouthEastCursor);
+        U(GLFW_NE_RESIZE_CURSOR, _windowResizeNorthEastSouthWestCursor);
+        U(GLFW_SW_RESIZE_CURSOR, _windowResizeNorthEastSouthWestCursor);
+        U(GLFW_SE_RESIZE_CURSOR, _windowResizeNorthWestSouthEastCursor);
+        case GLFW_INVALID_CURSOR:
+            return GLFW_FALSE;
+    }
+#undef C
+#undef U
 
     if (!cursor->ns.object)
     {

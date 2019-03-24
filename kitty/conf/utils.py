@@ -16,6 +16,10 @@ def to_color(x):
     return as_color(x, validate=True)
 
 
+def to_color_or_none(x):
+    return None if x.lower() == 'none' else to_color(x)
+
+
 def positive_int(x):
     return max(0, int(x))
 
