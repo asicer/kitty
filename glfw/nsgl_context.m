@@ -27,10 +27,6 @@
 #include "internal.h"
 
 
-#if (MAC_OS_X_VERSION_MAX_ALLOWED < 101400)
- #define NSOpenGLContextParameterSurfaceOpacity NSOpenGLCPSurfaceOpacity
-#endif
-
 static void makeContextCurrentNSGL(_GLFWwindow* window)
 {
     if (window)
@@ -178,9 +174,7 @@ GLFWbool _glfwCreateContextNSGL(_GLFWwindow* window,
         //       Info.plist for unbundled applications
         // HACK: This assumes that NSOpenGLPixelFormat will remain
         //       a straightforward wrapper of its CGL counterpart
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1080
         addAttrib(kCGLPFASupportsAutomaticGraphicsSwitching);
-#endif /*MAC_OS_X_VERSION_MAX_ALLOWED*/
     }
 
 #if MAC_OS_X_VERSION_MAX_ALLOWED >= 101000
@@ -304,6 +298,9 @@ GLFWbool _glfwCreateContextNSGL(_GLFWwindow* window,
         GLint opaque = 0;
         [window->context.nsgl.object setValues:&opaque forParameter:NSOpenGLContextParameterSurfaceOpacity];
     }
+
+    if (window->ns.retina)
+        [window->ns.view setWantsBestResolutionOpenGLSurface:YES];
 
     [window->context.nsgl.object setView:window->ns.view];
 
