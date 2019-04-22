@@ -350,8 +350,7 @@ def dependecies_for(src, obj, all_headers):
 
 def parallel_run(todo, desc='Compiling {} ...'):
     try:
-        from multiprocessing import cpu_count
-        num_workers = max(1, cpu_count())
+        num_workers = max(2, os.cpu_count())
     except Exception:
         num_workers = 2
     items = list(reversed(tuple(todo.items())))
@@ -630,18 +629,18 @@ def compile_python(base_path):
     import compileall
     import py_compile
     try:
-        from multiprocessing import cpu_count
-        num_workers = max(1, cpu_count())
+        num_workers = max(1, os.cpu_count())
     except Exception:
         num_workers = 1
     for root, dirs, files in os.walk(base_path):
         for f in files:
             if f.rpartition('.')[-1] in ('pyc', 'pyo'):
                 os.remove(os.path.join(root, f))
-    kwargs = dict(ddir='', force=True, optimize=1, quiet=1, workers=num_workers)
-    if hasattr(py_compile, 'PycInvalidationMode'):
-        kwargs['invalidation_mode'] = py_compile.PycInvalidationMode.UNCHECKED_HASH
-    compileall.compile_dir(base_path, **kwargs)
+    for optimize in (0, 1, 2):
+        kwargs = dict(ddir='', force=True, optimize=optimize, quiet=1, workers=num_workers)
+        if hasattr(py_compile, 'PycInvalidationMode'):
+            kwargs['invalidation_mode'] = py_compile.PycInvalidationMode.UNCHECKED_HASH
+        compileall.compile_dir(base_path, **kwargs)
 
 
 def package(args, for_bundle=False, sh_launcher=False):

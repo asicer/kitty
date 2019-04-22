@@ -20,7 +20,7 @@ To update |kitty|, :doc:`follow the instructions <binary>`.
 - macOS: Allow opening new kitty tabs/top-level windows from Finder
   (:pull:`1350`)
 
-- Add an option :opt:`disable_ligatures_under_cursor` to disable
+- Add an option :opt:`disable_ligatures` to disable
   multi-character ligatures under the cursor to make editing easier
   (:iss:`461`)
 
@@ -94,6 +94,9 @@ To update |kitty|, :doc:`follow the instructions <binary>`.
   the kitty copy concatenation protocol extension for OSC 52.
 
 - Update to using the Unicode 12 standard
+
+- Unicode input kitten: Allow using the arrow keys in code mode to go to next
+  and previous unicode symbol.
 
 - macOS: Fix specifying initial window size in cells not working correctly on
   Retina screens (:iss:`1444`)
