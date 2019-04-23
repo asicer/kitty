@@ -286,7 +286,7 @@ def print_help_for_seq(seq, usage, message, appname):
     text = '\n'.join(blocks) + '\n\n' + version()
     if print_help_for_seq.allow_pager and sys.stdout.isatty():
         import subprocess
-        p = subprocess.Popen(['less', '-isRXF'], stdin=subprocess.PIPE)
+        p = subprocess.Popen(['less', '-isRF'], stdin=subprocess.PIPE)
         try:
             p.communicate(text.encode('utf-8'))
         except KeyboardInterrupt:
