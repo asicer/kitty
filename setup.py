@@ -390,12 +390,12 @@ def prepare_compile_c_extension(kenv, module, incremental, compilation_database,
         cmd = [kenv.cc] + linker_cflags + kenv.ldflags + objects + kenv.ldpaths + ['-o', dest]
         todo[module] = [cmd, 1, False, False, deps]
         # except Exception:
-            # try:
-                # os.remove(dest)
-            # except EnvironmentError:
-                # pass
+        #     try:
+        #         os.remove(dest)
+        #     except EnvironmentError:
+        #         pass
         # else:
-            # os.rename(dest, real_dest)
+        #     os.rename(dest, real_dest)
     return todo
 
 
@@ -404,7 +404,7 @@ def fast_compile(files):
         num_workers = max(1, os.cpu_count())
     except Exception:
         num_workers = 1
-    #num_workers += 1
+    # num_workers += 1
     items = queue.Queue()
     workers = {}
     failed = None
@@ -434,7 +434,7 @@ def fast_compile(files):
             all_done = False
 
             all_deps_done = True
-            if deps != None:
+            if deps is not None:
                 for dep in deps:
                     if not files[dep][3]:
                         all_deps_done = False
@@ -458,7 +458,6 @@ def fast_compile(files):
 
         if all_done:
             break
-
 
     while len(workers):
         wait()
