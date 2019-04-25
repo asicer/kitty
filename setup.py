@@ -15,6 +15,7 @@ import subprocess
 import sys
 import sysconfig
 import time
+import queue
 
 base = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(base, 'glfw'))
@@ -338,92 +339,131 @@ def dependecies_for(src, obj, all_headers):
                     yield path
 
 
-def parallel_run(todo, desc='Compiling {} ...'):
-    try:
-        num_workers = max(2, os.cpu_count())
-    except Exception:
-        num_workers = 2
-    items = list(reversed(tuple(todo.items())))
-    workers = {}
-    failed = None
-
-    def wait():
-        nonlocal failed
-        if not workers:
-            return
-        pid, s = os.wait()
-        name, cmd, w = workers.pop(pid, (None, None, None))
-        if name is not None and ((s & 0xff) != 0 or ((s >> 8) & 0xff) != 0) and failed is None:
-            failed = name, cmd
-
-    while items and failed is None:
-        while len(workers) < num_workers and items:
-            name, cmd = items.pop()
-            if verbose:
-                print(' '.join(cmd))
-            else:
-                print(desc.format(emphasis(name)))
-            w = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
-            workers[w.pid] = name, cmd, w
-        wait()
-    while len(workers):
-        wait()
-    if failed:
-        run_tool(failed[1])
-
-
-def compile_c_extension(kenv, module, incremental, compilation_database, all_keys, sources, headers):
-    prefix = os.path.basename(module)
-    objects = [
-        os.path.join(build_dir, prefix + '-' + os.path.basename(src) + '.o')
-        for src in sources
-    ]
+def prepare_compile_c_extension(kenv, module, incremental, compilation_database, all_keys, sources, headers):
+    module = module + '.so'
 
     todo = {}
+    deps = []
+    objects = []
 
-    for original_src, dest in zip(sources, objects):
-        src = original_src
+    for src in sources:
+        name = src
         cppflags = kenv.cppflags[:]
+        dest = os.path.join(build_dir, src + '.o')
         is_special = src in SPECIAL_SOURCES
         if is_special:
             src, defines = SPECIAL_SOURCES[src]
             cppflags.extend(map(define, defines))
 
-        if src == 'kitty/data-types.c':
+        if src == 'kitty/data-types.c':  # TODO: Make SPECIAL_SOURCE
             if os.path.exists('.git'):
                 rev = subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode('utf-8').strip()
                 cppflags.append(define('KITTY_VCS_REV="{}"'.format(rev)))
         cmd = [kenv.cc, '-MMD'] + cppflags + kenv.cflags
-        key = original_src, os.path.basename(dest)
+        key = src, os.path.basename(dest)
         all_keys.add(key)
+        full_src = os.path.join(base, src)
         cmd_changed = compilation_database.get(key, [])[:-4] != cmd
-        must_compile = not incremental or cmd_changed
-        src = os.path.join(base, src)
-        if must_compile or newer(
-            dest, *dependecies_for(src, dest, headers)
+        if not incremental or cmd_changed or newer(
+            dest, *dependecies_for(full_src, dest, headers)
         ):
-            cmd += ['-c', src] + ['-o', dest]
+            os.makedirs(os.path.dirname(dest), exist_ok=True)
+            cmd += ['-c', full_src] + ['-o', dest]
             compilation_database[key] = cmd
-            todo[original_src] = cmd
-    if todo:
-        parallel_run(todo)
-    dest = os.path.join(base, module + '.temp.so')
-    real_dest = dest[:-len('.temp.so')] + '.so'
+            todo[name] = [cmd, 0, False, False, None]
+        else:
+            todo[name] = [None, 0, True, True, None]
+        deps += [src]
+        objects += [dest]
+    # print(module)
+    # dest = os.path.join(base, module + '.temp.so')
+    dest = os.path.join(base, module)
+    # real_dest = dest[:-len('.temp.so')] + '.so'
+    real_dest = dest
     if not incremental or newer(real_dest, *objects):
         # Old versions of clang don't like -pthread being passed to the linker
         # Don't treat linker warnings as errors (linker generates spurious
         # warnings on some old systems)
         unsafe = {'-pthread', '-Werror', '-pedantic-errors'}
         linker_cflags = list(filter(lambda x: x not in unsafe, kenv.cflags))
-        try:
-            run_tool([kenv.cc] + linker_cflags + kenv.ldflags + objects + kenv.ldpaths + ['-o', dest], desc='Linking {} ...'.format(emphasis(module)))
-        except Exception:
-            try:
-                os.remove(dest)
-            except EnvironmentError:
-                pass
-        else:
-            os.rename(dest, real_dest)
+        # try:
+        cmd = [kenv.cc] + linker_cflags + kenv.ldflags + objects + kenv.ldpaths + ['-o', dest]
+        todo[module] = [cmd, 1, False, False, deps]
+        # except Exception:
+            # try:
+                # os.remove(dest)
+            # except EnvironmentError:
+                # pass
+        # else:
+            # os.rename(dest, real_dest)
+    return todo
+
+
+def fast_compile(files):
+    try:
+        num_workers = max(1, os.cpu_count())
+    except Exception:
+        num_workers = 1
+    #num_workers += 1
+    items = queue.Queue()
+    workers = {}
+    failed = None
+
+    def wait():
+        nonlocal failed
+        if not workers:  # TODO: len(workers) < num_workers ?
+            return
+        pid, s = os.wait()
+        name, cmd, w = workers.pop(pid, (None, None, None))
+        if name is not None and ((s & 0xff) != 0 or ((s >> 8) & 0xff) != 0) and failed is None:
+            failed = name, cmd
+        files[name][3] = True
+
+    while failed is None:
+        all_done = True
+        for key in files:
+            value = files[key]
+            name = key
+            cmd = value[0]
+            action = value[1]  # TODO: Use enum
+            started = value[2]
+            done = value[3]
+            deps = value[4]
+            if started or done:
+                continue
+            all_done = False
+
+            all_deps_done = True
+            if deps != None:
+                for dep in deps:
+                    if not files[dep][3]:
+                        all_deps_done = False
+                        break
+            if all_deps_done:
+                items.put((name, cmd, action))
+                value[2] = True
+
+        while len(workers) < num_workers and not items.empty():
+            name, cmd, action = items.get()
+            if verbose:
+                print(' '.join(cmd))
+            else:
+                if action == 0:
+                    print('Compiling {} ...'.format(emphasis(name)))
+                elif action == 1:
+                    print('Linking {} ...'.format(emphasis(name)))
+            w = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
+            workers[w.pid] = name, cmd, w
+        wait()
+
+        if all_done:
+            break
+
+
+    while len(workers):
+        wait()
+    if failed:
+        run_tool(failed[1])  # TODO: Use output of failed worker directly
 
 
 def find_c_files():
@@ -443,8 +483,9 @@ def find_c_files():
     return tuple(ans), tuple(headers)
 
 
-def compile_glfw(incremental, compilation_database, all_keys):
+def prepare_compile_glfw(incremental, compilation_database, all_keys):
     modules = 'cocoa' if is_macos else 'x11 wayland'
+    todo = {}
     for module in modules.split():
         try:
             genv = glfw.init_env(env, pkg_config, at_least_version, test_compile, module)
@@ -463,7 +504,8 @@ def compile_glfw(incremental, compilation_database, all_keys):
                 print(err, file=sys.stderr)
                 print(error('Disabling building of wayland backend'), file=sys.stderr)
                 continue
-        compile_c_extension(genv, 'kitty/glfw-' + module, incremental, compilation_database, all_keys, sources, all_headers)
+        todo.update(prepare_compile_c_extension(genv, 'kitty/glfw-' + module, incremental, compilation_database, all_keys, sources, all_headers))
+    return todo
 
 
 def kittens_env():
@@ -476,7 +518,8 @@ def kittens_env():
     return kenv
 
 
-def compile_kittens(incremental, compilation_database, all_keys):
+def prepare_compile_kittens(incremental, compilation_database, all_keys):
+    todo = {}
     kenv = kittens_env()
 
     def list_files(q):
@@ -496,8 +539,9 @@ def compile_kittens(incremental, compilation_database, all_keys):
             extra_sources=('kitty/charsets.c',),
             filter_sources=lambda x: 'windows_compat.c' not in x),
     ):
-        compile_c_extension(
-            kenv, dest, incremental, compilation_database, all_keys, sources, all_headers + ['kitty/data-types.h'])
+        todo.update(prepare_compile_c_extension(
+            kenv, dest, incremental, compilation_database, all_keys, sources, all_headers + ['kitty/data-types.h']))
+    return todo
 
 
 def build(args, native_optimizations=True):
@@ -513,11 +557,13 @@ def build(args, native_optimizations=True):
     }
     env = init_env(args.debug, args.sanitize, native_optimizations, args.profile, args.extra_logging)
     try:
-        compile_c_extension(
+        to_compile = prepare_compile_kittens(args.incremental, compilation_database, all_keys)
+        to_compile.update(prepare_compile_c_extension(
             kitty_env(), 'kitty/fast_data_types', args.incremental, compilation_database, all_keys, *find_c_files()
-        )
-        compile_glfw(args.incremental, compilation_database, all_keys)
-        compile_kittens(args.incremental, compilation_database, all_keys)
+        ))
+        to_compile.update(prepare_compile_glfw(args.incremental, compilation_database, all_keys))
+
+        fast_compile(to_compile)
         for key in set(compilation_database) - all_keys:
             del compilation_database[key]
     finally:
