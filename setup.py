@@ -302,6 +302,9 @@ def run_tool(cmd, desc=None):
 SPECIAL_SOURCES = {
     'kitty/parser_dump.c': ('kitty/parser.c', ['DUMP_COMMANDS']),
 }
+if os.path.exists('.git'):
+    rev = subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode('utf-8').strip()
+    SPECIAL_SOURCES.update({'kitty/data-types.c': ('kitty/data-types.c', ['KITTY_VCS_REV="{}"'.format(rev)])})
 
 
 def newer(dest, *sources):
@@ -339,10 +342,10 @@ def dependecies_for(src, obj, all_headers):
                     yield path
 
 
-def prepare_compile_c_extension(kenv, module, incremental, compilation_database, all_keys, sources, headers):
-    module = module + '.so'
+def prepare_compile_c_extension(kenv, module, incremental, compilation_database, sources, headers):
+    module += '.so'
 
-    todo = {}
+    to_compile = {}
     deps = []
     objects = []
 
@@ -354,25 +357,18 @@ def prepare_compile_c_extension(kenv, module, incremental, compilation_database,
         if is_special:
             src, defines = SPECIAL_SOURCES[src]
             cppflags.extend(map(define, defines))
-
-        if src == 'kitty/data-types.c':  # TODO: Make SPECIAL_SOURCE
-            if os.path.exists('.git'):
-                rev = subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode('utf-8').strip()
-                cppflags.append(define('KITTY_VCS_REV="{}"'.format(rev)))
         cmd = [kenv.cc, '-MMD'] + cppflags + kenv.cflags
-        key = src, os.path.basename(dest)
-        all_keys.add(key)
+        compilation_key = src, os.path.basename(dest)  # TODO: remove second part
         full_src = os.path.join(base, src)
-        cmd_changed = compilation_database.get(key, [])[:-4] != cmd
+        cmd_changed = compilation_database.get(compilation_key, [])[:-4] != cmd
         if not incremental or cmd_changed or newer(
             dest, *dependecies_for(full_src, dest, headers)
         ):
             os.makedirs(os.path.dirname(dest), exist_ok=True)
             cmd += ['-c', full_src] + ['-o', dest]
-            compilation_database[key] = cmd
-            todo[name] = [cmd, 0, False, False, None]
+            to_compile[name] = [cmd, 0, False, False, None, compilation_key]
         else:
-            todo[name] = [None, 0, True, True, None]
+            to_compile[name] = [None, 0, True, True, None, compilation_key]
         deps += [src]
         objects += [dest]
     # print(module)
@@ -388,7 +384,7 @@ def prepare_compile_c_extension(kenv, module, incremental, compilation_database,
         linker_cflags = list(filter(lambda x: x not in unsafe, kenv.cflags))
         # try:
         cmd = [kenv.cc] + linker_cflags + kenv.ldflags + objects + kenv.ldpaths + ['-o', dest]
-        todo[module] = [cmd, 1, False, False, deps]
+        to_compile[module] = [cmd, 1, False, False, deps, None]
         # except Exception:
         #     try:
         #         os.remove(dest)
@@ -396,10 +392,10 @@ def prepare_compile_c_extension(kenv, module, incremental, compilation_database,
         #         pass
         # else:
         #     os.rename(dest, real_dest)
-    return todo
+    return to_compile
 
 
-def fast_compile(files):
+def fast_compile(to_compile):
     try:
         num_workers = max(1, os.cpu_count())
     except Exception:
@@ -407,7 +403,7 @@ def fast_compile(files):
     # num_workers += 1
     items = queue.Queue()
     workers = {}
-    failed = None
+    failed = False
 
     def wait():
         nonlocal failed
@@ -415,14 +411,20 @@ def fast_compile(files):
             return
         pid, s = os.wait()
         name, cmd, w = workers.pop(pid, (None, None, None))
-        if name is not None and ((s & 0xff) != 0 or ((s >> 8) & 0xff) != 0) and failed is None:
-            failed = name, cmd
-        files[name][3] = True
+        if name is not None and ((s & 0xff) != 0 or ((s >> 8) & 0xff) != 0) and not failed:  # return non-zero exit code
+            stdout, stderr = w.communicate()
+            for error in stderr.decode('utf-8').splitlines():
+                print(error, file=sys.stderr)
+            for name, cmd, w in workers:
+                w.kill()
 
-    while failed is None:
+            failed = True
+        to_compile[name][3] = True
+
+    while not failed:
         all_done = True
-        for key in files:
-            value = files[key]
+        for key in to_compile:
+            value = to_compile[key]
             name = key
             cmd = value[0]
             action = value[1]  # TODO: Use enum
@@ -436,23 +438,27 @@ def fast_compile(files):
             all_deps_done = True
             if deps is not None:
                 for dep in deps:
-                    if not files[dep][3]:
+                    if not to_compile[dep][3]:
                         all_deps_done = False
                         break
             if all_deps_done:
                 items.put((name, cmd, action))
                 value[2] = True
 
-        while len(workers) < num_workers and not items.empty():
+        while len(workers) < num_workers and not items.empty() and not failed:
             name, cmd, action = items.get()
             if verbose:
                 print(' '.join(cmd))
             else:
                 if action == 0:
-                    print('Compiling {} ...'.format(emphasis(name)))
+                    print('Compiling  {} ...'.format(emphasis(name)))
                 elif action == 1:
-                    print('Linking {} ...'.format(emphasis(name)))
-            w = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
+                    print('Linking    {} ...'.format(emphasis(name)))
+                elif action == 2:
+                    print('Generating {} ...'.format(emphasis(name)))
+                else:
+                    raise SystemExit('Programming error, unknown action {}', .format(action))
+            w = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
             workers[w.pid] = name, cmd, w
         wait()
 
@@ -462,7 +468,21 @@ def fast_compile(files):
     while len(workers):
         wait()
     if failed:
-        run_tool(failed[1])  # TODO: Use output of failed worker directly
+        print('Failed')  # TODO: Remove?
+
+def update_compilation_database(to_compile, compilation_database):
+    all_keys = set()
+    for key in to_compile:
+        value = to_compile[key]
+        cmd = value[0]
+        compilation_key = value[5]
+        if compilation_key is None:
+            continue
+        all_keys.add(compilation_key)
+        compilation_database[compilation_key] = cmd
+
+    for key in set(compilation_database) - all_keys:
+        del compilation_database[key]
 
 
 def find_c_files():
@@ -482,7 +502,7 @@ def find_c_files():
     return tuple(ans), tuple(headers)
 
 
-def prepare_compile_glfw(incremental, compilation_database, all_keys):
+def prepare_compile_glfw(incremental, compilation_database):
     modules = 'cocoa' if is_macos else 'x11 wayland'
     todo = {}
     for module in modules.split():
@@ -498,12 +518,12 @@ def prepare_compile_glfw(incremental, compilation_database, all_keys):
         all_headers = [os.path.join('glfw', x) for x in genv.all_headers]
         if module == 'wayland':
             try:
-                glfw.build_wayland_protocols(genv, run_tool, emphasis, newer, os.path.join(base, 'glfw'))
+                todo.update(glfw.prepare_build_wayland_protocols(genv, emphasis, newer, os.path.join(base, 'glfw')))
             except SystemExit as err:
                 print(err, file=sys.stderr)
                 print(error('Disabling building of wayland backend'), file=sys.stderr)
                 continue
-        todo.update(prepare_compile_c_extension(genv, 'kitty/glfw-' + module, incremental, compilation_database, all_keys, sources, all_headers))
+        todo.update(prepare_compile_c_extension(genv, 'kitty/glfw-' + module, incremental, compilation_database, sources, all_headers))
     return todo
 
 
@@ -517,7 +537,7 @@ def kittens_env():
     return kenv
 
 
-def prepare_compile_kittens(incremental, compilation_database, all_keys):
+def prepare_compile_kittens(incremental, compilation_database):
     todo = {}
     kenv = kittens_env()
 
@@ -539,37 +559,37 @@ def prepare_compile_kittens(incremental, compilation_database, all_keys):
             filter_sources=lambda x: 'windows_compat.c' not in x),
     ):
         todo.update(prepare_compile_c_extension(
-            kenv, dest, incremental, compilation_database, all_keys, sources, all_headers + ['kitty/data-types.h']))
+            kenv, dest, incremental, compilation_database, sources, all_headers + ['kitty/data-types.h']))
     return todo
 
 
 def build(args, native_optimizations=True):
     global env
     try:
-        with open('compile_commands.json') as f:
+        with open('build/compile_commands.json') as f:
             compilation_database = json.load(f)
     except FileNotFoundError:
         compilation_database = []
-    all_keys = set()
     compilation_database = {
         (k['file'], k.get('output')): k['arguments'] for k in compilation_database
     }
     env = init_env(args.debug, args.sanitize, native_optimizations, args.profile, args.extra_logging)
     try:
-        to_compile = prepare_compile_kittens(args.incremental, compilation_database, all_keys)
+        to_compile = prepare_compile_kittens(args.incremental, compilation_database)
         to_compile.update(prepare_compile_c_extension(
-            kitty_env(), 'kitty/fast_data_types', args.incremental, compilation_database, all_keys, *find_c_files()
+            kitty_env(), 'kitty/fast_data_types', args.incremental, compilation_database, *find_c_files()
         ))
-        to_compile.update(prepare_compile_glfw(args.incremental, compilation_database, all_keys))
+        to_compile.update(prepare_compile_glfw(args.incremental, compilation_database))
+
+        update_compilation_database(to_compile, compilation_database)
 
         fast_compile(to_compile)
-        for key in set(compilation_database) - all_keys:
-            del compilation_database[key]
+
     finally:
         compilation_database = [
             {'file': k[0], 'arguments': v, 'directory': base, 'output': k[1]} for k, v in compilation_database.items()
         ]
-        with open('compile_commands.json', 'w') as f:
+        with open('build/compile_commands.json', 'w') as f:
             json.dump(compilation_database, f, indent=2, sort_keys=True)
 
 
