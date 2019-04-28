@@ -457,7 +457,7 @@ def fast_compile(to_compile):
                 elif action == 2:
                     print('Generating {} ...'.format(emphasis(name)))
                 else:
-                    raise SystemExit('Programming error, unknown action {}', .format(action))
+                    raise SystemExit('Programming error, unknown action {}'.format(action))
             w = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
             workers[w.pid] = name, cmd, w
         wait()
