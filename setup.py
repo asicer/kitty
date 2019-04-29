@@ -471,7 +471,7 @@ def fast_compile(to_compile):
         # if len(workers) >= num_workers:
         wait()
 
-        if all_done:
+        if all_done and items.empty():
             break
 
     while len(workers):
