@@ -358,16 +358,16 @@ def prepare_compile_c_extension(kenv, module, incremental, compilation_database,
             src, defines = SPECIAL_SOURCES[src]
             cppflags.extend(map(define, defines))
         cmd = [kenv.cc, '-MMD'] + cppflags + kenv.cflags
-        key = src, os.path.basename(dest)
-        all_keys.add(key)
+        compilation_key = src, os.path.basename(dest)
+        all_keys.add(compilation_key)
         full_src = os.path.join(base, src)
-        cmd_changed = compilation_database.get(key, [])[:-4] != cmd
+        cmd_changed = compilation_database.get(compilation_key, [])[:-4] != cmd
         if not incremental or cmd_changed or newer(
             dest, *dependecies_for(full_src, dest, headers)
         ):
             os.makedirs(os.path.dirname(dest), exist_ok=True)
             cmd += ['-c', full_src] + ['-o', dest]
-            compilation_database[key] = cmd
+            compilation_database[compilation_key] = cmd
             to_compile[name] = [cmd, 0, False, False, None]
         else:
             to_compile[name] = [None, 0, True, True, None]
