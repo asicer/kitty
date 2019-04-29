@@ -565,7 +565,7 @@ def prepare_compile_kittens(incremental, compilation_database):
         files(
             'choose', 'subseq_matcher',
             extra_headers=('kitty/charsets.h',),
-            extra_sources=('kitty/charsets.c',),
+            extra_sources=('kitty/charsets.c',),  # TODO: Compile only once
             filter_sources=lambda x: 'windows_compat.c' not in x),
     ):
         to_compile.update(prepare_compile_c_extension(
