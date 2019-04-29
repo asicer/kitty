@@ -359,7 +359,6 @@ def prepare_compile_c_extension(kenv, module, incremental, compilation_database,
             cppflags.extend(map(define, defines))
         cmd = [kenv.cc, '-MMD'] + cppflags + kenv.cflags
         compilation_key = src, os.path.basename(dest)
-        all_keys.add(compilation_key)
         full_src = os.path.join(base, src)
         cmd_changed = compilation_database.get(compilation_key, [])[:-4] != cmd
         if not incremental or cmd_changed or newer(
@@ -367,10 +366,9 @@ def prepare_compile_c_extension(kenv, module, incremental, compilation_database,
         ):
             os.makedirs(os.path.dirname(dest), exist_ok=True)
             cmd += ['-c', full_src] + ['-o', dest]
-            compilation_database[compilation_key] = cmd
-            to_compile[name] = [cmd, 0, False, False, None]
+            to_compile[name] = [cmd, 0, False, False, None, compilation_key]
         else:
-            to_compile[name] = [None, 0, True, True, None]
+            to_compile[name] = [None, 0, True, True, None, compilation_key]
         deps += [src]
         objects += [dest]
     # print(module)
@@ -386,7 +384,7 @@ def prepare_compile_c_extension(kenv, module, incremental, compilation_database,
         linker_cflags = list(filter(lambda x: x not in unsafe, kenv.cflags))
         # try:
         cmd = [kenv.cc] + linker_cflags + kenv.ldflags + objects + kenv.ldpaths + ['-o', dest]
-        to_compile[module] = [cmd, 1, False, False, deps]
+        to_compile[module] = [cmd, 1, False, False, deps, None]
         # except Exception:
         #     try:
         #         os.remove(dest)
@@ -468,6 +466,21 @@ def fast_compile(to_compile):
         wait()
     if failed:
         print('Failed')  # TODO: Remove?
+
+
+def update_compilation_database(to_compile, compilation_database):
+    all_keys = set()
+    for key in to_compile:
+        value = to_compile[key]
+        cmd = value[0]
+        compilation_key = value[5]
+        if compilation_key is None:
+            continue
+        all_keys.add(compilation_key)
+        compilation_database[compilation_key] = cmd
+
+    for key in set(compilation_database) - all_keys:
+        del compilation_database[key]
 
 
 def find_c_files():
@@ -555,7 +568,6 @@ def build(args, native_optimizations=True):
             compilation_database = json.load(f)
     except FileNotFoundError:
         compilation_database = []
-    all_keys = set()
     compilation_database = {
         (k['file'], k.get('output')): k['arguments'] for k in compilation_database
     }
@@ -567,9 +579,9 @@ def build(args, native_optimizations=True):
         ))
         to_compile.update(prepare_compile_glfw(args.incremental, compilation_database, all_keys))
 
+        update_compilation_database(to_compile, compilation_database)
+
         fast_compile(to_compile)
-        for key in set(compilation_database) - all_keys:
-            del compilation_database[key]
     finally:
         compilation_database = [
             {'file': k[0], 'arguments': v, 'directory': base, 'output': k[1]} for k, v in compilation_database.items()
