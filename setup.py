@@ -427,7 +427,7 @@ def fast_compile(to_compile):
 
     while not failed:
         all_done = True
-        for key in to_compile:
+        for key in to_compile:  # TODO: Make scheduling smarter
             name, module = key
             value = to_compile[key]
             cmd = value[0]
@@ -451,6 +451,7 @@ def fast_compile(to_compile):
             if all_deps_done:
                 items.put((name, module, cmd, action))
                 value[2] = True
+                # break
 
         while len(workers) < num_workers and not items.empty():
             name, module, cmd, action = items.get()
@@ -467,6 +468,7 @@ def fast_compile(to_compile):
                     raise SystemExit('Programming error, unknown action {}'.format(action))
             w = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
             workers[w.pid] = name, module, cmd, w
+        # if len(workers) >= num_workers:
         wait()
 
         if all_done:
@@ -533,7 +535,7 @@ def prepare_compile_glfw(incremental, compilation_database):
                 print(err, file=sys.stderr)
                 print(error('Disabling building of wayland backend'), file=sys.stderr)
                 continue
-        to_compile.update(prepare_compile_c_extension(genv, 'kitty/glfw-' + module, incremental, compilation_database, sources, all_headers, glfw_deps))
+        to_compile.update(prepare_compile_c_extension(genv, 'glfw-' + module, incremental, compilation_database, sources, all_headers, glfw_deps))
     return to_compile
 
 
@@ -587,7 +589,7 @@ def build(args, native_optimizations=True):
     try:
         to_compile = prepare_compile_kittens(args.incremental, compilation_database)
         to_compile.update(prepare_compile_c_extension(
-            kitty_env(), 'kitty/fast_data_types', args.incremental, compilation_database, *find_c_files()
+            kitty_env(), 'fast_data_types', args.incremental, compilation_database, *find_c_files()
         ))
         to_compile.update(prepare_compile_glfw(args.incremental, compilation_database))
 
