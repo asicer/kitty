@@ -455,6 +455,8 @@ def fast_compile(to_compile):
                     print('Compiling  {} ...'.format(emphasis(name)))
                 elif action == 1:
                     print('Linking    {} ...'.format(emphasis(name)))
+                else:
+                    raise SystemExit('Programming error, unknown action {}'.format(action))
             w = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
             workers[w.pid] = name, cmd, w
         wait()
