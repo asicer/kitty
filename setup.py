@@ -452,9 +452,9 @@ def fast_compile(to_compile):
                 print(' '.join(cmd))
             else:
                 if action == 0:
-                    print('Compiling {} ...'.format(emphasis(name)))
+                    print('Compiling  {} ...'.format(emphasis(name)))
                 elif action == 1:
-                    print('Linking {} ...'.format(emphasis(name)))
+                    print('Linking    {} ...'.format(emphasis(name)))
             w = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
             workers[w.pid] = name, cmd, w
         wait()
