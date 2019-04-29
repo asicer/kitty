@@ -98,6 +98,7 @@ def prepare_build_wayland_protocols(env, emphasis, newer, base, dest_dir, module
         for ext in 'hc':
             dest = wayland_protocol_file_name(src, ext)
             full_dest = os.path.join(base, dest_dir, module, dest)
+            os.makedirs(os.path.dirname(full_dest), exist_ok=True)
             if newer(full_dest, src):
                 q = 'client-header' if ext == 'h' else env.wayland_scanner_code
                 cmd = [env.wayland_scanner, q, src, full_dest]
