@@ -350,7 +350,7 @@ def prepare_compile_c_extension(kenv, module, incremental, compilation_database,
     for src in sources:
         name = src
         cppflags = kenv.cppflags[:]
-        dest = os.path.join(build_dir, src + '.o')
+        dest = os.path.join(build_dir, module, src + '.o')
         is_special = src in SPECIAL_SOURCES
         if is_special:
             src, defines = SPECIAL_SOURCES[src]
