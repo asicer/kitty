@@ -512,9 +512,9 @@ def find_c_files():
 
 
 def prepare_compile_glfw(incremental, compilation_database):
-    modules = 'cocoa' if is_macos else 'x11 wayland'
+    modules = ('cocoa',) if is_macos else ('x11', 'wayland')
     to_compile = {}
-    for module in modules.split():
+    for module in modules:
         try:
             genv = glfw.init_env(env, pkg_config, at_least_version, test_compile, module)
         except SystemExit as err:
