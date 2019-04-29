@@ -302,6 +302,9 @@ def run_tool(cmd, desc=None):
 SPECIAL_SOURCES = {
     'kitty/parser_dump.c': ('kitty/parser.c', ['DUMP_COMMANDS']),
 }
+if os.path.exists('.git'):
+    rev = subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode('utf-8').strip()
+    SPECIAL_SOURCES.update({'kitty/data-types.c': ('kitty/data-types.c', ['KITTY_VCS_REV="{}"'.format(rev)])})
 
 
 def newer(dest, *sources):
@@ -354,11 +357,6 @@ def prepare_compile_c_extension(kenv, module, incremental, compilation_database,
         if is_special:
             src, defines = SPECIAL_SOURCES[src]
             cppflags.extend(map(define, defines))
-
-        if src == 'kitty/data-types.c':  # TODO: Make SPECIAL_SOURCE
-            if os.path.exists('.git'):
-                rev = subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode('utf-8').strip()
-                cppflags.append(define('KITTY_VCS_REV="{}"'.format(rev)))
         cmd = [kenv.cc, '-MMD'] + cppflags + kenv.cflags
         key = src, os.path.basename(dest)
         all_keys.add(key)
