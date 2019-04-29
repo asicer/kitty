@@ -535,7 +535,7 @@ def prepare_compile_glfw(incremental, compilation_database):
                 print(err, file=sys.stderr)
                 print(error('Disabling building of wayland backend'), file=sys.stderr)
                 continue
-        to_compile.update(prepare_compile_c_extension(genv, 'glfw-' + module, incremental, compilation_database, sources, all_headers, glfw_deps))
+        to_compile.update(prepare_compile_c_extension(genv, 'kitty/glfw-' + module, incremental, compilation_database, sources, all_headers, glfw_deps))
     return to_compile
 
 
@@ -589,7 +589,7 @@ def build(args, native_optimizations=True):
     try:
         to_compile = prepare_compile_kittens(args.incremental, compilation_database)
         to_compile.update(prepare_compile_c_extension(
-            kitty_env(), 'fast_data_types', args.incremental, compilation_database, *find_c_files()
+            kitty_env(), 'kitty/fast_data_types', args.incremental, compilation_database, *find_c_files()
         ))
         to_compile.update(prepare_compile_glfw(args.incremental, compilation_database))
 
