@@ -397,7 +397,7 @@ def prepare_compile_c_extension(kenv, module, incremental, compilation_database,
     return to_compile
 
 
-def fast_compile(files):
+def fast_compile(to_compile):
     try:
         num_workers = max(1, os.cpu_count())
     except Exception:
@@ -415,12 +415,12 @@ def fast_compile(files):
         name, cmd, w = workers.pop(pid, (None, None, None))
         if name is not None and ((s & 0xff) != 0 or ((s >> 8) & 0xff) != 0) and failed is None:
             failed = name, cmd
-        files[name][3] = True
+        to_compile[name][3] = True
 
     while failed is None:
         all_done = True
-        for key in files:
-            value = files[key]
+        for key in to_compile:
+            value = to_compile[key]
             name = key
             cmd = value[0]
             action = value[1]  # TODO: Use enum
@@ -434,7 +434,7 @@ def fast_compile(files):
             all_deps_done = True
             if deps is not None:
                 for dep in deps:
-                    if not files[dep][3]:
+                    if not to_compile[dep][3]:
                         all_deps_done = False
                         break
             if all_deps_done:
