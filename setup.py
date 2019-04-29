@@ -526,7 +526,7 @@ def prepare_compile_glfw(incremental, compilation_database):
         glfw_deps = None
         if module == 'wayland':
             try:
-                glfw_deps, wayland_to_compile = glfw.prepare_build_wayland_protocols(genv, module, emphasis, newer, base, 'glfw')
+                glfw_deps, wayland_to_compile = glfw.prepare_build_wayland_protocols(genv, emphasis, newer, base, 'glfw', module)
                 to_compile.update(wayland_to_compile)
             except SystemExit as err:
                 print(err, file=sys.stderr)
