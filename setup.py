@@ -512,8 +512,8 @@ def find_c_files():
 
 
 def prepare_compile_glfw(incremental, compilation_database):
-    modules = ('cocoa',) if is_macos else ('x11', 'wayland')
     to_compile = {}
+    modules = ('cocoa',) if is_macos else ('x11', 'wayland')
     for module in modules:
         try:
             genv = glfw.init_env(env, pkg_config, at_least_version, test_compile, module)
