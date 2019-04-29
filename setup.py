@@ -342,7 +342,7 @@ def dependecies_for(src, obj, all_headers):
                     yield path
 
 
-def prepare_compile_c_extension(kenv, module, incremental, compilation_database, sources, headers):
+def prepare_compile_c_extension(kenv, module, incremental, compilation_database, sources, headers, src_deps=None):
     module += '.so'
 
     to_compile = {}
@@ -366,9 +366,9 @@ def prepare_compile_c_extension(kenv, module, incremental, compilation_database,
         ):
             os.makedirs(os.path.dirname(dest), exist_ok=True)
             cmd += ['-c', full_src] + ['-o', dest]
-            to_compile[name] = [cmd, 0, False, False, None, compilation_key]
+            to_compile[name] = [cmd, 0, False, False, src_deps, compilation_key]
         else:
-            to_compile[name] = [None, 0, True, True, None, compilation_key]
+            to_compile[name] = [None, 0, True, True, src_deps, compilation_key]
         deps += [src]
         objects += [dest]
     # print(module)
@@ -518,14 +518,16 @@ def prepare_compile_glfw(incremental, compilation_database):
             continue
         sources = [os.path.join('glfw', x) for x in genv.sources]
         all_headers = [os.path.join('glfw', x) for x in genv.all_headers]
+        glfw_deps = None
         if module == 'wayland':
             try:
-                to_compile.update(glfw.prepare_build_wayland_protocols(genv, emphasis, newer, os.path.join(base, 'glfw')))
+                glfw_deps, wayland_to_compile = glfw.prepare_build_wayland_protocols(genv, emphasis, newer, base, 'glfw')
+                to_compile.update(wayland_to_compile)
             except SystemExit as err:
                 print(err, file=sys.stderr)
                 print(error('Disabling building of wayland backend'), file=sys.stderr)
                 continue
-        to_compile.update(prepare_compile_c_extension(genv, 'kitty/glfw-' + module, incremental, compilation_database, sources, all_headers))
+        to_compile.update(prepare_compile_c_extension(genv, 'kitty/glfw-' + module, incremental, compilation_database, sources, all_headers, glfw_deps))
     return to_compile
 
 

@@ -89,21 +89,22 @@ def init_env(env, pkg_config, at_least_version, test_compile, module='x11'):
 
 
 # TODO: Test
-def prepare_build_wayland_protocols(env, emphasis, newer, dest_dir):
+def prepare_build_wayland_protocols(env, emphasis, newer, base, dest_dir):
     to_compile = {}
+    glfw_deps = []
     for protocol in env.wayland_protocols:
         src = os.path.join(env.wayland_packagedir, protocol)
         if not os.path.exists(src):
             raise SystemExit('The wayland-protocols package on your system is missing the {} protocol definition file'.format(protocol))
         for ext in 'hc':
-            dest = wayland_protocol_file_name(src, ext)
-            dest = os.path.join(dest_dir, dest)
-            if newer(dest, src):
+            dest = os.path.join(dest_dir, wayland_protocol_file_name(src, ext))
+            full_dest = os.path.join(base, dest)
+            if newer(full_dest, src):
                 q = 'client-header' if ext == 'h' else env.wayland_scanner_code
-                cmd = [env.wayland_scanner, q, src, dest]
-                name = os.path.basename(dest)
-                to_compile[name] = [cmd, 2, False, False, None, None]
-    return to_compile
+                cmd = [env.wayland_scanner, q, src, full_dest]
+                to_compile[dest] = [cmd, 2, False, False, None, None]  # TODO: include glfw directory in path
+            glfw_deps += [dest]
+    return glfw_deps, to_compile
 
 
 class Arg:
