@@ -345,7 +345,7 @@ def dependecies_for(src, obj, all_headers):
 def prepare_compile_c_extension(kenv, module, incremental, compilation_database, all_keys, sources, headers):
     module = module + '.so'
 
-    todo = {}
+    to_compile = {}
     deps = []
     objects = []
 
@@ -368,9 +368,9 @@ def prepare_compile_c_extension(kenv, module, incremental, compilation_database,
             os.makedirs(os.path.dirname(dest), exist_ok=True)
             cmd += ['-c', full_src] + ['-o', dest]
             compilation_database[key] = cmd
-            todo[name] = [cmd, 0, False, False, None]
+            to_compile[name] = [cmd, 0, False, False, None]
         else:
-            todo[name] = [None, 0, True, True, None]
+            to_compile[name] = [None, 0, True, True, None]
         deps += [src]
         objects += [dest]
     # print(module)
@@ -386,7 +386,7 @@ def prepare_compile_c_extension(kenv, module, incremental, compilation_database,
         linker_cflags = list(filter(lambda x: x not in unsafe, kenv.cflags))
         # try:
         cmd = [kenv.cc] + linker_cflags + kenv.ldflags + objects + kenv.ldpaths + ['-o', dest]
-        todo[module] = [cmd, 1, False, False, deps]
+        to_compile[module] = [cmd, 1, False, False, deps]
         # except Exception:
         #     try:
         #         os.remove(dest)
@@ -394,7 +394,7 @@ def prepare_compile_c_extension(kenv, module, incremental, compilation_database,
         #         pass
         # else:
         #     os.rename(dest, real_dest)
-    return todo
+    return to_compile
 
 
 def fast_compile(files):
@@ -482,7 +482,7 @@ def find_c_files():
 
 def prepare_compile_glfw(incremental, compilation_database, all_keys):
     modules = 'cocoa' if is_macos else 'x11 wayland'
-    todo = {}
+    to_compile = {}
     for module in modules.split():
         try:
             genv = glfw.init_env(env, pkg_config, at_least_version, test_compile, module)
@@ -501,8 +501,8 @@ def prepare_compile_glfw(incremental, compilation_database, all_keys):
                 print(err, file=sys.stderr)
                 print(error('Disabling building of wayland backend'), file=sys.stderr)
                 continue
-        todo.update(prepare_compile_c_extension(genv, 'kitty/glfw-' + module, incremental, compilation_database, all_keys, sources, all_headers))
-    return todo
+        to_compile.update(prepare_compile_c_extension(genv, 'kitty/glfw-' + module, incremental, compilation_database, all_keys, sources, all_headers))
+    return to_compile
 
 
 def kittens_env():
@@ -516,7 +516,7 @@ def kittens_env():
 
 
 def prepare_compile_kittens(incremental, compilation_database, all_keys):
-    todo = {}
+    to_compile = {}
     kenv = kittens_env()
 
     def list_files(q):
@@ -536,9 +536,9 @@ def prepare_compile_kittens(incremental, compilation_database, all_keys):
             extra_sources=('kitty/charsets.c',),
             filter_sources=lambda x: 'windows_compat.c' not in x),
     ):
-        todo.update(prepare_compile_c_extension(
+        to_compile.update(prepare_compile_c_extension(
             kenv, dest, incremental, compilation_database, all_keys, sources, all_headers + ['kitty/data-types.h']))
-    return todo
+    return to_compile
 
 
 def build(args, native_optimizations=True):
