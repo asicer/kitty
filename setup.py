@@ -360,7 +360,11 @@ def prepare_compile_c_extension(kenv, module, incremental, compilation_database,
         cmd = [kenv.cc, '-MMD'] + cppflags + kenv.cflags
         compilation_key = src, os.path.basename(dest)  # TODO: remove second part
         full_src = os.path.join(base, src)
-        cmd_changed = compilation_database.get(compilation_key, [])[:-4] != cmd
+        old_cmd = compilation_database.get(compilation_key, [])
+        if old_cmd is not None:
+            cmd_changed = old_cmd[:-4] != cmd
+        else:
+            cmd_changed = True
         if not incremental or cmd_changed or newer(
             dest, *dependecies_for(full_src, dest, headers)
         ):
