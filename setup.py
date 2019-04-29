@@ -374,10 +374,9 @@ def prepare_compile_c_extension(kenv, module, incremental, compilation_database,
             to_compile[compilation_key] = [None, 0, True, True, src_deps, compilation_key]
         deps += [compilation_key]
         objects += [dest]
-    module += '.so'
     # print(module)
     # dest = os.path.join(base, module + '.temp.so')
-    dest = os.path.join(base, module)
+    dest = os.path.join(base, module, '.so')
     # real_dest = dest[:-len('.temp.so')] + '.so'
     real_dest = dest
     if not incremental or newer(real_dest, *objects):
