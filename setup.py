@@ -411,12 +411,11 @@ def fast_compile(to_compile):
             return
         pid, s = os.wait()
         name, cmd, w = workers.pop(pid, (None, None, None))
-        if name is not None and ((s & 0xff) != 0 or ((s >> 8) & 0xff) != 0) and not failed:  # TODO: Return non-zero exit code
+        if name is not None and ((s & 0xff) != 0 or ((s >> 8) & 0xff) != 0) and not failed:  # return non-zero exit code
             stdout, stderr = w.communicate()
             for error in stderr.decode('utf-8').splitlines():
                 print(error, file=sys.stderr)
-            for key in workers:
-                name, cmd, w = workers[key]
+            for name, cmd, w in workers:
                 w.kill()
 
             failed = True
