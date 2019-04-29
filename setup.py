@@ -343,14 +343,11 @@ def dependecies_for(src, obj, all_headers):
 
 
 def prepare_compile_c_extension(kenv, module, incremental, compilation_database, sources, headers, src_deps=None):
-    module += '.so'
-
     to_compile = {}
     deps = []
     objects = []
 
     for src in sources:
-        name = src
         cppflags = kenv.cppflags[:]
         dest = os.path.join(build_dir, src + '.o')
         is_special = src in SPECIAL_SOURCES
@@ -358,8 +355,9 @@ def prepare_compile_c_extension(kenv, module, incremental, compilation_database,
             src, defines = SPECIAL_SOURCES[src]
             cppflags.extend(map(define, defines))
         cmd = [kenv.cc, '-MMD'] + cppflags + kenv.cflags
-        compilation_key = src, os.path.basename(dest)  # TODO: remove second part
         full_src = os.path.join(base, src)
+        compilation_key = src, module  # TODO: remove second part?
+        print(compilation_key)
         old_cmd = compilation_database.get(compilation_key, [])
         if old_cmd is not None:
             cmd_changed = old_cmd[:-4] != cmd
@@ -370,11 +368,12 @@ def prepare_compile_c_extension(kenv, module, incremental, compilation_database,
         ):
             os.makedirs(os.path.dirname(dest), exist_ok=True)
             cmd += ['-c', full_src] + ['-o', dest]
-            to_compile[name] = [cmd, 0, False, False, src_deps, compilation_key]
+            to_compile[compilation_key] = [cmd, 0, False, False, src_deps, compilation_key]
         else:
-            to_compile[name] = [None, 0, True, True, src_deps, compilation_key]
-        deps += [src]
+            to_compile[compilation_key] = [None, 0, True, True, src_deps, compilation_key]
+        deps += [compilation_key]
         objects += [dest]
+    module += '.so'
     # print(module)
     # dest = os.path.join(base, module + '.temp.so')
     dest = os.path.join(base, module)
@@ -388,7 +387,7 @@ def prepare_compile_c_extension(kenv, module, incremental, compilation_database,
         linker_cflags = list(filter(lambda x: x not in unsafe, kenv.cflags))
         # try:
         cmd = [kenv.cc] + linker_cflags + kenv.ldflags + objects + kenv.ldpaths + ['-o', dest]
-        to_compile[module] = [cmd, 1, False, False, deps, None]
+        to_compile[module, module] = [cmd, 1, False, False, deps, None]
         # except Exception:
         #     try:
         #         os.remove(dest)
@@ -428,9 +427,8 @@ def fast_compile(to_compile):
 
     while not failed:
         all_done = True
-        for key in to_compile:
-            value = to_compile[key]
-            name = key
+        for name, module in to_compile:
+            value = to_compile[name, module]
             cmd = value[0]
             action = value[1]  # TODO: Use enum
             started = value[2]
@@ -528,7 +526,7 @@ def prepare_compile_glfw(incremental, compilation_database):
         glfw_deps = None
         if module == 'wayland':
             try:
-                glfw_deps, wayland_to_compile = glfw.prepare_build_wayland_protocols(genv, emphasis, newer, base, 'glfw')
+                glfw_deps, wayland_to_compile = glfw.prepare_build_wayland_protocols(genv, module, emphasis, newer, base, 'glfw')
                 to_compile.update(wayland_to_compile)
             except SystemExit as err:
                 print(err, file=sys.stderr)
