@@ -471,7 +471,6 @@ def fast_compile(to_compile):
     if failed:
         print('Failed')  # TODO: Remove?
 
-
 def update_compilation_database(to_compile, compilation_database):
     all_keys = set()
     for key in to_compile:
