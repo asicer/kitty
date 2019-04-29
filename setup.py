@@ -405,7 +405,7 @@ def fast_compile(to_compile):
     # num_workers += 1
     items = queue.Queue()
     workers = {}
-    failed = None
+    failed = False
 
     def wait():
         nonlocal failed
@@ -413,7 +413,7 @@ def fast_compile(to_compile):
             return
         pid, s = os.wait()
         name, cmd, w = workers.pop(pid, (None, None, None))
-        if name is not None and ((s & 0xff) != 0 or ((s >> 8) & 0xff) != 0) and failed is None:
+        if name is not None and ((s & 0xff) != 0 or ((s >> 8) & 0xff) != 0) and not failed:
             stdout, stderr = w.communicate()
             for error in stderr.decode('utf-8').splitlines():
                 print(error, file=sys.stderr)
@@ -421,10 +421,10 @@ def fast_compile(to_compile):
                 name, cmd, w = workers[key]
                 w.kill()
 
-            failed = name, cmd
+            failed = True
         to_compile[name][3] = True
 
-    while failed is None:
+    while not failed:
         all_done = True
         for key in to_compile:
             value = to_compile[key]
