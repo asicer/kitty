@@ -455,6 +455,8 @@ def fast_compile(to_compile):
                     print('Compiling  {} ...'.format(emphasis(name)))
                 elif action == 1:
                     print('Linking    {} ...'.format(emphasis(name)))
+                elif action == 2:
+                    print('Generating {} ...'.format(emphasis(name)))
                 else:
                     raise SystemExit('Programming error, unknown action {}'.format(action))
             w = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
@@ -518,7 +520,7 @@ def prepare_compile_glfw(incremental, compilation_database):
         all_headers = [os.path.join('glfw', x) for x in genv.all_headers]
         if module == 'wayland':
             try:
-                glfw.build_wayland_protocols(genv, run_tool, emphasis, newer, os.path.join(base, 'glfw'))
+                todo.update(glfw.prepare_build_wayland_protocols(genv, emphasis, newer, os.path.join(base, 'glfw')))
             except SystemExit as err:
                 print(err, file=sys.stderr)
                 print(error('Disabling building of wayland backend'), file=sys.stderr)

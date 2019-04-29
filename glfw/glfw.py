@@ -88,7 +88,9 @@ def init_env(env, pkg_config, at_least_version, test_compile, module='x11'):
     return ans
 
 
-def build_wayland_protocols(env, run_tool, emphasis, newer, dest_dir):
+# TODO: Test
+def prepare_build_wayland_protocols(env, emphasis, newer, dest_dir):
+    to_compile = {}
     for protocol in env.wayland_protocols:
         src = os.path.join(env.wayland_packagedir, protocol)
         if not os.path.exists(src):
@@ -98,8 +100,10 @@ def build_wayland_protocols(env, run_tool, emphasis, newer, dest_dir):
             dest = os.path.join(dest_dir, dest)
             if newer(dest, src):
                 q = 'client-header' if ext == 'h' else env.wayland_scanner_code
-                run_tool([env.wayland_scanner, q, src, dest],
-                         desc='Generating {} ...'.format(emphasis(os.path.basename(dest))))
+                cmd = [env.wayland_scanner, q, src, dest]
+                name = os.path.basename(dest)
+                to_compile[name] = [cmd, 2, False, False, None, None]
+    return to_compile
 
 
 class Arg:
