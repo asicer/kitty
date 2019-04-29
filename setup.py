@@ -439,7 +439,11 @@ def fast_compile(to_compile):
             all_deps_done = True
             if deps is not None:
                 for dep in deps:
-                    if not to_compile[dep][3]:
+                    try:
+                        if not to_compile[dep][3]:
+                            all_deps_done = False
+                            break
+                    except KeyError:
                         all_deps_done = False
                         break
             if all_deps_done:
