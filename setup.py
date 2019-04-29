@@ -414,6 +414,13 @@ def fast_compile(to_compile):
         pid, s = os.wait()
         name, cmd, w = workers.pop(pid, (None, None, None))
         if name is not None and ((s & 0xff) != 0 or ((s >> 8) & 0xff) != 0) and failed is None:
+            stdout, stderr = w.communicate()
+            for error in stderr.decode('utf-8').splitlines():
+                print(error, file=sys.stderr)
+            for key in workers:
+                name, cmd, w = workers[key]
+                w.kill()
+
             failed = name, cmd
         to_compile[name][3] = True
 
@@ -450,7 +457,7 @@ def fast_compile(to_compile):
                     print('Compiling {} ...'.format(emphasis(name)))
                 elif action == 1:
                     print('Linking {} ...'.format(emphasis(name)))
-            w = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
+            w = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
             workers[w.pid] = name, cmd, w
         wait()
 
@@ -460,7 +467,7 @@ def fast_compile(to_compile):
     while len(workers):
         wait()
     if failed:
-        run_tool(failed[1])  # TODO: Use output of failed worker directly
+        print('Failed')  # TODO: Remove?
 
 
 def find_c_files():
