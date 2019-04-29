@@ -342,7 +342,7 @@ def dependecies_for(src, obj, all_headers):
                     yield path
 
 
-def prepare_compile_c_extension(kenv, module, incremental, compilation_database, all_keys, sources, headers):
+def prepare_compile_c_extension(kenv, module, incremental, compilation_database, sources, headers):
     module += '.so'
 
     to_compile = {}
@@ -500,7 +500,7 @@ def find_c_files():
     return tuple(ans), tuple(headers)
 
 
-def prepare_compile_glfw(incremental, compilation_database, all_keys):
+def prepare_compile_glfw(incremental, compilation_database):
     modules = 'cocoa' if is_macos else 'x11 wayland'
     to_compile = {}
     for module in modules.split():
@@ -521,7 +521,7 @@ def prepare_compile_glfw(incremental, compilation_database, all_keys):
                 print(err, file=sys.stderr)
                 print(error('Disabling building of wayland backend'), file=sys.stderr)
                 continue
-        to_compile.update(prepare_compile_c_extension(genv, 'kitty/glfw-' + module, incremental, compilation_database, all_keys, sources, all_headers))
+        to_compile.update(prepare_compile_c_extension(genv, 'kitty/glfw-' + module, incremental, compilation_database, sources, all_headers))
     return to_compile
 
 
@@ -535,7 +535,7 @@ def kittens_env():
     return kenv
 
 
-def prepare_compile_kittens(incremental, compilation_database, all_keys):
+def prepare_compile_kittens(incremental, compilation_database):
     to_compile = {}
     kenv = kittens_env()
 
@@ -557,7 +557,7 @@ def prepare_compile_kittens(incremental, compilation_database, all_keys):
             filter_sources=lambda x: 'windows_compat.c' not in x),
     ):
         to_compile.update(prepare_compile_c_extension(
-            kenv, dest, incremental, compilation_database, all_keys, sources, all_headers + ['kitty/data-types.h']))
+            kenv, dest, incremental, compilation_database, sources, all_headers + ['kitty/data-types.h']))
     return to_compile
 
 
@@ -573,11 +573,11 @@ def build(args, native_optimizations=True):
     }
     env = init_env(args.debug, args.sanitize, native_optimizations, args.profile, args.extra_logging)
     try:
-        to_compile = prepare_compile_kittens(args.incremental, compilation_database, all_keys)
+        to_compile = prepare_compile_kittens(args.incremental, compilation_database)
         to_compile.update(prepare_compile_c_extension(
-            kitty_env(), 'kitty/fast_data_types', args.incremental, compilation_database, all_keys, *find_c_files()
+            kitty_env(), 'kitty/fast_data_types', args.incremental, compilation_database, *find_c_files()
         ))
-        to_compile.update(prepare_compile_glfw(args.incremental, compilation_database, all_keys))
+        to_compile.update(prepare_compile_glfw(args.incremental, compilation_database))
 
         update_compilation_database(to_compile, compilation_database)
 
