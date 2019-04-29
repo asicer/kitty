@@ -478,6 +478,7 @@ def fast_compile(to_compile):
         wait()
     if failed:
         print('Failed')  # TODO: Remove?
+    assert(items.empty())
 
 
 def update_compilation_database(to_compile, compilation_database):
