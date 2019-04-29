@@ -447,7 +447,7 @@ def fast_compile(to_compile):
                         if not to_compile[dep][3]:
                             all_deps_done = False
                             break
-                    except KeyError: # TODO: Use better fix
+                    except KeyError:  # TODO: Use better fix
                         pass
             if all_deps_done:
                 items.put((name, cmd, action))
