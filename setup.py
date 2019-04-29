@@ -348,6 +348,7 @@ def prepare_compile_c_extension(kenv, module, incremental, compilation_database,
     objects = []
 
     for src in sources:
+        name = src
         cppflags = kenv.cppflags[:]
         dest = os.path.join(build_dir, src + '.o')
         is_special = src in SPECIAL_SOURCES
@@ -356,8 +357,8 @@ def prepare_compile_c_extension(kenv, module, incremental, compilation_database,
             cppflags.extend(map(define, defines))
         cmd = [kenv.cc, '-MMD'] + cppflags + kenv.cflags
         full_src = os.path.join(base, src)
-        compilation_key = src, module  # TODO: remove second part?
-        print(compilation_key)
+        compilation_key = name, module  # TODO: remove second part?
+        #print(compilation_key)
         old_cmd = compilation_database.get(compilation_key, [])
         if old_cmd is not None:
             cmd_changed = old_cmd[:-4] != cmd
@@ -413,22 +414,23 @@ def fast_compile(to_compile):
         if not workers:  # TODO: len(workers) < num_workers ?
             return
         pid, s = os.wait()
-        name, cmd, w = workers.pop(pid, (None, None, None))
+        name, module, cmd, w = workers.pop(pid, (None, None, None))
         if name is not None and ((s & 0xff) != 0 or ((s >> 8) & 0xff) != 0) and not failed:  # TODO: Return non-zero exit code
             stdout, stderr = w.communicate()
             for error in stderr.decode('utf-8').splitlines():
                 print(error, file=sys.stderr)
             for key in workers:
-                name, cmd, w = workers[key]
+                _, _, _, w = workers[key]
                 w.kill()
 
             failed = True
-        to_compile[name][3] = True
+        to_compile[name, module][3] = True
 
     while not failed:
         all_done = True
-        for name, module in to_compile:
-            value = to_compile[name, module]
+        for key in to_compile:
+            name, module = key
+            value = to_compile[key]
             cmd = value[0]
             action = value[1]  # TODO: Use enum
             started = value[2]
@@ -448,11 +450,11 @@ def fast_compile(to_compile):
                     except KeyError:  # TODO: Use better fix
                         pass
             if all_deps_done:
-                items.put((name, cmd, action))
+                items.put((name, module, cmd, action))
                 value[2] = True
 
         while len(workers) < num_workers and not items.empty():
-            name, cmd, action = items.get()
+            name, module, cmd, action = items.get()
             if verbose:
                 print(' '.join(cmd))
             else:
@@ -465,7 +467,7 @@ def fast_compile(to_compile):
                 else:
                     raise SystemExit('Programming error, unknown action {}'.format(action))
             w = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
-            workers[w.pid] = name, cmd, w
+            workers[w.pid] = name, module, cmd, w
         wait()
 
         if all_done:
