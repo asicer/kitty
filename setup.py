@@ -564,7 +564,7 @@ def prepare_compile_kittens(incremental, compilation_database):
 def build(args, native_optimizations=True):
     global env
     try:
-        with open('compile_commands.json') as f:
+        with open('build/compile_commands.json') as f:
             compilation_database = json.load(f)
     except FileNotFoundError:
         compilation_database = []
@@ -586,7 +586,7 @@ def build(args, native_optimizations=True):
         compilation_database = [
             {'file': k[0], 'arguments': v, 'directory': base, 'output': k[1]} for k, v in compilation_database.items()
         ]
-        with open('compile_commands.json', 'w') as f:
+        with open('build/compile_commands.json', 'w') as f:
             json.dump(compilation_database, f, indent=2, sort_keys=True)
 
 
