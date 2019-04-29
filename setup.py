@@ -343,7 +343,7 @@ def dependecies_for(src, obj, all_headers):
 
 
 def prepare_compile_c_extension(kenv, module, incremental, compilation_database, all_keys, sources, headers):
-    module = module + '.so'
+    module += '.so'
 
     to_compile = {}
     deps = []
