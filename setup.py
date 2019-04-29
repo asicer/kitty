@@ -358,7 +358,7 @@ def prepare_compile_c_extension(kenv, module, incremental, compilation_database,
             src, defines = SPECIAL_SOURCES[src]
             cppflags.extend(map(define, defines))
         cmd = [kenv.cc, '-MMD'] + cppflags + kenv.cflags
-        compilation_key = src, os.path.basename(dest)
+        compilation_key = src, os.path.basename(dest)  # TODO: remove second part
         full_src = os.path.join(base, src)
         cmd_changed = compilation_database.get(compilation_key, [])[:-4] != cmd
         if not incremental or cmd_changed or newer(
@@ -411,7 +411,7 @@ def fast_compile(to_compile):
             return
         pid, s = os.wait()
         name, cmd, w = workers.pop(pid, (None, None, None))
-        if name is not None and ((s & 0xff) != 0 or ((s >> 8) & 0xff) != 0) and not failed:
+        if name is not None and ((s & 0xff) != 0 or ((s >> 8) & 0xff) != 0) and not failed:  # TODO: Return non-zero exit code
             stdout, stderr = w.communicate()
             for error in stderr.decode('utf-8').splitlines():
                 print(error, file=sys.stderr)
