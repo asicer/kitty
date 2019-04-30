@@ -374,30 +374,22 @@ def prepare_compile_c_extension(kenv, module, incremental, compilation_database,
         else:
             done = True
         cmd += ['-c', full_src] + ['-o', dest]
-        to_compile[compilation_key] = [cmd, 0, done, done, src_deps, compilation_key]
+        to_compile[compilation_key] = [cmd, 0, done, done, src_deps, compilation_key, None, None]
         deps += [compilation_key]
         objects += [dest]
     # print(module)
-    # dest = os.path.join(base, module + '.temp.so')
-    dest = os.path.join(base, module + '.so')
-    # real_dest = dest[:-len('.temp.so')] + '.so'
-    real_dest = dest
+    dest = os.path.join(base, module + '.temp.so')
+    # dest = os.path.join(base, module + '.so')
+    real_dest = dest[:-len('.temp.so')] + '.so'
+    # real_dest = dest
     if not incremental or newer(real_dest, *objects) or new_objects != []:
         # Old versions of clang don't like -pthread being passed to the linker
         # Don't treat linker warnings as errors (linker generates spurious
         # warnings on some old systems)
         unsafe = {'-pthread', '-Werror', '-pedantic-errors'}
         linker_cflags = list(filter(lambda x: x not in unsafe, kenv.cflags))
-        # try:
         cmd = [kenv.cc] + linker_cflags + kenv.ldflags + objects + kenv.ldpaths + ['-o', dest]
-        to_compile[module, module] = [cmd, 1, False, False, deps, None]
-        # except Exception:
-        #     try:
-        #         os.remove(dest)
-        #     except EnvironmentError:
-        #         pass
-        # else:
-        #     os.rename(dest, real_dest)
+        to_compile[module, module] = [cmd, 1, False, False, deps, None, dest, real_dest]
     return to_compile
 
 
@@ -416,16 +408,30 @@ def fast_compile(to_compile):
         if not workers:  # TODO: len(workers) < num_workers ?
             return
         pid, s = os.wait()
-        name, module, cmd, w = workers.pop(pid, (None, None, None))
+        name, module, cmd, w, dest, real_dest = workers.pop(pid, (None, None, None))
         if name is not None and ((s & 0xff) != 0 or ((s >> 8) & 0xff) != 0) and not failed:  # TODO: Return non-zero exit code
+            if dest is not None:
+                try:
+                    os.remove(dest)
+                except EnvironmentError:
+                    pass
+
             stdout, stderr = w.communicate()
             for error in stderr.decode('utf-8').splitlines():
                 print(error, file=sys.stderr)
             for key in workers:
-                _, _, _, w = workers[key]
+                _, _, _, w, dest, _ = workers[key]
                 w.kill()
+                if dest is not None:
+                    try:
+                        os.remove(dest)
+                    except EnvironmentError:
+                        pass
 
             failed = True
+        else:
+            if dest is not None and real_dest is not None:
+                os.rename(dest, real_dest)
         to_compile[name, module][3] = True
 
     while not failed:
@@ -438,6 +444,9 @@ def fast_compile(to_compile):
             started = value[2]
             done = value[3]
             deps = value[4]
+            compilation_key = value[5]
+            dest = value[6]
+            real_dest = value[7]
             if started or done:
                 continue
             all_done = False
@@ -449,12 +458,12 @@ def fast_compile(to_compile):
                         all_deps_done = False
                         break
             if all_deps_done:
-                items.put((name, module, cmd, action))
+                items.put((name, module, cmd, action, dest, real_dest))
                 value[2] = True
                 # break
 
         while len(workers) < num_workers and not items.empty():
-            name, module, cmd, action = items.get()
+            name, module, cmd, action, dest, real_dest = items.get()
             if verbose:
                 print(' '.join(cmd))
             else:
@@ -467,7 +476,7 @@ def fast_compile(to_compile):
                 else:
                     raise SystemExit('Programming error, unknown action {}'.format(action))
             w = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
-            workers[w.pid] = name, module, cmd, w
+            workers[w.pid] = name, module, cmd, w, dest, real_dest
         # if len(workers) >= num_workers:
         wait()
 
