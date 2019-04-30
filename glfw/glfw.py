@@ -101,8 +101,9 @@ def prepare_build_wayland_protocols(env, emphasis, newer, base, dest_dir, module
             if newer(full_dest, src):
                 q = 'client-header' if ext == 'h' else env.wayland_scanner_code
                 cmd = [env.wayland_scanner, q, src, full_dest]
-                to_compile[dest, module] = [cmd, 2, False, False, None, None]  # TODO: include glfw directory in path
-                glfw_deps += [(dest, module)]
+                key = dest, module
+                to_compile[key] = [cmd, 2, False, False, None, None]  # TODO: include glfw directory in path
+                glfw_deps += [key]
     return glfw_deps, to_compile
 
 
