@@ -346,6 +346,7 @@ def prepare_compile_c_extension(kenv, module, incremental, compilation_database,
     to_compile = {}
     deps = []
     objects = []
+    new_objects = []
 
     for src in sources:
         name = src
@@ -357,7 +358,7 @@ def prepare_compile_c_extension(kenv, module, incremental, compilation_database,
             cppflags.extend(map(define, defines))
         cmd = [kenv.cc, '-MMD'] + cppflags + kenv.cflags
         full_src = os.path.join(base, src)
-        compilation_key = name, module  # TODO: remove second part?
+        compilation_key = name, module
         # print(compilation_key)
         old_cmd = compilation_database.get(compilation_key, [])
         if old_cmd is not None:
@@ -368,10 +369,12 @@ def prepare_compile_c_extension(kenv, module, incremental, compilation_database,
             dest, *dependecies_for(full_src, dest, headers)
         ):
             os.makedirs(os.path.dirname(dest), exist_ok=True)
-            cmd += ['-c', full_src] + ['-o', dest]
-            to_compile[compilation_key] = [cmd, 0, False, False, src_deps, compilation_key]
+            new_objects += [dest]
+            done = False
         else:
-            to_compile[compilation_key] = [None, 0, True, True, src_deps, compilation_key]
+            done = True
+        cmd += ['-c', full_src] + ['-o', dest]
+        to_compile[compilation_key] = [cmd, 0, done, done, src_deps, compilation_key]
         deps += [compilation_key]
         objects += [dest]
     # print(module)
@@ -379,7 +382,7 @@ def prepare_compile_c_extension(kenv, module, incremental, compilation_database,
     dest = os.path.join(base, module + '.so')
     # real_dest = dest[:-len('.temp.so')] + '.so'
     real_dest = dest
-    if not incremental or newer(real_dest, *objects):
+    if not incremental or newer(real_dest, *objects) or new_objects != []:
         # Old versions of clang don't like -pthread being passed to the linker
         # Don't treat linker warnings as errors (linker generates spurious
         # warnings on some old systems)
@@ -481,7 +484,7 @@ def fast_compile(to_compile):
     assert(items.empty())
 
 
-def update_compilation_database(to_compile, compilation_database):
+def update_compilation_database(to_compile, compilation_database):  # TODO: handle compilation failures
     all_keys = set()
     for key in to_compile:
         value = to_compile[key]
