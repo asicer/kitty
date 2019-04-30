@@ -445,12 +445,9 @@ def fast_compile(to_compile):
             all_deps_done = True
             if deps is not None:
                 for dep in deps:
-                    try:
-                        if not to_compile[dep][3]:
-                            all_deps_done = False
-                            break
-                    except KeyError:  # TODO: Use better fix
-                        pass
+                    if not to_compile[dep][3]:
+                        all_deps_done = False
+                        break
             if all_deps_done:
                 items.put((name, module, cmd, action))
                 value[2] = True
