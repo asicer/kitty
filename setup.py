@@ -398,15 +398,18 @@ def fast_compile(to_compile):
     # num_workers += 1
     items = queue.Queue()
     workers = {}
-    failed = False
+    failed_ret = 0
 
     def wait():
-        nonlocal failed
+        nonlocal failed_ret
         if not workers:  # TODO: len(workers) < num_workers ?
             return
         pid, s = os.wait()
+        signal_number = s & 0xff
+        exit_status = (s >> 8) & 0xff
         name, module, cmd, w, dest, real_dest = workers.pop(pid, (None, None, None))
-        if name is not None and ((s & 0xff) != 0 or ((s >> 8) & 0xff) != 0) and not failed:  # TODO: Return non-zero exit code
+        if name is not None and (signal_number != 0 or exit_status != 0) and not failed_ret:
+            failed_ret = exit_status
             if dest is not None:
                 try:
                     os.remove(dest)
@@ -424,14 +427,12 @@ def fast_compile(to_compile):
                         os.remove(dest)
                     except EnvironmentError:
                         pass
-
-            failed = True
         else:
             if dest is not None and real_dest is not None:
                 os.rename(dest, real_dest)
         to_compile[name, module][3] = True
 
-    while not failed:
+    while not failed_ret:
         all_done = True
         for key in to_compile:  # TODO: Make scheduling smarter
             name, module = key
@@ -482,8 +483,8 @@ def fast_compile(to_compile):
 
     while len(workers):
         wait()
-    if failed:
-        print('Failed')  # TODO: Remove?
+    if failed_ret:
+        raise SystemExit(failed_ret)
     assert(items.empty())
 
 
