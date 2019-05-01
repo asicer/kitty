@@ -359,7 +359,6 @@ def prepare_compile_c_extension(kenv, module, incremental, compilation_database,
         cmd = [kenv.cc, '-MMD'] + cppflags + kenv.cflags
         full_src = os.path.join(base, src)
         compilation_key = name, module
-        # print(compilation_key)
         old_cmd = compilation_database.get(compilation_key, [])
         if old_cmd is not None:
             cmd_changed = old_cmd[:-4] != cmd
@@ -377,11 +376,8 @@ def prepare_compile_c_extension(kenv, module, incremental, compilation_database,
         to_compile[compilation_key] = [cmd, 0, done, done, src_deps, compilation_key, None, None]
         deps += [compilation_key]
         objects += [dest]
-    # print(module)
     dest = os.path.join(base, module + '.temp.so')
-    # dest = os.path.join(base, module + '.so')
     real_dest = dest[:-len('.temp.so')] + '.so'
-    # real_dest = dest
     if not incremental or newer(real_dest, *objects) or new_objects != []:
         # Old versions of clang don't like -pthread being passed to the linker
         # Don't treat linker warnings as errors (linker generates spurious
