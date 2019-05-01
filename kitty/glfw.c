@@ -28,6 +28,14 @@ static GLFWcursor *standard_cursor = NULL, *click_cursor = NULL, *arrow_cursor =
 
 static void set_os_window_dpi(OSWindow *w);
 
+
+static void
+request_tick_callback(void) {
+#ifdef __APPLE__
+    glfwRequestTickCallback();
+#endif
+}
+
 void
 update_os_window_viewport(OSWindow *window, bool notify_boss) {
     int w, h, fw, fh;
@@ -152,6 +160,7 @@ framebuffer_size_callback(GLFWwindow *w, int width, int height) {
         window->live_resize.in_progress = true;
         window->live_resize.last_resize_event_at = monotonic();
         window->live_resize.width = MAX(0, width); window->live_resize.height = MAX(0, height);
+        window->live_resize.num_of_resize_events++;
         make_os_window_context_current(window);
         update_surface_size(width, height, window->offscreen_texture_id);
         request_tick_callback();
@@ -1136,11 +1145,6 @@ remove_main_loop_timer(id_type timer_id) {
 void
 run_main_loop(tick_callback_fun cb, void* cb_data) {
     glfwRunMainLoop(cb, cb_data);
-}
-
-void
-request_tick_callback(void) {
-    glfwRequestTickCallback();
 }
 
 void

@@ -199,6 +199,7 @@ o(
     'monospace',
     long_text=_('''
 You can specify different fonts for the bold/italic/bold-italic variants.
+To get a full list of supported fonts use the `kitty list-fonts` command.
 By default they are derived automatically, by the OSes font system. Setting
 them manually is useful for font families that have many weight variants like
 Book, Medium, Thick, etc. For example::
@@ -266,7 +267,13 @@ o('disable_ligatures', 'never', option_type=disable_ligatures, long_text=_('''
 Choose how you want to handle multi-character ligatures. The default is to
 always render them.  You can tell kitty to not render them when the cursor is
 over them by using :code:`cursor` to make editing easier, or have kitty never
-render them at all by using :code:`never`, if you don't like them.
+render them at all by using :code:`always`, if you don't like them. The ligature
+strategy can be set per-window either using the kitty remote control facility
+or by defining shortcuts for it in kitty.conf, for example::
+
+    map alt+1 disable_ligatures_in active always
+    map alt+2 disable_ligatures_in all never
+    map alt+3 disable_ligatures_in tab cursor
 '''))
 
 
@@ -599,6 +606,12 @@ Hide the window decorations (title-bar and window borders).
 Whether this works and exactly what effect it has depends on the
 window manager/operating system.
 '''))
+
+o('resize_debounce_time', 0.1, option_type=positive_float, long_text=_('''
+The time (in seconds) to wait before redrawing the screen when a
+resize event is received. On platforms such as macOS, where the
+operating system sends event corresponding to the start and end
+of a resize, this number is ignored.'''))
 # }}}
 
 g('tabbar')   # {{{

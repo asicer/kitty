@@ -11,7 +11,6 @@
 #define OPT(name) global_state.opts.name
 
 typedef enum { LEFT_EDGE, TOP_EDGE, RIGHT_EDGE, BOTTOM_EDGE } Edge;
-typedef enum { DISABLE_LIGATURES_NEVER, DISABLE_LIGATURES_CURSOR, DISABLE_LIGATURES_ALWAYS } DisableLigature;
 
 typedef struct {
     double visual_bell_duration, cursor_blink_interval, cursor_stop_blinking_after, mouse_hide_wait, click_interval, wheel_scroll_multiplier, touch_scroll_multiplier;
@@ -42,6 +41,7 @@ typedef struct {
     bool close_on_child_death;
     bool window_alert_on_bell;
     bool debug_keyboard;
+    double resize_debounce_time;
 } Options;
 
 typedef struct {
@@ -115,7 +115,7 @@ typedef struct {
     bool in_progress;
     bool from_os_notification;
     bool os_says_resize_complete;
-    unsigned int width, height;
+    unsigned int width, height, num_of_resize_events;
 } LiveResizeInfo;
 
 
@@ -181,8 +181,6 @@ extern GlobalState global_state;
     else Py_DECREF(cret_); \
 }
 
-#define RESIZE_DEBOUNCE_TIME 0.2
-
 void gl_init();
 void remove_vao(ssize_t vao_idx);
 bool remove_os_window(id_type os_window_id);
@@ -241,5 +239,4 @@ id_type add_main_loop_timer(double interval, bool repeats, timer_callback_fun ca
 void remove_main_loop_timer(id_type timer_id);
 void update_main_loop_timer(id_type timer_id, double interval, bool enabled);
 void run_main_loop(tick_callback_fun, void*);
-void request_tick_callback(void);
 void stop_main_loop(void);

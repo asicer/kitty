@@ -78,6 +78,23 @@ for that window is used.
 '''
 
 
+def windows_for_payload(boss, window, payload):
+    if payload.get('all'):
+        windows = tuple(boss.all_windows)
+    else:
+        windows = (window or boss.active_window,)
+        if payload.get('match_window'):
+            windows = tuple(boss.match_windows(payload['match_window']))
+            if not windows:
+                raise MatchError(payload['match_window'])
+        if payload.get('match_tab'):
+            tabs = tuple(boss.match_tabs(payload['match_tab']))
+            if not tabs:
+                raise MatchError(payload['match_tab'], 'tabs')
+            for tab in tabs:
+                windows += tuple(tab)
+
+
 # ls {{{
 @cmd(
     'List all tabs/windows',
@@ -102,19 +119,29 @@ def ls(boss, window):
 
 # set_font_size {{{
 @cmd(
-    'Set the font size in all windows',
-    'Sets the font size to the specified size, in pts.',
-    argspec='FONT_SIZE', args_count=1
-)
+    'Set the font size in the active top-level OS window',
+    'Sets the font size to the specified size, in pts. Note'
+    ' that in kitty all sub-windows in the same OS window'
+    ' must have the same font size. A value of zero'
+    ' resets the font size to default. Prefixing the value'
+    ' with a + or - increments the font size by the specified'
+    ' amount.',
+    argspec='FONT_SIZE', args_count=1, options_spec='''\
+--all -a
+type=bool-set
+By default, the font size is only changed in the active OS window,
+this option will cause it to be changed in all OS windows.
+''')
 def cmd_set_font_size(global_opts, opts, args):
-    try:
-        return {'size': float(args[0])}
-    except IndexError:
+    if not args:
         raise SystemExit('No font size specified')
+    fs = args[0]
+    inc = fs[0] if fs and fs[0] in '+-' else None
+    return {'size': abs(float(fs)), 'all': opts.all, 'increment_op': inc}
 
 
 def set_font_size(boss, window, payload):
-    boss.set_font_size(payload['size'])
+    boss.change_font_size(payload['all'], payload['increment_op'], payload['size'])
 # }}}
 
 
@@ -711,20 +738,7 @@ def cmd_set_colors(global_opts, opts, args):
 
 def set_colors(boss, window, payload):
     from .rgb import color_as_int, Color
-    if payload['all']:
-        windows = tuple(boss.all_windows)
-    else:
-        windows = (window or boss.active_window,)
-        if payload['match_window']:
-            windows = tuple(boss.match_windows(payload['match_window']))
-            if not windows:
-                raise MatchError(payload['match_window'])
-        if payload['match_tab']:
-            tabs = tuple(boss.match_tabs(payload['match_tab']))
-            if not tabs:
-                raise MatchError(payload['match_tab'], 'tabs')
-            for tab in tabs:
-                windows += tuple(tab)
+    windows = windows_for_payload(boss, window, payload)
     if payload['reset']:
         payload['colors'] = {k: color_as_int(v) for k, v in boss.startup_colors.items()}
         payload['cursor_text_color'] = boss.startup_cursor_text_color
@@ -812,6 +826,36 @@ def set_background_opacity(boss, window, payload):
                 raise MatchError(payload['match_window'])
     for os_window_id in {w.os_window_id for w in windows}:
         boss._set_os_window_background_opacity(os_window_id, payload['opacity'])
+# }}}
+
+
+# disable_ligatures {{{
+@cmd(
+    'Control ligature rendering',
+    'Control ligature rendering for the specified windows/tabs (defaults to active window). The STRATEGY'
+    ' can be one of: never, always, cursor',
+    options_spec='''\
+--all -a
+type=bool-set
+By default, ligatures are only affected in the active window. This option will
+cause ligatures to be changed in all windows.
+
+''' + '\n\n' + MATCH_WINDOW_OPTION + '\n\n' + MATCH_TAB_OPTION.replace('--match -m', '--match-tab -t'),
+    argspec='STRATEGY'
+)
+def cmd_disable_ligatures(global_opts, opts, args):
+    strategy = args[0]
+    if strategy not in ('never', 'always', 'cursor'):
+        raise ValueError('{} is not a valid disable_ligatures strategy'.format('strategy'))
+    return {
+        'strategy': strategy, 'match_window': opts.match, 'match_tab': opts.match_tab,
+        'all': opts.all,
+    }
+
+
+def disable_ligatures(boss, window, payload):
+    windows = windows_for_payload(boss, window, payload)
+    boss.disable_ligatures_in(windows, payload['strategy'])
 # }}}
 
 
