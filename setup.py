@@ -444,7 +444,7 @@ def fast_compile(to_compile):
             started = value[2]
             done = value[3]
             deps = value[4]
-            compilation_key = value[5]
+            # compilation_key = value[5]
             dest = value[6]
             real_dest = value[7]
             if started or done:
