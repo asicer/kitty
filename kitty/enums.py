@@ -4,6 +4,7 @@
 
 from enum import Enum
 
+
 class BuildType(Enum):
     compile = 1
     link = 2
