@@ -16,6 +16,7 @@ import sys
 import sysconfig
 import time
 import queue
+from kitty.enums import BuildType
 
 base = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(base, 'glfw'))
@@ -373,7 +374,7 @@ def prepare_compile_c_extension(kenv, module, incremental, compilation_database,
         else:
             done = True
         cmd += ['-c', full_src] + ['-o', dest]
-        to_compile[compilation_key] = [cmd, 0, done, done, src_deps, compilation_key, None, None]
+        to_compile[compilation_key] = [cmd, BuildType.compile, done, done, src_deps, compilation_key, None, None]
         deps += [compilation_key]
         objects += [dest]
     dest = os.path.join(base, module + '.temp.so')
@@ -385,7 +386,7 @@ def prepare_compile_c_extension(kenv, module, incremental, compilation_database,
         unsafe = {'-pthread', '-Werror', '-pedantic-errors'}
         linker_cflags = list(filter(lambda x: x not in unsafe, kenv.cflags))
         cmd = [kenv.cc] + linker_cflags + kenv.ldflags + objects + kenv.ldpaths + ['-o', dest]
-        to_compile[module, module] = [cmd, 1, False, False, deps, None, dest, real_dest]
+        to_compile[module, module] = [cmd, BuildType.link, False, False, deps, None, dest, real_dest]
     return to_compile
 
 
@@ -463,11 +464,11 @@ def fast_compile(to_compile):
             if verbose:
                 print(' '.join(cmd))
             else:
-                if action == 0:
+                if action == BuildType.compile:
                     print('Compiling  {} ...'.format(emphasis(name)))
-                elif action == 1:
+                elif action == BuildType.link:
                     print('Linking    {} ...'.format(emphasis(name)))
-                elif action == 2:
+                elif action == BuildType.generate:
                     print('Generating {} ...'.format(emphasis(name)))
                 else:
                     raise SystemExit('Programming error, unknown action {}'.format(action))

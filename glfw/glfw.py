@@ -6,6 +6,7 @@ import json
 import os
 import re
 import sys
+from kitty.enums import BuildType
 
 _plat = sys.platform.lower()
 is_macos = 'darwin' in _plat
@@ -102,7 +103,7 @@ def prepare_build_wayland_protocols(env, emphasis, newer, base, dest_dir, module
                 q = 'client-header' if ext == 'h' else env.wayland_scanner_code
                 cmd = [env.wayland_scanner, q, src, full_dest]
                 key = dest, module
-                to_compile[key] = [cmd, 2, False, False, None, None, None, None]  # TODO: include glfw directory in path
+                to_compile[key] = [cmd, BuildType.generate, False, False, None, None, None, None]  # TODO: include glfw directory in path
                 glfw_deps += [key]
     return glfw_deps, to_compile
 
