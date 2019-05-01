@@ -437,7 +437,7 @@ def fast_compile(to_compile):
             name, module = key
             value = to_compile[key]
             cmd = value[0]
-            action = value[1]  # TODO: Use enum
+            action = value[1]
             started = value[2]
             done = value[3]
             deps = value[4]
