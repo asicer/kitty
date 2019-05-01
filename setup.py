@@ -408,25 +408,26 @@ def fast_compile(to_compile):
         signal_number = s & 0xff
         exit_status = (s >> 8) & 0xff
         name, module, cmd, w, dest, real_dest = workers.pop(pid, (None, None, None))
-        if name is not None and (signal_number != 0 or exit_status != 0) and not failed_ret:
-            failed_ret = exit_status
+        if name is not None and (signal_number != 0 or exit_status != 0):
             if dest is not None:
                 try:
                     os.remove(dest)
                 except EnvironmentError:
                     pass
+            if not failed_ret:
+                failed_ret = exit_status
 
-            stdout, stderr = w.communicate()
-            for error in stderr.decode('utf-8').splitlines():
-                print(error, file=sys.stderr)
-            for key in workers:
-                _, _, _, w, dest, _ = workers[key]
-                w.kill()
-                if dest is not None:
-                    try:
-                        os.remove(dest)
-                    except EnvironmentError:
-                        pass
+                stdout, stderr = w.communicate()
+                for error in stderr.decode('utf-8').splitlines():
+                    print(error, file=sys.stderr)
+                for key in workers:
+                    _, _, _, w, dest, _ = workers[key]
+                    w.kill()
+                    if dest is not None:
+                        try:
+                            os.remove(dest)
+                        except EnvironmentError:
+                            pass
         else:
             if dest is not None and real_dest is not None:
                 os.rename(dest, real_dest)
