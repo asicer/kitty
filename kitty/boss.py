@@ -742,7 +742,7 @@ class Boss:
             self._run_kitten('ask', args)
 
     def show_error(self, title, msg):
-        self._run_kitten('show_error', ['--title', title], input_data=msg)
+        self._run_kitten('show_error', args=['--title', title], input_data=msg)
 
     def do_set_tab_title(self, title, tab_id):
         tm = self.active_tab_manager
@@ -996,6 +996,23 @@ class Boss:
         if tm is not None:
             tm.move_tab(-1)
 
+    def disable_ligatures_in(self, where, strategy):
+        if isinstance(where, str):
+            windows = ()
+            if where == 'active':
+                if self.active_window is not None:
+                    windows = (self.active_window,)
+            elif where == 'all':
+                windows = self.all_windows
+            elif where == 'tab':
+                if self.active_tab is not None:
+                    windows = tuple(self.active_tab)
+        else:
+            windows = where
+        for window in windows:
+            window.screen.disable_ligatures = strategy
+            window.refresh()
+
     def patch_colors(self, spec, cursor_text_color, configured=False):
         if configured:
             for k, v in spec.items():
@@ -1051,3 +1068,11 @@ class Boss:
             dbus_notification_activated(*args)
         else:
             dbus_notification_created(*args)
+
+    def show_bad_config_lines(self, bad_lines):
+
+        def format_bad_line(bad_line):
+            return '{}:{} in line: {}\n'.format(bad_line.number, bad_line.exception, bad_line.line)
+
+        msg = '\n'.join(map(format_bad_line, bad_lines)).rstrip()
+        self.show_error(_('Errors in kitty.conf'), msg)

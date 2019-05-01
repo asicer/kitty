@@ -8,7 +8,7 @@ To update |kitty|, :doc:`follow the instructions <binary>`.
 ---------------------
 
 - macOS: The default behavior of the Option key has changed. It now generates
-  unicode characters rather than acting as the Alt modifier. See
+  unicode characters rather than acting as the :kbd:`Alt` modifier. See
   :opt:`macos_option_as_alt`.
 
 - Support for an arbitrary number of internal clipboard buffers to copy/paste
@@ -114,6 +114,15 @@ To update |kitty|, :doc:`follow the instructions <binary>`.
 - Use negative values for :opt:`mouse_hide_wait` to hide the mouse cursor
   immediately when pressing a key (:iss:`1534`)
 
+- When encountering errors in :file:`kitty.conf` report them to the user
+  instead of failing to start.
+
+- Allow the user to control the resize debounce time via
+  :opt:`resize_debounce_time`.
+
+- Remote control: Make the :ref:`at_set-font-size` command more capable.
+  It can now increment font size and reset it. It also only acts on the
+  active top-level window, by default (:iss:`1581`)
 
 0.13.3 [2019-01-19]
 ------------------------------

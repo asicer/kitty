@@ -24,6 +24,22 @@
 #define MIN(x, y) ((x) < (y)) ? (x) : (y)
 #define MAX_ARGC 1024
 
+static inline bool
+safe_realpath(const char* src, char *buf, size_t buf_sz) {
+    char* ans = realpath(src, NULL);
+    if (ans == NULL) return false;
+    snprintf(buf, buf_sz, "%s", ans);
+    free(ans);
+    return true;
+}
+
+static inline void
+set_bundle_exe_dir(const wchar_t *exe_dir) {
+    wchar_t buf[PATH_MAX+1] = {0};
+    swprintf(buf, PATH_MAX, L"bundle_exe_dir=%ls", exe_dir);
+    PySys_AddXOption(buf);
+}
+
 #ifdef FOR_BUNDLE
 static int run_embedded(const char* exe_dir_, int argc, wchar_t **argv) {
     int num;
@@ -38,7 +54,7 @@ static int run_embedded(const char* exe_dir_, int argc, wchar_t **argv) {
     int ret = 1;
     wchar_t *exe_dir = Py_DecodeLocale(exe_dir_, NULL);
     if (exe_dir == NULL) { fprintf(stderr, "Fatal error: cannot decode exe_dir\n"); return 1; }
-    PyObject *ed = PyUnicode_FromWideChar(exe_dir, -1);
+    set_bundle_exe_dir(exe_dir);
     wchar_t stdlib[PATH_MAX+1] = {0};
 #ifdef __APPLE__
     const char *python_relpath = "../Resources/Python/lib";
@@ -62,7 +78,6 @@ static int run_embedded(const char* exe_dir_, int argc, wchar_t **argv) {
     Py_Initialize();
     PySys_SetArgvEx(argc - 1, argv + 1, 0);
     PySys_SetObject("frozen", Py_True);
-    if (ed) { PySys_SetObject("bundle_exe_dir", ed); Py_CLEAR(ed); }
     PyObject *kitty = PyUnicode_FromWideChar(stdlib, -1);
     if (kitty == NULL) { fprintf(stderr, "Failed to allocate python kitty lib object\n"); goto end; }
     PyObject *runpy = PyImport_ImportModule("runpy");
@@ -79,7 +94,13 @@ end:
 }
 
 #else
-static int run_embedded(const char* exe_dir, int argc, wchar_t **argv) {
+static int run_embedded(const char* exe_dir_, int argc, wchar_t **argv) {
+    (void)exe_dir_;
+#ifdef __APPLE__
+    wchar_t *exe_dir = Py_DecodeLocale(exe_dir_, NULL);
+    if (exe_dir == NULL) { fprintf(stderr, "Fatal error: cannot decode exe_dir\n"); return 1; }
+    set_bundle_exe_dir(exe_dir);
+#endif
     return Py_Main(argc, argv);
 }
 
@@ -92,7 +113,7 @@ read_exe_path(char *exe, size_t buf_sz) {
     uint32_t size = PATH_MAX;
     char apple[PATH_MAX+1] = {0};
     if (_NSGetExecutablePath(apple, &size) != 0) { fprintf(stderr, "Failed to get path to executable\n"); return false; }
-    if (realpath(apple, exe) == NULL) { fprintf(stderr, "realpath() failed on the executable's path\n"); return false; }
+    if (!safe_realpath(apple, exe, buf_sz)) { fprintf(stderr, "realpath() failed on the executable's path\n"); return false; }
     return true;
 }
 #elif defined(__FreeBSD__)
@@ -114,7 +135,7 @@ read_exe_path(char *exe, size_t buf_sz) {
 
 static inline bool
 read_exe_path(char *exe, size_t buf_sz) {
-    if (realpath("/proc/curproc/exe", exe) == NULL) { fprintf(stderr, "Failed to read /proc/self/exe\n"); return false; }
+    if (!safe_realpath("/proc/curproc/exe", exe, buf_sz)) { fprintf(stderr, "Failed to read /proc/self/exe\n"); return false; }
     return true;
 }
 
@@ -122,7 +143,7 @@ read_exe_path(char *exe, size_t buf_sz) {
 
 static inline bool
 read_exe_path(char *exe, size_t buf_sz) {
-    if (realpath("/proc/self/exe", exe) == NULL) { fprintf(stderr, "Failed to read /proc/self/exe\n"); return false; }
+    if (!safe_realpath("/proc/self/exe", exe, buf_sz)) { fprintf(stderr, "Failed to read /proc/self/exe\n"); return false; }
     return true;
 }
 #endif
