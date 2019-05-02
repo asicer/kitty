@@ -352,7 +352,8 @@ def prepare_compile_c_extension(kenv, module, incremental, compilation_database,
     for src in sources:
         name = src
         cppflags = kenv.cppflags[:]
-        dest = os.path.join(build_dir, module, src + '.o')
+        prefix = os.path.basename(module)
+        dest = os.path.join(build_dir, prefix + '-' + os.path.basename(src) + '.o')
         is_special = src in SPECIAL_SOURCES
         if is_special:
             src, defines = SPECIAL_SOURCES[src]
@@ -368,7 +369,6 @@ def prepare_compile_c_extension(kenv, module, incremental, compilation_database,
         if not incremental or cmd_changed or newer(
             dest, *dependecies_for(full_src, dest, headers)
         ):
-            os.makedirs(os.path.dirname(dest), exist_ok=True)
             new_objects += [dest]
             done = False
         else:
