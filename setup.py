@@ -435,7 +435,7 @@ def fast_compile(to_compile):
 
     while not failed_ret:
         all_done = True
-        for key in to_compile:  # TODO: Make scheduling smarter
+        for key in to_compile:
             name, module = key
             value = to_compile[key]
             cmd = value[0]
@@ -443,7 +443,6 @@ def fast_compile(to_compile):
             started = value[2]
             done = value[3]
             deps = value[4]
-            # compilation_key = value[5]
             dest = value[6]
             real_dest = value[7]
             if started or done:
@@ -459,7 +458,6 @@ def fast_compile(to_compile):
             if all_deps_done:
                 items.put((name, module, cmd, action, dest, real_dest))
                 value[2] = True
-                # break
 
         while len(workers) < num_workers and not items.empty():
             name, module, cmd, action, dest, real_dest = items.get()
@@ -476,7 +474,6 @@ def fast_compile(to_compile):
                     raise SystemExit('Programming error, unknown action {}'.format(action))
             w = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
             workers[w.pid] = name, module, cmd, w, dest, real_dest
-        # if len(workers) >= num_workers:
         wait()
 
         if all_done and items.empty():
