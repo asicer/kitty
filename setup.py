@@ -402,7 +402,7 @@ def fast_compile(to_compile):
 
     def wait():
         nonlocal failed_ret
-        if not workers:  # TODO: len(workers) < num_workers ?
+        if not workers:
             return
         pid, s = os.wait()
         signal_number = s & 0xff
