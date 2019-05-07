@@ -390,7 +390,7 @@ def prepare_compile_c_extension(kenv, module, incremental, compilation_database,
     return to_compile
 
 
-def fast_compile(to_compile):
+def fast_compile(to_compile, compilation_database):
     try:
         num_workers = max(1, os.cpu_count())
     except Exception:
@@ -408,7 +408,9 @@ def fast_compile(to_compile):
         signal_number = s & 0xff
         exit_status = (s >> 8) & 0xff
         name, module, cmd, w, dest, real_dest = workers.pop(pid, (None, None, None))
+        compilation_key = name, module
         if name is not None and (signal_number != 0 or exit_status != 0):
+            compilation_database.pop(compilation_key, None)
             if dest is not None:
                 try:
                     os.remove(dest)
@@ -421,8 +423,10 @@ def fast_compile(to_compile):
                 for error in stderr.decode('utf-8').splitlines():
                     print(error, file=sys.stderr)  # TODO: Make output colored again
                 for key in workers:
-                    _, _, _, w, dest, _ = workers[key]
+                    w_name, w_module, _, w, dest, _ = workers[key]
                     w.kill()
+                    w_compilation_key = w_name, w_module
+                    compilation_database.pop(w_compilation_key, None)
                     if dest is not None:
                         try:
                             os.remove(dest)
@@ -431,7 +435,8 @@ def fast_compile(to_compile):
         else:
             if dest is not None and real_dest is not None:
                 os.rename(dest, real_dest)
-        to_compile[name, module][3] = True
+            compilation_database[compilation_key] = cmd
+        to_compile[compilation_key][3] = True
 
     while not failed_ret:
         all_done = True
@@ -484,21 +489,6 @@ def fast_compile(to_compile):
     if failed_ret:
         raise SystemExit(failed_ret)
     assert(items.empty())
-
-
-def update_compilation_database(to_compile, compilation_database):  # TODO: handle compilation failures
-    all_keys = set()
-    for key in to_compile:
-        value = to_compile[key]
-        cmd = value[0]
-        compilation_key = value[5]
-        if compilation_key is None:
-            continue
-        all_keys.add(compilation_key)
-        compilation_database[compilation_key] = cmd
-
-    for key in set(compilation_database) - all_keys:
-        del compilation_database[key]
 
 
 def find_c_files():
@@ -599,9 +589,7 @@ def build(args, native_optimizations=True):
         ))
         to_compile.update(prepare_compile_glfw(args.incremental, compilation_database))
 
-        update_compilation_database(to_compile, compilation_database)
-
-        fast_compile(to_compile)
+        fast_compile(to_compile, compilation_database)
     finally:
         compilation_database = [
             {'file': k[0], 'arguments': v, 'directory': base, 'output': k[1]} for k, v in compilation_database.items()
