@@ -419,7 +419,7 @@ def fast_compile(to_compile):
 
                 stdout, stderr = w.communicate()
                 for error in stderr.decode('utf-8').splitlines():
-                    print(error, file=sys.stderr)
+                    print(error, file=sys.stderr)  # TODO: Make output colored again
                 for key in workers:
                     _, _, _, w, dest, _ = workers[key]
                     w.kill()
