@@ -379,7 +379,7 @@ def prepare_compile_c_extension(kenv, module, incremental, compilation_database,
         objects += [dest]
     dest = os.path.join(base, module + '.temp.so')
     real_dest = dest[:-len('.temp.so')] + '.so'
-    if not incremental or new_objects != [] or newer(real_dest, *objects):
+    if not incremental or not new_objects or newer(real_dest, *objects):
         # Old versions of clang don't like -pthread being passed to the linker
         # Don't treat linker warnings as errors (linker generates spurious
         # warnings on some old systems)
