@@ -579,7 +579,7 @@ def build(args, native_optimizations=True):
     except FileNotFoundError:
         compilation_database = []
     compilation_database = {
-        (k['file'], k.get('output')): k['arguments'] for k in compilation_database
+        (k['file'], k.get('module')): k['arguments'] for k in compilation_database
     }
     env = init_env(args.debug, args.sanitize, native_optimizations, args.profile, args.extra_logging)
     try:
@@ -592,7 +592,7 @@ def build(args, native_optimizations=True):
         fast_compile(to_compile, compilation_database)
     finally:
         compilation_database = [
-            {'file': k[0], 'arguments': v, 'directory': base, 'output': k[1]} for k, v in compilation_database.items()
+            {'file': k[0], 'arguments': v, 'directory': base, 'module': k[1]} for k, v in compilation_database.items()
         ]
         with open('build/compile_commands.json', 'w') as f:
             json.dump(compilation_database, f, indent=2, sort_keys=True)
