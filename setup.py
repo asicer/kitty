@@ -124,7 +124,7 @@ def cc_version():
 
 def get_python_flags(cflags):
     cflags.extend(
-        '-I' + sysconfig.get_path(x) for x in 'include platinclude'.split()
+        ['-I' + sysconfig.get_path('include')]
     )
     libs = []
     libs += sysconfig.get_config_var('LIBS').split()
