@@ -343,7 +343,7 @@ def dependecies_for(src, obj, all_headers):
                     yield path
 
 
-def prepare_compile_c_extension(kenv, module, incremental, compilation_database, sources, headers, src_deps=None):
+def prepare_compile_c_extension(kenv, module, incremental, old_compilation_database, compilation_database, sources, headers, src_deps=None):
     to_compile = {}
     deps = []
     objects = []
@@ -361,7 +361,7 @@ def prepare_compile_c_extension(kenv, module, incremental, compilation_database,
         cmd = [kenv.cc, '-MMD'] + cppflags + kenv.cflags
         full_src = os.path.join(base, src)
         compilation_key = name, module
-        old_cmd = compilation_database.get(compilation_key, [])
+        old_cmd = old_compilation_database.get(compilation_key, [])
         if old_cmd is not None:
             cmd_changed = old_cmd[:-4] != cmd
         else:
@@ -374,6 +374,7 @@ def prepare_compile_c_extension(kenv, module, incremental, compilation_database,
         else:
             done = True
         cmd += ['-c', full_src] + ['-o', dest]
+        compilation_database[compilation_key] = cmd
         to_compile[compilation_key] = [cmd, BuildType.compile, done, done, src_deps, compilation_key, None, None]
         deps += [compilation_key]
         objects += [dest]
@@ -435,7 +436,6 @@ def fast_compile(to_compile, compilation_database):
         else:
             if dest is not None and real_dest is not None:
                 os.rename(dest, real_dest)
-            compilation_database[compilation_key] = cmd
         to_compile[compilation_key][3] = True
 
     while not failed_ret:
@@ -508,7 +508,7 @@ def find_c_files():
     return tuple(ans), tuple(headers)
 
 
-def prepare_compile_glfw(incremental, compilation_database):
+def prepare_compile_glfw(incremental, old_compilation_database, compilation_database):
     to_compile = {}
     modules = ('cocoa',) if is_macos else ('x11', 'wayland')
     for module in modules:
@@ -531,7 +531,7 @@ def prepare_compile_glfw(incremental, compilation_database):
                 print(err, file=sys.stderr)
                 print(error('Disabling building of wayland backend'), file=sys.stderr)
                 continue
-        to_compile.update(prepare_compile_c_extension(genv, 'kitty/glfw-' + module, incremental, compilation_database, sources, all_headers, glfw_deps))
+        to_compile.update(prepare_compile_c_extension(genv, 'kitty/glfw-' + module, incremental, old_compilation_database, compilation_database, sources, all_headers, glfw_deps))
     return to_compile
 
 
@@ -545,7 +545,7 @@ def kittens_env():
     return kenv
 
 
-def prepare_compile_kittens(incremental, compilation_database):
+def prepare_compile_kittens(incremental, old_compilation_database, compilation_database):
     to_compile = {}
     kenv = kittens_env()
 
@@ -567,27 +567,28 @@ def prepare_compile_kittens(incremental, compilation_database):
             filter_sources=lambda x: 'windows_compat.c' not in x),
     ):
         to_compile.update(prepare_compile_c_extension(
-            kenv, dest, incremental, compilation_database, sources, all_headers + ['kitty/data-types.h']))
+            kenv, dest, incremental, old_compilation_database, compilation_database, sources, all_headers + ['kitty/data-types.h']))
     return to_compile
 
 
 def build(args, native_optimizations=True):
     global env
+    compilation_database = {}
     try:
         with open('build/compile_commands.json') as f:
-            compilation_database = json.load(f)
+            old_compilation_database = json.load(f)
     except FileNotFoundError:
-        compilation_database = []
-    compilation_database = {
-        (k['file'], k.get('module')): k['arguments'] for k in compilation_database
+        old_compilation_database = []
+    old_compilation_database = {
+        (k['file'], k.get('module')): k['arguments'] for k in old_compilation_database
     }
     env = init_env(args.debug, args.sanitize, native_optimizations, args.profile, args.extra_logging)
     try:
-        to_compile = prepare_compile_kittens(args.incremental, compilation_database)
+        to_compile = prepare_compile_kittens(args.incremental, old_compilation_database, compilation_database)
         to_compile.update(prepare_compile_c_extension(
-            kitty_env(), 'kitty/fast_data_types', args.incremental, compilation_database, *find_c_files()
+            kitty_env(), 'kitty/fast_data_types', args.incremental, old_compilation_database, compilation_database, *find_c_files()
         ))
-        to_compile.update(prepare_compile_glfw(args.incremental, compilation_database))
+        to_compile.update(prepare_compile_glfw(args.incremental, old_compilation_database, compilation_database))
 
         fast_compile(to_compile, compilation_database)
     finally:
