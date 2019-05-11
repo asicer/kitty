@@ -531,7 +531,11 @@ def prepare_compile_glfw(incremental, old_compilation_database, compilation_data
                 print(err, file=sys.stderr)
                 print(error('Disabling building of wayland backend'), file=sys.stderr)
                 continue
-        to_compile.update(prepare_compile_c_extension(genv, 'kitty/glfw-' + module, incremental, old_compilation_database, compilation_database, sources, all_headers, glfw_deps))
+        to_compile.update(
+            prepare_compile_c_extension(
+                genv, 'kitty/glfw-' + module, incremental, old_compilation_database, compilation_database, sources, all_headers, glfw_deps
+            )
+        )
     return to_compile
 
 
