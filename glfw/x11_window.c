@@ -265,6 +265,76 @@ static void updateNormalHints(_GLFWwindow* window, int width, int height)
     XFree(hints);
 }
 
+static inline bool
+is_window_fullscreen(_GLFWwindow* window)
+{
+    Atom* states;
+    unsigned long i;
+    GLFWbool ans = GLFW_FALSE;
+    if (!_glfw.x11.NET_WM_STATE || !_glfw.x11.NET_WM_STATE_FULLSCREEN)
+        return ans;
+    const unsigned long count =
+        _glfwGetWindowPropertyX11(window->x11.handle,
+                                  _glfw.x11.NET_WM_STATE,
+                                  XA_ATOM,
+                                  (unsigned char**) &states);
+
+    for (i = 0;  i < count;  i++)
+    {
+        if (states[i] == _glfw.x11.NET_WM_STATE_FULLSCREEN)
+        {
+            ans = GLFW_TRUE;
+            break;
+        }
+    }
+
+    if (states)
+        XFree(states);
+
+    return ans;
+}
+
+static inline void
+set_fullscreen(_GLFWwindow *window, bool on) {
+    if (_glfw.x11.NET_WM_STATE && _glfw.x11.NET_WM_STATE_FULLSCREEN) {
+        sendEventToWM(window,
+                _glfw.x11.NET_WM_STATE,
+                on ? _NET_WM_STATE_ADD : _NET_WM_STATE_REMOVE,
+                _glfw.x11.NET_WM_STATE_FULLSCREEN,
+                0, 1, 0);
+        // Enable compositor bypass
+        if (!window->x11.transparent)
+        {
+            if (on) {
+                const unsigned long value = 1;
+
+                XChangeProperty(_glfw.x11.display,  window->x11.handle,
+                                _glfw.x11.NET_WM_BYPASS_COMPOSITOR, XA_CARDINAL, 32,
+                                PropModeReplace, (unsigned char*) &value, 1);
+            } else {
+                XDeleteProperty(_glfw.x11.display, window->x11.handle,
+                                _glfw.x11.NET_WM_BYPASS_COMPOSITOR);
+            }
+        }
+
+    } else {
+        static bool warned = false;
+        if (!warned) {
+            warned = true;
+            _glfwInputErrorX11(GLFW_PLATFORM_ERROR,
+                               "X11: Failed to toggle fullscreen, the window manager does not support it");
+        }
+    }
+}
+
+bool
+_glfwPlatformToggleFullscreen(_GLFWwindow *window, unsigned int flags) {
+    (void) flags;
+    bool already_fullscreen = is_window_fullscreen(window);
+    set_fullscreen(window, !already_fullscreen);
+    return !already_fullscreen;
+}
+
 // Updates the full screen status of the window
 //
 static void updateWindowMode(_GLFWwindow* window)
@@ -283,43 +353,8 @@ static void updateWindowMode(_GLFWwindow* window)
                           0);
         }
 
-        if (_glfw.x11.NET_WM_STATE && _glfw.x11.NET_WM_STATE_FULLSCREEN)
-        {
-            sendEventToWM(window,
-                          _glfw.x11.NET_WM_STATE,
-                          _NET_WM_STATE_ADD,
-                          _glfw.x11.NET_WM_STATE_FULLSCREEN,
-                          0, 1, 0);
-        }
-        else
-        {
-            // This is the butcher's way of removing window decorations
-            // Setting the override-redirect attribute on a window makes the
-            // window manager ignore the window completely (ICCCM, section 4)
-            // The good thing is that this makes undecorated full screen windows
-            // easy to do; the bad thing is that we have to do everything
-            // manually and some things (like iconify/restore) won't work at
-            // all, as those are tasks usually performed by the window manager
+        set_fullscreen(window, true);
 
-            XSetWindowAttributes attributes;
-            attributes.override_redirect = True;
-            XChangeWindowAttributes(_glfw.x11.display,
-                                    window->x11.handle,
-                                    CWOverrideRedirect,
-                                    &attributes);
-
-            window->x11.overrideRedirect = GLFW_TRUE;
-        }
-
-        // Enable compositor bypass
-        if (!window->x11.transparent)
-        {
-            const unsigned long value = 1;
-
-            XChangeProperty(_glfw.x11.display,  window->x11.handle,
-                            _glfw.x11.NET_WM_BYPASS_COMPOSITOR, XA_CARDINAL, 32,
-                            PropModeReplace, (unsigned char*) &value, 1);
-        }
     }
     else
     {
@@ -330,32 +365,8 @@ static void updateWindowMode(_GLFWwindow* window)
                             _glfw.x11.NET_WM_FULLSCREEN_MONITORS);
         }
 
-        if (_glfw.x11.NET_WM_STATE && _glfw.x11.NET_WM_STATE_FULLSCREEN)
-        {
-            sendEventToWM(window,
-                          _glfw.x11.NET_WM_STATE,
-                          _NET_WM_STATE_REMOVE,
-                          _glfw.x11.NET_WM_STATE_FULLSCREEN,
-                          0, 1, 0);
-        }
-        else
-        {
-            XSetWindowAttributes attributes;
-            attributes.override_redirect = False;
-            XChangeWindowAttributes(_glfw.x11.display,
-                                    window->x11.handle,
-                                    CWOverrideRedirect,
-                                    &attributes);
+        set_fullscreen(window, false);
 
-            window->x11.overrideRedirect = GLFW_FALSE;
-        }
-
-        // Disable compositor bypass
-        if (!window->x11.transparent)
-        {
-            XDeleteProperty(_glfw.x11.display, window->x11.handle,
-                            _glfw.x11.NET_WM_BYPASS_COMPOSITOR);
-        }
     }
 }
 
@@ -1016,19 +1027,6 @@ static void acquireMonitor(_GLFWwindow* window)
 
     _glfwSetVideoModeX11(window->monitor, &window->videoMode);
 
-    if (window->x11.overrideRedirect)
-    {
-        int xpos, ypos;
-        GLFWvidmode mode;
-
-        // Manually position the window over its monitor
-        _glfwPlatformGetMonitorPos(window->monitor, &xpos, &ypos);
-        _glfwPlatformGetVideoMode(window->monitor, &mode);
-
-        XMoveResizeWindow(_glfw.x11.display, window->x11.handle,
-                          xpos, ypos, mode.width, mode.height);
-    }
-
     _glfwInputMonitorWindow(window->monitor, window);
 }
 
@@ -1078,6 +1076,8 @@ static void onConfigChange()
 static void processEvent(XEvent *event)
 {
     _GLFWwindow* window = NULL;
+    static GLFWbool keymap_dirty = GLFW_FALSE;
+#define UPDATE_KEYMAP_IF_NEEDED if (keymap_dirty) { keymap_dirty = GLFW_FALSE; glfw_xkb_compile_keymap(&_glfw.x11.xkb, NULL); }
 
     if (_glfw.x11.randr.available)
     {
@@ -1153,11 +1153,12 @@ static void processEvent(XEvent *event)
                 /* fallthrough */
             case XkbMapNotify:
             {
-                glfw_xkb_compile_keymap(&_glfw.x11.xkb, NULL);
+                keymap_dirty = GLFW_TRUE;
                 return;
             }
             case XkbStateNotify:
             {
+                UPDATE_KEYMAP_IF_NEEDED;
                 XkbStateNotifyEvent *state_event = (XkbStateNotifyEvent*)kb_event;
                 glfw_xkb_update_modifiers(
                         &_glfw.x11.xkb, state_event->base_mods, state_event->latched_mods,
@@ -1182,12 +1183,14 @@ static void processEvent(XEvent *event)
     {
         case KeyPress:
         {
+            UPDATE_KEYMAP_IF_NEEDED;
             glfw_xkb_handle_key_event(window, &_glfw.x11.xkb, event->xkey.keycode, GLFW_PRESS);
             return;
         }
 
         case KeyRelease:
         {
+            UPDATE_KEYMAP_IF_NEEDED;
             if (!_glfw.x11.xkb.detectable)
             {
                 // HACK: Key repeat events will arrive as KeyRelease/KeyPress
@@ -1374,7 +1377,7 @@ static void processEvent(XEvent *event)
             if (event->xconfigure.x != window->x11.xpos ||
                 event->xconfigure.y != window->x11.ypos)
             {
-                if (window->x11.overrideRedirect || event->xany.send_event)
+                if (event->xany.send_event)
                 {
                     _glfwInputWindowPos(window,
                                         event->xconfigure.x,
@@ -1681,6 +1684,7 @@ static void processEvent(XEvent *event)
         case DestroyNotify:
             return;
     }
+#undef UPDATE_KEYMAP_IF_NEEDED
 }
 
 
@@ -2119,30 +2123,12 @@ double _glfwPlatformGetDoubleClickInterval(_GLFWwindow* window)
 
 void _glfwPlatformIconifyWindow(_GLFWwindow* window)
 {
-    if (window->x11.overrideRedirect)
-    {
-        // Override-redirect windows cannot be iconified or restored, as those
-        // tasks are performed by the window manager
-        _glfwInputError(GLFW_PLATFORM_ERROR,
-                        "X11: Iconification of full screen windows requires a WM that supports EWMH full screen");
-        return;
-    }
-
     XIconifyWindow(_glfw.x11.display, window->x11.handle, _glfw.x11.screen);
     XFlush(_glfw.x11.display);
 }
 
 void _glfwPlatformRestoreWindow(_GLFWwindow* window)
 {
-    if (window->x11.overrideRedirect)
-    {
-        // Override-redirect windows cannot be iconified or restored, as those
-        // tasks are performed by the window manager
-        _glfwInputError(GLFW_PLATFORM_ERROR,
-                        "X11: Iconification of full screen windows requires a WM that supports EWMH full screen");
-        return;
-    }
-
     if (_glfwPlatformWindowIconified(window))
     {
         XMapWindow(_glfw.x11.display, window->x11.handle);

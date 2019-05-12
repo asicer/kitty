@@ -34,8 +34,14 @@ To update |kitty|, :doc:`follow the instructions <binary>`.
 - Allow specifying a value of ``none`` for the :opt:`selection_foreground`
   which will cause kitty to not change text color in selections (:iss:`1358`)
 
-- Make live resizing of OS windows smoother and show the size in cells
-  while the resize is in progress.
+- Make live resizing of OS windows smoother and add an option
+  :opt:`resize_draw_strategy` to control what is drawn while a
+  resize is in progress.
+
+- macOS: Improve handling of IME extended input. Compose characters
+  are now highlighted and the IME panel moves along with the text
+  (:pull:`1586`). Also fixes handling of delete key in Chinese IME
+  (:iss:`1461`)
 
 - When a window is closed, switch focus to the previously active window (if
   any) instead of picking the previous window in the layout (:iss:`1450`)
@@ -123,6 +129,12 @@ To update |kitty|, :doc:`follow the instructions <binary>`.
 - Remote control: Make the :ref:`at_set-font-size` command more capable.
   It can now increment font size and reset it. It also only acts on the
   active top-level window, by default (:iss:`1581`)
+
+- When launching child processes set the :code:`PWD` environment variable
+  (:iss:`1595`)
+
+- X11: use the window manager's native full-screen implementation when
+  making windows full-screen (:iss:`1605`)
 
 0.13.3 [2019-01-19]
 ------------------------------

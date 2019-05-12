@@ -687,14 +687,14 @@ render(double now) {
             continue;
         }
         make_os_window_context_current(w);
-        if (w->live_resize.in_progress) {
+        if (OPT(resize_draw_strategy) != RESIZE_DRAW_SCALED && w->live_resize.in_progress) {
             blank_os_window(w);
-            draw_resizing_text(w);
+            if (OPT(resize_draw_strategy) == RESIZE_DRAW_SIZE) draw_resizing_text(w);
             swap_window_buffers(w);
             if (USE_RENDER_FRAMES) request_frame_render(w);
             continue;
         }
-        bool needs_render = w->is_damaged;
+        bool needs_render = w->is_damaged || w->live_resize.in_progress;
         if (w->viewport_size_dirty) {
             w->clear_count = 0;
             update_surface_size(w->viewport_width, w->viewport_height, w->offscreen_texture_id);
@@ -838,7 +838,7 @@ process_pending_resizes(double now) {
                 // if more than one resize event has occurred, wait at least 0.2 secs
                 // before repainting, to avoid rapid transitions between the cells banner
                 // and the normal screen
-                if (w->live_resize.num_of_resize_events > 1) debounce_time = MAX(0.2, debounce_time);
+                if (w->live_resize.num_of_resize_events > 1 && OPT(resize_draw_strategy) == RESIZE_DRAW_SIZE) debounce_time = MAX(0.2, debounce_time);
                 if (now - w->live_resize.last_resize_event_at >= debounce_time) update_viewport = true;
                 else {
                     global_state.has_pending_resizes = true;

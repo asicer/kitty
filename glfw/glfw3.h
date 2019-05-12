@@ -2521,6 +2521,7 @@ GLFWAPI void glfwWindowHintString(int hint, const char* value);
  *  @ingroup window
  */
 GLFWAPI GLFWwindow* glfwCreateWindow(int width, int height, const char* title, GLFWmonitor* monitor, GLFWwindow* share);
+GLFWAPI bool glfwToggleFullscreen(GLFWwindow *window, unsigned int flags);
 
 /*! @brief Destroys the specified window and its context.
  *
@@ -3082,9 +3083,8 @@ GLFWAPI void glfwSetWindowOpacity(GLFWwindow* window, float opacity);
  *  @errors Possible errors include @ref GLFW_NOT_INITIALIZED and @ref
  *  GLFW_PLATFORM_ERROR.
  *
- *  @remark @wayland There is no concept of iconification in wl_shell, this
- *  function will emit @ref GLFW_PLATFORM_ERROR when using this deprecated
- *  protocol.
+ *  @remark @wayland Once a window is iconified it cannot be restored
+ *  except by the compositor, this is a design decision of xdg-shell.
  *
  *  @thread_safety This function must only be called from the main thread.
  *
@@ -3665,9 +3665,6 @@ GLFWAPI GLFWwindowocclusionfun glfwSetWindowOcclusionCallback(GLFWwindow* window
  *  library had not been [initialized](@ref intro_init).
  *
  *  @errors Possible errors include @ref GLFW_NOT_INITIALIZED.
- *
- *  @remark @wayland The wl_shell protocol has no concept of iconification,
- *  this callback will never be called when using this deprecated protocol.
  *
  *  @thread_safety This function must only be called from the main thread.
  *
