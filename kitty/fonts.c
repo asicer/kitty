@@ -98,7 +98,7 @@ static id_type font_group_id_counter = 0;
 static void initialize_font_group(FontGroup *fg);
 
 static inline void
-save_window_font_groups() {
+save_window_font_groups(void) {
     for (size_t o = 0; o < global_state.num_os_windows; o++) {
         OSWindow *w = global_state.os_windows + o;
         w->temp_font_group_id = w->fonts_data ? ((FontGroup*)(w->fonts_data))->id : 0;
@@ -106,7 +106,7 @@ save_window_font_groups() {
 }
 
 static inline void
-restore_window_font_groups() {
+restore_window_font_groups(void) {
     for (size_t o = 0; o < global_state.num_os_windows; o++) {
         OSWindow *w = global_state.os_windows + o;
         w->fonts_data = NULL;
@@ -129,7 +129,7 @@ font_group_is_unused(FontGroup *fg) {
 }
 
 static inline void
-trim_unused_font_groups() {
+trim_unused_font_groups(void) {
     save_window_font_groups();
     size_t i = 0;
     while (i < num_font_groups) {
@@ -143,7 +143,7 @@ trim_unused_font_groups() {
 }
 
 static inline void
-add_font_group() {
+add_font_group(void) {
     if (num_font_groups) trim_unused_font_groups();
     if (num_font_groups >= font_groups_capacity) {
         save_window_font_groups();
@@ -369,7 +369,7 @@ del_font_group(FontGroup *fg) {
 }
 
 static inline void
-free_font_groups() {
+free_font_groups(void) {
     if (font_groups) {
         for (size_t i = 0; i < num_font_groups; i++) del_font_group(font_groups + i);
         free(font_groups); font_groups = NULL;
@@ -804,9 +804,13 @@ check_cell_consumed(CellData *cell_data, CPUCell *last_cpu_cell) {
             case 0:
                 cell_data->current_codepoint = cell_data->cpu_cell->ch;
                 break;
-            default:
-                cell_data->current_codepoint = codepoint_for_mark(cell_data->cpu_cell->cc_idx[cell_data->codepoints_consumed - 1]);
+            default: {
+                index_type mark = cell_data->cpu_cell->cc_idx[cell_data->codepoints_consumed - 1];
+                // VS15/16 cause rendering to break, as they get marked as
+                // special glyphs, so map to 0, to avoid that
+                cell_data->current_codepoint = (mark == VS15 || mark == VS16) ? 0 : codepoint_for_mark(mark);
                 break;
+            }
         }
     }
     return 0;
@@ -817,10 +821,10 @@ static inline void
 shape_run(CPUCell *first_cpu_cell, GPUCell *first_gpu_cell, index_type num_cells, Font *font, bool disable_ligature) {
     shape(first_cpu_cell, first_gpu_cell, num_cells, harfbuzz_font_for_face(font->face), disable_ligature);
 #if 0
+        static char dbuf[1024];
         // You can also generate this easily using hb-shape --show-extents --cluster-level=1 --shapers=ot /path/to/font/file text
-        hb_buffer_serialize_glyphs(harfbuzz_buffer, 0, group_state.num_glyphs, (char*)canvas, sizeof(pixel) * CELLS_IN_CANVAS * cell_width * cell_height, NULL, harfbuzz_font_for_face(font->face), HB_BUFFER_SERIALIZE_FORMAT_TEXT, HB_BUFFER_SERIALIZE_FLAG_DEFAULT | HB_BUFFER_SERIALIZE_FLAG_GLYPH_EXTENTS);
-        printf("\n%s\n", (char*)canvas);
-        clear_canvas();
+        hb_buffer_serialize_glyphs(harfbuzz_buffer, 0, group_state.num_glyphs, dbuf, sizeof(dbuf), NULL, harfbuzz_font_for_face(font->face), HB_BUFFER_SERIALIZE_FORMAT_TEXT, HB_BUFFER_SERIALIZE_FLAG_DEFAULT | HB_BUFFER_SERIALIZE_FLAG_GLYPH_EXTENTS);
+        printf("\n%s\n", dbuf);
 #endif
     /* Now distribute the glyphs into groups of cells
      * Considerations to keep in mind:
@@ -928,7 +932,7 @@ shape_run(CPUCell *first_cpu_cell, GPUCell *first_gpu_cell, index_type num_cells
 }
 
 static inline void
-merge_groups_for_pua_space_ligature() {
+merge_groups_for_pua_space_ligature(void) {
     while (G(group_idx) > 0) {
         Group *g = G(groups), *g1 = G(groups) + 1;
         g->num_cells += g1->num_cells;
@@ -1129,7 +1133,7 @@ render_simple_text(FONTS_DATA_HANDLE fg_, const char *text) {
 }
 
 static inline void
-clear_symbol_maps() {
+clear_symbol_maps(void) {
     if (symbol_maps) { free(symbol_maps); symbol_maps = NULL; num_symbol_maps = 0; }
 }
 
