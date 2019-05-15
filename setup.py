@@ -172,11 +172,11 @@ def first_successful_compile(cc, *cflags, src=None):
 
 class Env:
 
-    def __init__(self, cc, cc_with_formatting, cppflags, cflags, ldflags, ldpaths=[]):
-        self.cc, self.cc_with_formatting, self.cppflags, self.cflags, self.ldflags, self.ldpaths = cc, cc_with_formatting, cppflags, cflags, ldflags, ldpaths
+    def __init__(self, cc, cppflags, cflags, ldflags, ldpaths=[]):
+        self.cc, self.cppflags, self.cflags, self.ldflags, self.ldpaths = cc, cppflags, cflags, ldflags, ldpaths
 
     def copy(self):
-        return Env(self.cc, list(self.cc_with_formatting), list(self.cppflags), list(self.cflags), list(self.ldflags), list(self.ldpaths))
+        return Env(self.cc, list(self.cppflags), list(self.cflags), list(self.ldflags), list(self.ldpaths))
 
 
 def init_env(
@@ -238,13 +238,7 @@ def init_env(
         cflags.append('-g3')
         ldflags.append('-lprofiler')
     ldpaths = []
-    if cc == 'gcc':
-        cc_with_formatting = [cc, '-fdiagnostics-color=always']
-    elif cc == 'clang':
-        cc_with_formatting = [cc, '-fcolor-diagnostics']
-    else:
-        cc_with_formatting = [cc]
-    return Env(cc, cc_with_formatting, cppflags, cflags, ldflags, ldpaths=ldpaths)
+    return Env(cc, cppflags, cflags, ldflags, ldpaths=ldpaths)
 
 
 def kitty_env():
@@ -364,7 +358,7 @@ def prepare_compile_c_extension(kenv, module, incremental, old_compilation_datab
         if is_special:
             src, defines = SPECIAL_SOURCES[src]
             cppflags.extend(map(define, defines))
-        cmd = kenv.cc_with_formatting + ['-MMD'] + cppflags + kenv.cflags
+        cmd = [kenv.cc, '-MMD'] + cppflags + kenv.cflags
         full_src = os.path.join(base, src)
         compilation_key = name, module
         old_cmd = old_compilation_database.get(compilation_key, [])
@@ -392,7 +386,7 @@ def prepare_compile_c_extension(kenv, module, incremental, old_compilation_datab
         # warnings on some old systems)
         unsafe = {'-pthread', '-Werror', '-pedantic-errors'}
         linker_cflags = list(filter(lambda x: x not in unsafe, kenv.cflags))
-        cmd = kenv.cc_with_formatting + linker_cflags + kenv.ldflags + objects + kenv.ldpaths + ['-o', dest]
+        cmd = [kenv.cc] + linker_cflags + kenv.ldflags + objects + kenv.ldpaths + ['-o', dest]
         to_compile[module, module] = [cmd, BuildType.link, False, False, deps, None, dest, real_dest]
     return to_compile
 
@@ -428,7 +422,7 @@ def fast_compile(to_compile, compilation_database):
 
                 stdout, stderr = w.communicate()
                 for error in stderr.decode('utf-8').splitlines():
-                    print(error, file=sys.stderr)
+                    print(error, file=sys.stderr)  # TODO: Make output colored again
                 for key in workers:
                     w_name, w_module, _, w, dest, _ = workers[key]
                     w.kill()
