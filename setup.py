@@ -16,6 +16,12 @@ import sys
 import sysconfig
 import time
 import queue
+import pty
+import struct
+import fcntl
+import termios
+import asyncio
+import signal
 from kitty.enums import BuildType
 
 base = os.path.dirname(os.path.abspath(__file__))
@@ -399,44 +405,79 @@ def fast_compile(to_compile, compilation_database):
     # num_workers += 1
     items = queue.Queue()
     workers = {}
+    pid_to_workers = {}
     failed_ret = 0
 
-    def wait():
+    def child_exited():
         nonlocal failed_ret
-        if not workers:
-            return
-        pid, s = os.wait()
-        signal_number = s & 0xff
-        exit_status = (s >> 8) & 0xff
-        name, module, cmd, w, dest, real_dest = workers.pop(pid, (None, None, None))
+        nonlocal loop
+        nonlocal compilation_database
+        nonlocal to_compile
+        # try:
+        pid, status = os.waitpid(-1, os.WNOHANG)
+        # except ChildProcessError:  # No child process available for some reason
+        #     return
+        master = pid_to_workers.pop(pid, None)
+        name, module, cmd, w, stderrfd, dest, real_dest = workers.pop(master, (None, None, None, None, None, None, None))
         compilation_key = name, module
-        if name is not None and (signal_number != 0 or exit_status != 0):
+        signal_number = status & 0xff
+        exit_status = (status >> 8) & 0xff
+        if signal_number != 0 or exit_status != 0:
+            failed_ret = exit_status
             compilation_database.pop(compilation_key, None)
             if dest is not None:
                 try:
                     os.remove(dest)
                 except EnvironmentError:
                     pass
-            if not failed_ret:
-                failed_ret = exit_status
-
-                stdout, stderr = w.communicate()
-                for error in stderr.decode('utf-8').splitlines():
-                    print(error, file=sys.stderr)  # TODO: Make output colored again
-                for key in workers:
-                    w_name, w_module, _, w, dest, _ = workers[key]
-                    w.kill()
-                    w_compilation_key = w_name, w_module
-                    compilation_database.pop(w_compilation_key, None)
-                    if dest is not None:
-                        try:
-                            os.remove(dest)
-                        except EnvironmentError:
-                            pass
         else:
             if dest is not None and real_dest is not None:
                 os.rename(dest, real_dest)
         to_compile[compilation_key][3] = True
+        loop.stop()
+
+    loop = asyncio.get_event_loop()
+    loop.add_signal_handler(signal.SIGCHLD, child_exited)
+
+    def ready_to_read(master):
+        nonlocal failed_ret
+        nonlocal loop
+        name, module, cmd, w, stderrfd, dest, real_dest = workers.get(master, (None, None, None, None, None, None, None))
+        compilation_key = name, module
+        try:
+            data = os.read(stderrfd, 1024) # read available
+        except OSError as e:
+            if e.errno != errno.EIO:
+                raise #XXX cleanup
+            del readable[fd] # EIO means EOF on some systems
+        else:
+            if not data: # EOF
+                del readable[fd]
+            else:
+                sys.stderr.buffer.write(data)
+                sys.stderr.buffer.flush()
+        if not failed_ret:
+            failed_ret = 1000
+
+            for key in workers:  # Stop all other workers
+                if key == master:
+                    continue  # Don't kill this one process
+                del workers[key]
+                w_name, w_module, _, w, w_master, w_dest, _ = workers[key]
+                w.kill()
+                w_compilation_key = w_name, w_module
+                compilation_database.pop(w_compilation_key, None)
+                if w_dest is not None:
+                    try:
+                        os.remove(w_dest)
+                    except EnvironmentError:
+                        pass
+        loop.stop()
+
+    def wait():
+        if not workers:
+            return
+        loop.run_forever()
 
     while not failed_ret:
         all_done = True
@@ -477,8 +518,17 @@ def fast_compile(to_compile, compilation_database):
                     print('Generating {} ...'.format(emphasis(name)))
                 else:
                     raise SystemExit('Programming error, unknown action {}'.format(action))
-            w = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
-            workers[w.pid] = name, module, cmd, w, dest, real_dest
+            master, slave = pty.openpty()  # Create a new pty
+
+            s = struct.pack('HHHH', 0, 0, 0, 0)
+            t = fcntl.ioctl(sys.stdout.fileno(), termios.TIOCGWINSZ, s)
+            fcntl.ioctl(master, termios.TIOCSWINSZ, t)  # Set size of pty
+
+            loop.add_reader(master, ready_to_read, master)
+
+            w = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=slave)
+            workers[master] = name, module, cmd, w, master, dest, real_dest
+            pid_to_workers[w.pid] = master
         wait()
 
         if all_done and items.empty():
@@ -486,6 +536,7 @@ def fast_compile(to_compile, compilation_database):
 
     while len(workers):
         wait()
+    loop.close()
     if failed_ret:
         raise SystemExit(failed_ret)
     assert(items.empty())
