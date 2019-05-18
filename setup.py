@@ -22,7 +22,6 @@ import fcntl
 import termios
 import asyncio
 import signal
-import errno
 from kitty.enums import BuildType
 
 base = os.path.dirname(os.path.abspath(__file__))
