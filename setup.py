@@ -459,7 +459,7 @@ def fast_compile(to_compile, compilation_database):
         if not failed_ret:
             failed_ret = 1000
 
-            for key in workers:  # Stop all other workers
+            for key in workers.copy():  # Stop all other workers
                 if key == master:
                     continue  # Don't kill this one process
                 w_name, w_module, _, w, w_master, w_dest, _ = workers.pop(key, (None, None, None, None, None, None, None))
