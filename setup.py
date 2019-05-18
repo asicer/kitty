@@ -467,9 +467,9 @@ def fast_compile(tasks, compilation_database):
     def ready_to_read(master):
         nonlocal loop
         try:
-            data = os.read(master, 1024)  # read available
+            data = os.read(master, 1024)  # Read available
         except OSError as e:
-                raise  # XXX cleanup
+            raise  # XXX Cleanup
         else:
             sys.stderr.buffer.write(data)
             sys.stderr.buffer.flush()
