@@ -474,10 +474,10 @@ def fast_compile(tasks, compilation_database):
         except OSError as e:
             if e.errno != errno.EIO:
                 raise  # XXX cleanup
-            # del readable[master]  # EIO means EOF on some systems
+            # del workers.pop(master, None)  # EIO means EOF on some systems
         else:
             # if not data:  # EOF
-            #     del readable[master]
+            #     del workers.pop(master, None)
             # else:
             sys.stderr.buffer.write(data)
             sys.stderr.buffer.flush()
