@@ -412,7 +412,6 @@ def fast_compile(tasks, compilation_database):
     # num_workers += 1
     items = queue.Queue()
     workers = {}
-    pid_to_workers = {}
     failed_ret = 0
 
     def child_exited():
@@ -427,8 +426,7 @@ def fast_compile(tasks, compilation_database):
                 pid, status = os.waitpid(-1, os.WNOHANG)
             except ChildProcessError:  # No child process available
                 break
-            master = pid_to_workers.pop(pid, None)
-            worker = workers.pop(master, None)
+            worker = workers.pop(pid, None)
             if worker is None:
                 loop.stop()
                 return
@@ -446,7 +444,7 @@ def fast_compile(tasks, compilation_database):
                 if not failed_ret:
                     failed_ret = exit_status
                     for key in workers.copy():  # Stop all other workers
-                        if key == master:
+                        if key == pid:
                             continue  # Don't kill this one process
                         w_name, w_module, _, w, w_dest, _ = workers.pop(key, (None, None, None, None, None, None))
                         w.kill()
@@ -524,8 +522,7 @@ def fast_compile(tasks, compilation_database):
             loop.add_reader(master, ready_to_read, master)
 
             w = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=slave)
-            workers[master] = name, module, cmd, w, dest, real_dest
-            pid_to_workers[w.pid] = master
+            workers[w.pid] = name, module, cmd, w, dest, real_dest
         wait()
 
         if all_done and items.empty():
