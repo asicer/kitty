@@ -485,7 +485,6 @@ def fast_compile(to_compile, compilation_database):
 
     while not failed_ret:
         all_done = True
-        print("########################### 1")
         for key in to_compile:
             name, module = key
             value = to_compile[key]
@@ -510,9 +509,7 @@ def fast_compile(to_compile, compilation_database):
                 items.put((name, module, cmd, action, dest, real_dest))
                 value[2] = True
 
-        print("########################### 2")
         while len(workers) < num_workers and not items.empty():
-            print("########################### 3")
             name, module, cmd, action, dest, real_dest = items.get()
             if verbose:
                 print(' '.join(cmd))
@@ -536,21 +533,14 @@ def fast_compile(to_compile, compilation_database):
             w = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=slave)
             workers[master] = name, module, cmd, w, master, dest, real_dest
             pid_to_workers[w.pid] = master
-        print("########################### 4")
         wait()
-        print("########################### 5")
 
         if all_done and items.empty():
-            print("########################### 6")
             break
 
-    print("########################### 7")
     while len(workers):
-        print("########################### 8")
         wait()
-    print("########################### 9")
     loop.close()
-    print("########################### 10")
     if failed_ret:
         raise SystemExit(failed_ret)
     assert(items.empty())
