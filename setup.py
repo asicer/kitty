@@ -469,7 +469,6 @@ def fast_compile(tasks, compilation_database):
 
     def ready_to_read(master):
         nonlocal loop
-        name, module, cmd, w, dest, real_dest = workers.get(master, (None, None, None, None, None, None))
         try:
             data = os.read(master, 1024)  # read available
         except OSError as e:
