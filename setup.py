@@ -382,7 +382,7 @@ def prepare_compile_c_extension(kenv, module, incremental, old_compilation_datab
             done = True
         cmd += ['-c', full_src] + ['-o', dest]
         compilation_database[compilation_key] = cmd
-        to_compile[compilation_key] = [cmd, BuildType.compile, done, done, src_deps, compilation_key, None, None]
+        to_compile[compilation_key] = [cmd, BuildType.compile, done, done, src_deps, None, None]
         deps += [compilation_key]
         objects += [dest]
     dest = os.path.join(base, module + '.temp.so')
@@ -394,7 +394,7 @@ def prepare_compile_c_extension(kenv, module, incremental, old_compilation_datab
         unsafe = {'-pthread', '-Werror', '-pedantic-errors'}
         linker_cflags = list(filter(lambda x: x not in unsafe, kenv.cflags))
         cmd = [kenv.cc] + linker_cflags + kenv.ldflags + objects + kenv.ldpaths + ['-o', dest]
-        to_compile[module, module] = [cmd, BuildType.link, False, False, deps, None, dest, real_dest]
+        to_compile[module, module] = [cmd, BuildType.link, False, False, deps, dest, real_dest]
     return to_compile
 
 
@@ -493,8 +493,8 @@ def fast_compile(to_compile, compilation_database):
             started = value[2]
             done = value[3]
             deps = value[4]
-            dest = value[6]
-            real_dest = value[7]
+            dest = value[5]
+            real_dest = value[6]
             if started or done:
                 continue
             all_done = False
