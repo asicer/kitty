@@ -428,6 +428,7 @@ def fast_compile(to_compile, compilation_database):
         exit_status = (status >> 8) & 0xff
         if signal_number != 0 or exit_status != 0:
             failed_ret = exit_status
+            print('####################', compilation_key, failed_ret)
             compilation_database.pop(compilation_key, None)
             if dest is not None:
                 try:
@@ -461,6 +462,7 @@ def fast_compile(to_compile, compilation_database):
             sys.stderr.buffer.flush()
         if not failed_ret:
             failed_ret = 1000
+            print('####################', compilation_key, failed_ret)
 
             for key in workers.copy():  # Stop all other workers
                 if key == master:
