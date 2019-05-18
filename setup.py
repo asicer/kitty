@@ -421,6 +421,7 @@ def fast_compile(to_compile, compilation_database):
         master = pid_to_workers.pop(pid, None)
         worker = workers.pop(master, None)
         if worker is None:
+            loop.stop()
             return
         name, module, cmd, w, stderrfd, dest, real_dest = worker
         compilation_key = name, module
