@@ -462,8 +462,7 @@ def fast_compile(to_compile, compilation_database):
             for key in workers:  # Stop all other workers
                 if key == master:
                     continue  # Don't kill this one process
-                del workers[key]
-                w_name, w_module, _, w, w_master, w_dest, _ = workers[key]
+                w_name, w_module, _, w, w_master, w_dest, _ = workers.pop(key, (None, None, None, None, None, None, None))
                 w.kill()
                 w_compilation_key = w_name, w_module
                 compilation_database.pop(w_compilation_key, None)
