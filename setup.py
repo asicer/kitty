@@ -357,7 +357,7 @@ class CompileObject:
 
 
 def prepare_compile_c_extension(kenv, module, incremental, old_compilation_database, compilation_database, sources, headers, src_deps=None):
-    to_compile = {}
+    tasks = {}
     deps = []
     objects = []
     new_objects = []
@@ -388,7 +388,7 @@ def prepare_compile_c_extension(kenv, module, incremental, old_compilation_datab
             done = True
         cmd += ['-c', full_src] + ['-o', dest]
         compilation_database[compilation_key] = cmd
-        to_compile[compilation_key] = CompileObject(cmd, BuildType.compile, done, done, src_deps, None, None)
+        tasks[compilation_key] = CompileObject(cmd, BuildType.compile, done, done, src_deps, None, None)
         deps += [compilation_key]
         objects += [dest]
     dest = os.path.join(base, module + '.temp.so')
@@ -400,11 +400,11 @@ def prepare_compile_c_extension(kenv, module, incremental, old_compilation_datab
         unsafe = {'-pthread', '-Werror', '-pedantic-errors'}
         linker_cflags = list(filter(lambda x: x not in unsafe, kenv.cflags))
         cmd = [kenv.cc] + linker_cflags + kenv.ldflags + objects + kenv.ldpaths + ['-o', dest]
-        to_compile[module, module] = CompileObject(cmd, BuildType.link, False, False, deps, dest, real_dest)
-    return to_compile
+        tasks[module, module] = CompileObject(cmd, BuildType.link, False, False, deps, dest, real_dest)
+    return tasks
 
 
-def fast_compile(to_compile, compilation_database):
+def fast_compile(tasks, compilation_database):
     try:
         num_workers = max(1, os.cpu_count())
     except Exception:
@@ -419,7 +419,7 @@ def fast_compile(to_compile, compilation_database):
         nonlocal failed_ret
         nonlocal loop
         nonlocal compilation_database
-        nonlocal to_compile
+        nonlocal tasks
         loop_again = True
         while loop_again:
             loop_again = False
@@ -460,7 +460,7 @@ def fast_compile(to_compile, compilation_database):
             else:
                 if dest is not None and real_dest is not None:
                     os.rename(dest, real_dest)
-            to_compile[compilation_key].done = True
+            tasks[compilation_key].done = True
             loop_again = True
         loop.stop()
 
@@ -491,9 +491,9 @@ def fast_compile(to_compile, compilation_database):
 
     while not failed_ret:
         all_done = True
-        for key in to_compile:
+        for key in tasks:
             name, module = key
-            task = to_compile[key]
+            task = tasks[key]
             if task.started or task.done:
                 continue
             all_done = False
@@ -501,7 +501,7 @@ def fast_compile(to_compile, compilation_database):
             all_deps_done = True
             if task.deps is not None:
                 for dep in task.deps:
-                    if not to_compile[dep].done:
+                    if not tasks[dep].done:
                         all_deps_done = False
                         break
             if all_deps_done:
@@ -563,7 +563,7 @@ def find_c_files():
 
 
 def prepare_compile_glfw(incremental, old_compilation_database, compilation_database):
-    to_compile = {}
+    tasks = {}
     modules = ('cocoa',) if is_macos else ('x11', 'wayland')
     for module in modules:
         try:
@@ -579,18 +579,18 @@ def prepare_compile_glfw(incremental, old_compilation_database, compilation_data
         glfw_deps = None
         if module == 'wayland':
             try:
-                glfw_deps, wayland_to_compile = glfw.prepare_build_wayland_protocols(genv, emphasis, newer, base, 'glfw', module)
-                to_compile.update(wayland_to_compile)
+                glfw_deps, wayland_tasks = glfw.prepare_build_wayland_protocols(genv, emphasis, newer, base, 'glfw', module)
+                tasks.update(wayland_tasks)
             except SystemExit as err:
                 print(err, file=sys.stderr)
                 print(error('Disabling building of wayland backend'), file=sys.stderr)
                 continue
-        to_compile.update(
+        tasks.update(
             prepare_compile_c_extension(
                 genv, 'kitty/glfw-' + module, incremental, old_compilation_database, compilation_database, sources, all_headers, glfw_deps
             )
         )
-    return to_compile
+    return tasks
 
 
 def kittens_env():
@@ -604,7 +604,7 @@ def kittens_env():
 
 
 def prepare_compile_kittens(incremental, old_compilation_database, compilation_database):
-    to_compile = {}
+    tasks = {}
     kenv = kittens_env()
 
     def list_files(q):
@@ -624,9 +624,9 @@ def prepare_compile_kittens(incremental, old_compilation_database, compilation_d
             extra_sources=('kitty/charsets.c',),  # TODO: Compile only once
             filter_sources=lambda x: 'windows_compat.c' not in x),
     ):
-        to_compile.update(prepare_compile_c_extension(
+        tasks.update(prepare_compile_c_extension(
             kenv, dest, incremental, old_compilation_database, compilation_database, sources, all_headers + ['kitty/data-types.h']))
-    return to_compile
+    return tasks
 
 
 def build(args, native_optimizations=True):
@@ -642,13 +642,13 @@ def build(args, native_optimizations=True):
     }
     env = init_env(args.debug, args.sanitize, native_optimizations, args.profile, args.extra_logging)
     try:
-        to_compile = prepare_compile_kittens(args.incremental, old_compilation_database, compilation_database)
-        to_compile.update(prepare_compile_c_extension(
+        tasks = prepare_compile_kittens(args.incremental, old_compilation_database, compilation_database)
+        tasks.update(prepare_compile_c_extension(
             kitty_env(), 'kitty/fast_data_types', args.incremental, old_compilation_database, compilation_database, *find_c_files()
         ))
-        to_compile.update(prepare_compile_glfw(args.incremental, old_compilation_database, compilation_database))
+        tasks.update(prepare_compile_glfw(args.incremental, old_compilation_database, compilation_database))
 
-        fast_compile(to_compile, compilation_database)
+        fast_compile(tasks, compilation_database)
     finally:
         compilation_database = [
             {'file': k[0], 'arguments': v, 'directory': base, 'module': k[1]} for k, v in compilation_database.items()

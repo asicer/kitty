@@ -91,7 +91,7 @@ def init_env(env, pkg_config, at_least_version, test_compile, module='x11'):
 
 
 def prepare_build_wayland_protocols(env, emphasis, newer, base, dest_dir, module):
-    to_compile = {}
+    tasks = {}
     glfw_deps = []
     for protocol in env.wayland_protocols:
         src = os.path.join(env.wayland_packagedir, protocol)
@@ -104,9 +104,9 @@ def prepare_build_wayland_protocols(env, emphasis, newer, base, dest_dir, module
                 q = 'client-header' if ext == 'h' else env.wayland_scanner_code
                 cmd = [env.wayland_scanner, q, src, full_dest]
                 key = dest, module
-                to_compile[key] = CompileObject(cmd, BuildType.generate, False, False, None, None, None)
+                tasks[key] = CompileObject(cmd, BuildType.generate, False, False, None, None, None)
                 glfw_deps += [key]
-    return glfw_deps, to_compile
+    return glfw_deps, tasks
 
 
 class Arg:
