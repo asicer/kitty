@@ -515,7 +515,7 @@ def fast_compile(tasks, compilation_database):
             master, slave = pty.openpty()  # Create a new pty
 
             s = struct.pack('HHHH', 0, 0, 0, 0)
-            t = fcntl.ioctl(sys.stdout.fileno(), termios.TIOCGWINSZ, s)
+            t = fcntl.ioctl(sys.stderr.fileno(), termios.TIOCGWINSZ, s)
             fcntl.ioctl(master, termios.TIOCSWINSZ, t)  # Set size of pty
 
             loop.add_reader(master, ready_to_read, master)
