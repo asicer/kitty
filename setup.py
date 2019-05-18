@@ -446,7 +446,7 @@ def fast_compile(tasks, compilation_database):
                     for key in workers.copy():  # Stop all other workers
                         if key == pid:
                             continue  # Don't kill this one process
-                        w_name, w_module, _, w, w_dest, _ = workers.pop(key, (None, None, None, None, None, None))
+                        w_name, w_module, _, w, w_dest, _ = workers.pop(key, None)
                         w.kill()
                         w_compilation_key = w_name, w_module
                         compilation_database.pop(w_compilation_key, None)
