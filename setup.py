@@ -22,6 +22,7 @@ import fcntl
 import termios
 import asyncio
 import signal
+import errno
 from kitty.enums import BuildType
 
 base = os.path.dirname(os.path.abspath(__file__))
@@ -443,19 +444,18 @@ def fast_compile(to_compile, compilation_database):
         nonlocal failed_ret
         nonlocal loop
         name, module, cmd, w, stderrfd, dest, real_dest = workers.get(master, (None, None, None, None, None, None, None))
-        compilation_key = name, module
         try:
-            data = os.read(stderrfd, 1024) # read available
+            data = os.read(stderrfd, 1024)  # read available
         except OSError as e:
             if e.errno != errno.EIO:
-                raise #XXX cleanup
-            del readable[fd] # EIO means EOF on some systems
+                raise  # XXX cleanup
+            # del readable[master]  # EIO means EOF on some systems
         else:
-            if not data: # EOF
-                del readable[fd]
-            else:
-                sys.stderr.buffer.write(data)
-                sys.stderr.buffer.flush()
+            # if not data:  # EOF
+            #     del readable[master]
+            # else:
+            sys.stderr.buffer.write(data)
+            sys.stderr.buffer.flush()
         if not failed_ret:
             failed_ret = 1000
 
