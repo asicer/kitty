@@ -419,7 +419,10 @@ def fast_compile(to_compile, compilation_database):
         # except ChildProcessError:  # No child process available for some reason
         #     return
         master = pid_to_workers.pop(pid, None)
-        name, module, cmd, w, stderrfd, dest, real_dest = workers.pop(master, (None, None, None, None, None, None, None))
+        worker = workers.pop(master, None)
+        if worker is None:
+            return
+        name, module, cmd, w, stderrfd, dest, real_dest = worker
         compilation_key = name, module
         signal_number = status & 0xff
         exit_status = (status >> 8) & 0xff
