@@ -462,7 +462,7 @@ def fast_compile(to_compile, compilation_database):
             sys.stderr.buffer.flush()
         if not failed_ret:
             failed_ret = 1000
-            print('####################', name, module, failed_ret)
+            print('####################', compilation_key, failed_ret)
 
             for key in workers.copy():  # Stop all other workers
                 if key == master:
