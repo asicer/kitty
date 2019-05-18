@@ -426,7 +426,7 @@ def fast_compile(to_compile, compilation_database):
             if worker is None:
                 loop.stop()
                 return
-            name, module, cmd, w, stderrfd, dest, real_dest = worker
+            name, module, cmd, w, dest, real_dest = worker
             compilation_key = name, module
             signal_number = status & 0xff
             exit_status = (status >> 8) & 0xff
@@ -442,7 +442,7 @@ def fast_compile(to_compile, compilation_database):
                     for key in workers.copy():  # Stop all other workers
                         if key == master:
                             continue  # Don't kill this one process
-                        w_name, w_module, _, w, w_master, w_dest, _ = workers.pop(key, (None, None, None, None, None, None, None))
+                        w_name, w_module, _, w, w_dest, _ = workers.pop(key, (None, None, None, None, None, None))
                         w.kill()
                         w_compilation_key = w_name, w_module
                         compilation_database.pop(w_compilation_key, None)
@@ -463,9 +463,9 @@ def fast_compile(to_compile, compilation_database):
 
     def ready_to_read(master):
         nonlocal loop
-        name, module, cmd, w, stderrfd, dest, real_dest = workers.get(master, (None, None, None, None, None, None, None))
+        name, module, cmd, w, dest, real_dest = workers.get(master, (None, None, None, None, None, None))
         try:
-            data = os.read(stderrfd, 1024)  # read available
+            data = os.read(master, 1024)  # read available
         except OSError as e:
             if e.errno != errno.EIO:
                 raise  # XXX cleanup
@@ -531,7 +531,7 @@ def fast_compile(to_compile, compilation_database):
             loop.add_reader(master, ready_to_read, master)
 
             w = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=slave)
-            workers[master] = name, module, cmd, w, master, dest, real_dest
+            workers[master] = name, module, cmd, w, dest, real_dest
             pid_to_workers[w.pid] = master
         wait()
 
