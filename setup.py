@@ -350,6 +350,12 @@ def dependecies_for(src, obj, all_headers):
                     yield path
 
 
+class CompileObject:
+
+    def __init__(self, cmd, build_type, started, done, deps, dest, real_dest):
+        self.cmd, self.build_type, self.started, self.done, self.deps, self.dest, self.real_dest = cmd, build_type, started, done, deps, dest, real_dest
+
+
 def prepare_compile_c_extension(kenv, module, incremental, old_compilation_database, compilation_database, sources, headers, src_deps=None):
     to_compile = {}
     deps = []
@@ -382,7 +388,7 @@ def prepare_compile_c_extension(kenv, module, incremental, old_compilation_datab
             done = True
         cmd += ['-c', full_src] + ['-o', dest]
         compilation_database[compilation_key] = cmd
-        to_compile[compilation_key] = [cmd, BuildType.compile, done, done, src_deps, None, None]
+        to_compile[compilation_key] = CompileObject(cmd, BuildType.compile, done, done, src_deps, None, None)
         deps += [compilation_key]
         objects += [dest]
     dest = os.path.join(base, module + '.temp.so')
@@ -394,7 +400,7 @@ def prepare_compile_c_extension(kenv, module, incremental, old_compilation_datab
         unsafe = {'-pthread', '-Werror', '-pedantic-errors'}
         linker_cflags = list(filter(lambda x: x not in unsafe, kenv.cflags))
         cmd = [kenv.cc] + linker_cflags + kenv.ldflags + objects + kenv.ldpaths + ['-o', dest]
-        to_compile[module, module] = [cmd, BuildType.link, False, False, deps, dest, real_dest]
+        to_compile[module, module] = CompileObject(cmd, BuildType.link, False, False, deps, dest, real_dest)
     return to_compile
 
 
@@ -454,7 +460,7 @@ def fast_compile(to_compile, compilation_database):
             else:
                 if dest is not None and real_dest is not None:
                     os.rename(dest, real_dest)
-            to_compile[compilation_key][3] = True
+            to_compile[compilation_key].done = True
             loop_again = True
         loop.stop()
 
@@ -487,41 +493,34 @@ def fast_compile(to_compile, compilation_database):
         all_done = True
         for key in to_compile:
             name, module = key
-            value = to_compile[key]
-            cmd = value[0]
-            action = value[1]
-            started = value[2]
-            done = value[3]
-            deps = value[4]
-            dest = value[5]
-            real_dest = value[6]
-            if started or done:
+            task = to_compile[key]
+            if task.started or task.done:
                 continue
             all_done = False
 
             all_deps_done = True
-            if deps is not None:
-                for dep in deps:
-                    if not to_compile[dep][3]:
+            if task.deps is not None:
+                for dep in task.deps:
+                    if not to_compile[dep].done:
                         all_deps_done = False
                         break
             if all_deps_done:
-                items.put((name, module, cmd, action, dest, real_dest))
-                value[2] = True
+                items.put((name, module, task.cmd, task.build_type, task.dest, task.real_dest))
+                task.started = True
 
         while len(workers) < num_workers and not items.empty():
-            name, module, cmd, action, dest, real_dest = items.get()
+            name, module, cmd, build_type, dest, real_dest = items.get()
             if verbose:
                 print(' '.join(cmd))
             else:
-                if action == BuildType.compile:
+                if build_type == BuildType.compile:
                     print('Compiling  {} ...'.format(emphasis(name)))
-                elif action == BuildType.link:
+                elif build_type == BuildType.link:
                     print('Linking    {} ...'.format(emphasis(name)))
-                elif action == BuildType.generate:
+                elif build_type == BuildType.generate:
                     print('Generating {} ...'.format(emphasis(name)))
                 else:
-                    raise SystemExit('Programming error, unknown action {}'.format(action))
+                    raise SystemExit('Programming error, unknown build_type {}'.format(build_type))
             master, slave = pty.openpty()  # Create a new pty
 
             s = struct.pack('HHHH', 0, 0, 0, 0)
