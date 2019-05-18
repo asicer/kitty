@@ -414,44 +414,48 @@ def fast_compile(to_compile, compilation_database):
         nonlocal loop
         nonlocal compilation_database
         nonlocal to_compile
-        # try:
-        pid, status = os.waitpid(-1, os.WNOHANG)
-        # except ChildProcessError:  # No child process available for some reason
-        #     return
-        master = pid_to_workers.pop(pid, None)
-        worker = workers.pop(master, None)
-        if worker is None:
-            loop.stop()
-            return
-        name, module, cmd, w, stderrfd, dest, real_dest = worker
-        compilation_key = name, module
-        signal_number = status & 0xff
-        exit_status = (status >> 8) & 0xff
-        if signal_number != 0 or exit_status != 0:
-            compilation_database.pop(compilation_key, None)
-            if dest is not None:
-                try:
-                    os.remove(dest)
-                except EnvironmentError:
-                    pass
-            if not failed_ret:
-                failed_ret = exit_status
-                for key in workers.copy():  # Stop all other workers
-                    if key == master:
-                        continue  # Don't kill this one process
-                    w_name, w_module, _, w, w_master, w_dest, _ = workers.pop(key, (None, None, None, None, None, None, None))
-                    w.kill()
-                    w_compilation_key = w_name, w_module
-                    compilation_database.pop(w_compilation_key, None)
-                    if w_dest is not None:
-                        try:
-                            os.remove(w_dest)
-                        except EnvironmentError:
-                            pass
-        else:
-            if dest is not None and real_dest is not None:
-                os.rename(dest, real_dest)
-        to_compile[compilation_key][3] = True
+        loop_again = True
+        while loop_again:
+            loop_again = False
+            try:
+                pid, status = os.waitpid(-1, os.WNOHANG)
+            except ChildProcessError:  # No child process available
+                break
+            master = pid_to_workers.pop(pid, None)
+            worker = workers.pop(master, None)
+            if worker is None:
+                loop.stop()
+                return
+            name, module, cmd, w, stderrfd, dest, real_dest = worker
+            compilation_key = name, module
+            signal_number = status & 0xff
+            exit_status = (status >> 8) & 0xff
+            if signal_number != 0 or exit_status != 0:
+                compilation_database.pop(compilation_key, None)
+                if dest is not None:
+                    try:
+                        os.remove(dest)
+                    except EnvironmentError:
+                        pass
+                if not failed_ret:
+                    failed_ret = exit_status
+                    for key in workers.copy():  # Stop all other workers
+                        if key == master:
+                            continue  # Don't kill this one process
+                        w_name, w_module, _, w, w_master, w_dest, _ = workers.pop(key, (None, None, None, None, None, None, None))
+                        w.kill()
+                        w_compilation_key = w_name, w_module
+                        compilation_database.pop(w_compilation_key, None)
+                        if w_dest is not None:
+                            try:
+                                os.remove(w_dest)
+                            except EnvironmentError:
+                                pass
+            else:
+                if dest is not None and real_dest is not None:
+                    os.rename(dest, real_dest)
+            to_compile[compilation_key][3] = True
+            loop_again = True
         loop.stop()
 
     loop = asyncio.get_event_loop()
