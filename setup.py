@@ -532,7 +532,7 @@ def fast_compile(to_compile, compilation_database):
             w = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=slave)
             workers[master] = name, module, cmd, w, master, dest, real_dest
             pid_to_workers[w.pid] = master
-        print("########################### 4")
+        print("########################### 4", workers)
         wait()
         print("########################### 5")
 
