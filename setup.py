@@ -427,13 +427,26 @@ def fast_compile(to_compile, compilation_database):
         signal_number = status & 0xff
         exit_status = (status >> 8) & 0xff
         if signal_number != 0 or exit_status != 0:
-            failed_ret = exit_status
             compilation_database.pop(compilation_key, None)
             if dest is not None:
                 try:
                     os.remove(dest)
                 except EnvironmentError:
                     pass
+            if not failed_ret:
+                failed_ret = exit_status
+                for key in workers.copy():  # Stop all other workers
+                    if key == master:
+                        continue  # Don't kill this one process
+                    w_name, w_module, _, w, w_master, w_dest, _ = workers.pop(key, (None, None, None, None, None, None, None))
+                    w.kill()
+                    w_compilation_key = w_name, w_module
+                    compilation_database.pop(w_compilation_key, None)
+                    if w_dest is not None:
+                        try:
+                            os.remove(w_dest)
+                        except EnvironmentError:
+                            pass
         else:
             if dest is not None and real_dest is not None:
                 os.rename(dest, real_dest)
@@ -444,7 +457,6 @@ def fast_compile(to_compile, compilation_database):
     loop.add_signal_handler(signal.SIGCHLD, child_exited)
 
     def ready_to_read(master):
-        nonlocal failed_ret
         nonlocal loop
         name, module, cmd, w, stderrfd, dest, real_dest = workers.get(master, (None, None, None, None, None, None, None))
         try:
@@ -459,21 +471,6 @@ def fast_compile(to_compile, compilation_database):
             # else:
             sys.stderr.buffer.write(data)
             sys.stderr.buffer.flush()
-        if not failed_ret:
-            failed_ret = 1000
-
-            for key in workers.copy():  # Stop all other workers
-                if key == master:
-                    continue  # Don't kill this one process
-                w_name, w_module, _, w, w_master, w_dest, _ = workers.pop(key, (None, None, None, None, None, None, None))
-                w.kill()
-                w_compilation_key = w_name, w_module
-                compilation_database.pop(w_compilation_key, None)
-                if w_dest is not None:
-                    try:
-                        os.remove(w_dest)
-                    except EnvironmentError:
-                        pass
         loop.stop()
 
     def wait():
