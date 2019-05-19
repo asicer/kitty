@@ -90,7 +90,7 @@ def init_env(env, pkg_config, at_least_version, test_compile, module='x11'):
     return ans
 
 
-def prepare_build_wayland_protocols(env, emphasis, newer, base, dest_dir, module):
+def prepare_build_wayland_protocols(env, emphasis, newer, dest_dir, module):
     tasks = {}
     glfw_deps = []
     for protocol in env.wayland_protocols:
@@ -99,7 +99,7 @@ def prepare_build_wayland_protocols(env, emphasis, newer, base, dest_dir, module
             raise SystemExit('The wayland-protocols package on your system is missing the {} protocol definition file'.format(protocol))
         for ext in 'hc':
             dest = wayland_protocol_file_name(src, ext)
-            full_dest = os.path.join(base, dest_dir, dest)
+            full_dest = os.path.join(dest_dir, dest)
             if newer(full_dest, src):
                 q = 'client-header' if ext == 'h' else env.wayland_scanner_code
                 cmd = [env.wayland_scanner, q, src, full_dest]

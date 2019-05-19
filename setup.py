@@ -29,8 +29,8 @@ sys.path.insert(0, os.path.join(base, 'glfw'))
 glfw = importlib.import_module('glfw')
 verbose = False
 del sys.path[0]
-build_dir = os.path.join(base, 'build')
-constants = os.path.join(base, 'kitty', 'constants.py')
+build_dir = 'build'
+constants = os.path.join( 'kitty', 'constants.py')
 with open(constants, 'rb') as f:
     constants = f.read().decode('utf-8')
 appname = re.search(r"^appname = '([^']+)'", constants, re.MULTILINE).group(1)
@@ -377,7 +377,6 @@ def prepare_compile_c_extension(kenv, module, incremental, old_compilation_datab
             src, defines = SPECIAL_SOURCES[src]
             cppflags.extend(map(define, defines))
         cmd = [kenv.cc, '-MMD'] + cppflags + kenv.cflags
-        full_src = os.path.join(base, src)
         compilation_key = name, module
         old_cmd = old_compilation_database.get(compilation_key, [])
         if old_cmd is not None:
@@ -385,18 +384,18 @@ def prepare_compile_c_extension(kenv, module, incremental, old_compilation_datab
         else:
             cmd_changed = True
         if not incremental or cmd_changed or newer(
-            dest, *dependecies_for(full_src, dest, headers)
+            dest, *dependecies_for(src, dest, headers)
         ):
             new_objects += [dest]
             done = False
         else:
             done = True
-        cmd += ['-c', full_src] + ['-o', dest]
+        cmd += ['-c', src] + ['-o', dest]  # TODO: use relative paths
         compilation_database[compilation_key] = cmd
         tasks[compilation_key] = CompileObject(cmd, BuildType.compile, done, done, src_deps, None, None)
         deps += [compilation_key]
         objects += [dest]
-    dest = os.path.join(base, module + '.temp.so')
+    dest = os.path.join(module + '.temp.so')
     real_dest = dest[:-len('.temp.so')] + '.so'
     if not incremental or new_objects or newer(real_dest, *objects):
         # Old versions of clang don't like -pthread being passed to the linker
@@ -543,7 +542,7 @@ def fast_compile(tasks, compilation_database):
 
 def find_c_files():
     ans, headers = [], []
-    d = os.path.join(base, 'kitty')
+    d = 'kitty'
     exclude = {'fontconfig.c', 'freetype.c', 'desktop.c'} if is_macos else {'core_text.m', 'cocoa_window.m', 'macos_process_info.c'}
     for x in os.listdir(d):
         ext = os.path.splitext(x)[1]
@@ -552,7 +551,7 @@ def find_c_files():
         elif ext == '.h':
             headers.append(os.path.join('kitty', x))
     ans.sort(
-        key=lambda x: os.path.getmtime(os.path.join(base, x)), reverse=True
+        key=lambda x: os.path.getmtime(x), reverse=True
     )
     ans.append('kitty/parser_dump.c')
     return tuple(ans), tuple(headers)
@@ -575,7 +574,7 @@ def prepare_compile_glfw(incremental, old_compilation_database, compilation_data
         glfw_deps = None
         if module == 'wayland':
             try:
-                glfw_deps, wayland_tasks = glfw.prepare_build_wayland_protocols(genv, emphasis, newer, base, 'glfw', module)
+                glfw_deps, wayland_tasks = glfw.prepare_build_wayland_protocols(genv, emphasis, newer, 'glfw', module)
                 tasks.update(wayland_tasks)
             except SystemExit as err:
                 print(err, file=sys.stderr)
@@ -710,7 +709,7 @@ def copy_man_pages(ddir):
         shutil.rmtree(os.path.join(mandir, 'man1'))
     except FileNotFoundError:
         pass
-    src = os.path.join(base, 'docs/_build/man')
+    src = os.path.join('docs', '_build/man')
     if not os.path.exists(src):
         raise SystemExit('''\
 The kitty man page is missing. If you are building from git then run:
@@ -727,7 +726,7 @@ def copy_html_docs(ddir):
         shutil.rmtree(htmldir)
     except FileNotFoundError:
         pass
-    src = os.path.join(base, 'docs/_build/html')
+    src = os.path.join('docs', '_build/html')
     if not os.path.exists(src):
         raise SystemExit('''\
 The kitty html docs are missing. If you are building from git then run:
@@ -1003,11 +1002,11 @@ def main():
             print('kitty profile executable is', 'kitty-profile')
     elif args.action == 'test':
         os.execlp(
-            sys.executable, sys.executable, os.path.join(base, 'test.py')
+            sys.executable, sys.executable, 'test.py'
         )
     elif args.action == 'linux-package':
         build(args, native_optimizations=False)
-        if not os.path.exists(os.path.join(base, 'docs/_build/html')):
+        if not os.path.exists(os.path.join('docs', '_build/html')):
             run_tool(['make', 'docs'])
         package(args)
     elif args.action in ('macos-bundle', 'osx-bundle'):
