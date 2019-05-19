@@ -390,7 +390,7 @@ def prepare_compile_c_extension(kenv, module, incremental, old_compilation_datab
             done = False
         else:
             done = True
-        cmd += ['-c', src] + ['-o', dest]  # TODO: use relative paths
+        cmd += ['-c', src] + ['-o', dest]
         compilation_database[compilation_key] = cmd
         tasks[compilation_key] = CompileObject(cmd, BuildType.compile, done, done, src_deps, None, None)
         deps += [compilation_key]
