@@ -117,10 +117,16 @@ def cc_version():
     return cc, ver
 
 
+def get_python_include_paths():
+    ans = []
+    for name in sysconfig.get_path_names():
+        if 'include' in name:
+            ans.append(name)
+    return sorted(frozenset(map(sysconfig.get_path, sorted(ans))))
+
+
 def get_python_flags(cflags):
-    cflags.extend(
-        '-I' + sysconfig.get_path(x) for x in 'include platinclude'.split()
-    )
+    cflags.extend('-I' + x for x in get_python_include_paths())
     libs = []
     libs += sysconfig.get_config_var('LIBS').split()
     libs += sysconfig.get_config_var('SYSLIBS').split()
@@ -665,7 +671,7 @@ def build_asan_launcher(args):
     run_tool(cmd, desc='Creating {} ...'.format(emphasis('asan-launcher')))
 
 
-def build_linux_launcher(args, launcher_dir='.', for_bundle=False, sh_launcher=False, for_freeze=False):
+def build_launcher(args, launcher_dir='.', for_bundle=False, sh_launcher=False, for_freeze=False):
     cflags = '-Wall -Werror -fpie'.split()
     cppflags = []
     libs = []
@@ -688,7 +694,7 @@ def build_linux_launcher(args, launcher_dir='.', for_bundle=False, sh_launcher=F
     if for_freeze:
         ldflags += ['-Wl,-rpath,$ORIGIN/../lib']
     cmd = [env.cc] + cppflags + cflags + [
-        'linux-launcher.c', '-o',
+        'launcher.c', '-o',
         os.path.join(launcher_dir, exe)
     ] + ldflags + libs + pylib
     run_tool(cmd)
@@ -785,7 +791,7 @@ def package(args, for_bundle=False, sh_launcher=False):
     shutil.copy2('kitty/launcher/kitty', os.path.join(libdir, 'kitty', 'launcher'))
     launcher_dir = os.path.join(ddir, 'bin')
     safe_makedirs(launcher_dir)
-    build_linux_launcher(args, launcher_dir, for_bundle, sh_launcher, args.for_freeze)
+    build_launcher(args, launcher_dir, for_bundle, sh_launcher, args.for_freeze)
     if not is_macos:  # {{{ linux desktop gunk
         copy_man_pages(ddir)
         copy_html_docs(ddir)
@@ -993,7 +999,7 @@ def main():
         if args.sanitize:
             build_asan_launcher(args)
         if args.profile:
-            build_linux_launcher(args)
+            build_launcher(args)
             print('kitty profile executable is', 'kitty-profile')
     elif args.action == 'test':
         os.execlp(

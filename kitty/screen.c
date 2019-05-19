@@ -2007,31 +2007,32 @@ is_opt_word_char(char_type ch) {
 }
 
 bool
-screen_selection_range_for_word(Screen *self, index_type x, index_type *y1, index_type *y2, index_type *s, index_type *e) {
+screen_selection_range_for_word(Screen *self, index_type x, index_type *y1, index_type *y2, index_type *s, index_type *e, bool initial_selection) {
     if (*y1 >= self->lines || x >= self->columns) return false;
     index_type start, end;
     Line *line = visual_line_(self, *y1);
     *y2 = *y1;
 #define is_ok(x) (is_word_char((line->cpu_cells[x].ch)) || is_opt_word_char(line->cpu_cells[x].ch))
     if (!is_ok(x)) {
-        start = x; end = x + 1;
-    } else {
-        start = x, end = x;
-        while(true) {
-            while(start > 0 && is_ok(start - 1)) start--;
-            if (start > 0 || !line->continued || *y1 == 0) break;
-            line = visual_line_(self, *y1 - 1);
-            if (!is_ok(self->columns - 1)) break;
-            (*y1)--; start = self->columns - 1;
-        }
-        line = visual_line_(self, *y2);
-        while(true) {
-            while(end < self->columns - 1 && is_ok(end + 1)) end++;
-            if (end < self->columns - 1 || *y2 >= self->lines - 1) break;
-            line = visual_line_(self, *y2 + 1);
-            if (!line->continued || !is_ok(0)) break;
-            (*y2)++; end = 0;
-        }
+        if (initial_selection) return false;
+        *s = x; *e = x;
+        return true;
+    }
+    start = x; end = x;
+    while(true) {
+        while(start > 0 && is_ok(start - 1)) start--;
+        if (start > 0 || !line->continued || *y1 == 0) break;
+        line = visual_line_(self, *y1 - 1);
+        if (!is_ok(self->columns - 1)) break;
+        (*y1)--; start = self->columns - 1;
+    }
+    line = visual_line_(self, *y2);
+    while(true) {
+        while(end < self->columns - 1 && is_ok(end + 1)) end++;
+        if (end < self->columns - 1 || *y2 >= self->lines - 1) break;
+        line = visual_line_(self, *y2 + 1);
+        if (!line->continued || !is_ok(0)) break;
+        (*y2)++; end = 0;
     }
     *s = start; *e = end;
     return true;
@@ -2103,6 +2104,7 @@ screen_mark_url(Screen *self, index_type start_x, index_type start_y, index_type
 
 void
 screen_update_selection(Screen *self, index_type x, index_type y, bool ended) {
+    index_type orig_x = self->selection.end_x, orig_y = self->selection.end_y, orig_scrolled_by = self->selection.end_scrolled_by;
     self->selection.end_x = x; self->selection.end_y = y; self->selection.end_scrolled_by = self->scrolled_by;
     if (ended) self->selection.in_progress = false;
     index_type start, end;
@@ -2111,24 +2113,26 @@ screen_update_selection(Screen *self, index_type x, index_type y, bool ended) {
     switch(self->selection.extend_mode) {
         case EXTEND_WORD: {
             index_type y1 = y, y2;
-            found = screen_selection_range_for_word(self, x, &y1, &y2, &start, &end);
+            found = screen_selection_range_for_word(self, x, &y1, &y2, &start, &end, false);
             if (found) {
                 if (extending_leftwards) {
                     self->selection.end_x = start; self->selection.end_y = y1;
                     y1 = self->selection.start_y;
-                    found = screen_selection_range_for_word(self, self->selection.start_x, &y1, &y2, &start, &end);
+                    found = screen_selection_range_for_word(self, self->selection.start_x, &y1, &y2, &start, &end, false);
                     if (found) {
                         self->selection.start_x = end; self->selection.start_y = y2;
                     }
                 } else {
                     self->selection.end_x = end; self->selection.end_y = y2;
                     y1 = self->selection.start_y;
-                    found = screen_selection_range_for_word(self, self->selection.start_x, &y1, &y2, &start, &end);
+                    found = screen_selection_range_for_word(self, self->selection.start_x, &y1, &y2, &start, &end, false);
                     if (found) {
                         self->selection.start_x = start; self->selection.start_y = y1;
                     }
 
                 }
+            } else {
+                self->selection.end_x = orig_x; self->selection.end_y = orig_y; self->selection.end_scrolled_by = orig_scrolled_by;
             }
             break;
         }
