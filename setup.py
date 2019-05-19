@@ -30,7 +30,7 @@ glfw = importlib.import_module('glfw')
 verbose = False
 del sys.path[0]
 build_dir = 'build'
-constants = os.path.join( 'kitty', 'constants.py')
+constants = os.path.join('kitty', 'constants.py')
 with open(constants, 'rb') as f:
     constants = f.read().decode('utf-8')
 appname = re.search(r"^appname = '([^']+)'", constants, re.MULTILINE).group(1)
