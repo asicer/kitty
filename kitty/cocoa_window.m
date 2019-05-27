@@ -213,6 +213,11 @@ cocoa_send_notification(PyObject *self UNUSED, PyObject *args) {
     [self openFilesFromPasteboard:pasteboard type:NEW_OS_WINDOW_WITH_WD];
 }
 
+- (void)settings_testing:(id)sender {
+    (void)sender;
+    NSLog(@"yay");
+}
+
 - (void)openFilesFromPasteboard:(NSPasteboard *)pasteboard type:(int)type {
     NSDictionary *options = @{ NSPasteboardURLReadingFileURLsOnlyKey: @YES };
     NSArray *filePathArray = [pasteboard readObjectsForClasses:[NSArray arrayWithObject:[NSURL class]] options:options];
@@ -234,6 +239,7 @@ cocoa_send_notification(PyObject *self UNUSED, PyObject *args) {
 void
 cocoa_create_global_menu(void) {
     @autoreleasepool {
+    [NSApp setServicesProvider:[[[ServiceProvider alloc] init] autorelease]];
     if ([[NSBundle mainBundle] pathForResource:@"Base.lproj/MainMenu" ofType:@"nib"])
     {
         static id                  nibObjects;
@@ -334,7 +340,6 @@ cocoa_create_global_menu(void) {
             "@@:@");
 
 
-    [NSApp setServicesProvider:[[[ServiceProvider alloc] init] autorelease]];
     }
     }
 }
