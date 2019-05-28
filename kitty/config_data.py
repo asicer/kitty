@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # vim:fileencoding=utf-8
 # License: GPL v3 Copyright: 2018, Kovid Goyal <kovid at kovidgoyal.net>
 
@@ -391,6 +391,11 @@ Use negative numbers to change scroll direction.'''))
 
 g('mouse')  # {{{
 
+o('mouse_hide_wait', 3.0, option_type=float, long_text=_('''
+Hide mouse cursor after the specified number of seconds
+of the mouse not being used. Set to zero to disable mouse cursor hiding.
+Set to a negative value to hide the mouse cursor immediately when typing text.'''))
+
 o('url_color', '#0087bd', option_type=to_color, long_text=_('''
 The color and style for highlighting URLs on mouse-over.
 :code:`url_style` can be one of: none, single, double, curly'''))
@@ -459,11 +464,6 @@ database will be matched.'''))
 o('click_interval', -1.0, option_type=float, long_text=_('''
 The interval between successive clicks to detect double/triple clicks (in seconds).
 Negative numbers will use the system default instead, if available, or fallback to 0.5.'''))
-
-o('mouse_hide_wait', 3.0, option_type=float, long_text=_('''
-Hide mouse cursor after the specified number of seconds
-of the mouse not being used. Set to zero to disable mouse cursor hiding.
-Set to a negative value to hide the mouse cursor immediately when typing text.'''))
 
 o('focus_follows_mouse', False, long_text=_('''
 Set the active window to the window under the mouse when
@@ -615,13 +615,14 @@ of a resize, this number is ignored.'''))
 
 
 def resize_draw_strategy(x):
-    cmap = {'scale': 0, 'blank': 1, 'size': 2}
+    cmap = {'static': 0, 'scale': 1, 'blank': 2, 'size': 3}
     return cmap.get(x.lower(), 0)
 
 
-o('resize_draw_strategy', 'scale', option_type=resize_draw_strategy, long_text=_('''
-Choose how kitty draws a window while a resize is in progress. A
-value of :code:`scale` means draw the current window contents scaled.
+o('resize_draw_strategy', 'static', option_type=resize_draw_strategy, long_text=_('''
+Choose how kitty draws a window while a resize is in progress.
+A value of :code:`static` means draw the current window contents, mostly unchanged.
+A value of :code:`scale` means draw the current window contents scaled.
 A value of :code:`blank` means draw a blank window.
 A value of :code:`size` means show the window size in cells.
 '''))

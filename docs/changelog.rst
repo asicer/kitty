@@ -4,7 +4,21 @@ Changelog
 |kitty| is a feature full, cross-platform, *fast*, GPU based terminal emulator.
 To update |kitty|, :doc:`follow the instructions <binary>`.
 
-0.14.0 [future]
+0.14.1 [future]
+---------------------
+
+- Add support for the underscore key found in some keyboard layouts
+  (:iss:`1639`)
+
+- Fix a missing newline when using the pipe command between the
+  scrollback and screen contents (:iss:`1642`)
+
+- macOS: Fix a regression that could cause rendering of a kitty window
+  to occasionally freeze in certain situations, such as moving it between
+  monitors or transitioning from/to fullscreen (:iss:`1641`)
+
+
+0.14.0 [2019-05-24]
 ---------------------
 
 - macOS: The default behavior of the Option key has changed. It now generates
@@ -135,6 +149,9 @@ To update |kitty|, :doc:`follow the instructions <binary>`.
 
 - X11: use the window manager's native full-screen implementation when
   making windows full-screen (:iss:`1605`)
+
+- Mouse selection: When extending by word, fix extending selection to non-word
+  characters not working well (:iss:`1616`)
 
 0.13.3 [2019-01-19]
 ------------------------------

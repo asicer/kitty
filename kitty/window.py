@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # vim:fileencoding=utf-8
 # License: GPL v3 Copyright: 2016, Kovid Goyal <kovid at kovidgoyal.net>
 
@@ -490,6 +490,8 @@ class Window:
                 sanitizer = text_sanitizer(as_ansi, add_wrap_markers)
                 h = list(map(sanitizer, h))
             self.screen.historybuf.as_text(h.append, as_ansi, add_wrap_markers)
+            if not self.screen.linebuf.is_continued(0) and h:
+                h[-1] += '\n'
             lines = chain(h, lines)
         return ''.join(lines)
 

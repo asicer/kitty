@@ -290,7 +290,7 @@ get_glyph_width(PyObject *s, glyph_index g) {
 #define B self->face->glyph->bitmap
     /* printf("glyph: %u bitmap.width: %d bitmap.rows: %d horiAdvance: %ld horiBearingX: %ld horiBearingY: %ld vertBearingX: %ld vertBearingY: %ld vertAdvance: %ld width: %ld height: %ld\n", */
     /*         g, B.width, B.rows, M.horiAdvance, M.horiBearingX, M.horiBearingY, M.vertBearingX, M.vertBearingY, M.vertAdvance, M.width, M.height); */
-    return B.width ? B.width : (M.width / 64);
+    return B.width ? (int)B.width : (int)(M.width / 64);
 #undef M
 #undef B
 }
@@ -366,9 +366,9 @@ render_bitmap(Face *self, int glyph_id, ProcessedBitmap *ans, unsigned int cell_
         // Normalize gray levels to the range [0..255]
         bitmap.num_grays = 256;
         unsigned int stride = bitmap.pitch < 0 ? -bitmap.pitch : bitmap.pitch;
-        for (unsigned int i = 0; i < bitmap.rows; ++i) {
+        for (unsigned i = 0; i < (unsigned)bitmap.rows; ++i) {
             // We only have 2 levels
-            for (unsigned int j = 0; j < bitmap.width; ++j) bitmap.buffer[i * stride + j] *= 255;
+            for (unsigned j = 0; j < (unsigned)bitmap.width; ++j) bitmap.buffer[i * stride + j] *= 255;
         }
         populate_processed_bitmap(self->face->glyph, &bitmap, ans, true);
         FT_Bitmap_Done(library, &bitmap);
