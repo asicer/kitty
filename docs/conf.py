@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 #
 # Configuration file for the Sphinx documentation builder.
@@ -11,6 +12,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 from functools import partial
 
 from docutils import nodes
@@ -32,7 +34,7 @@ str_version = importlib.import_module('kitty.constants').str_version
 # -- Project information -----------------------------------------------------
 
 project = 'kitty'
-copyright = '2018, Kovid Goyal'
+copyright = time.strftime('%Y, Kovid Goyal')
 author = 'Kovid Goyal'
 building_man_pages = 'man' in sys.argv
 

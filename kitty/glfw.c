@@ -104,7 +104,18 @@ static int min_width = 100, min_height = 100;
 
 void
 blank_os_window(OSWindow *w) {
-    blank_canvas(w->is_semi_transparent ? w->background_opacity : 1.0f);
+    color_type color = OPT(background);
+    if (w->num_tabs > 0) {
+        Tab *t = w->tabs + w->active_tab;
+        if (t->num_windows == 1) {
+            Window *w = t->windows + t->active_window;
+            Screen *s = w->render_data.screen;
+            if (s) {
+                color = colorprofile_to_color(s->color_profile, s->color_profile->overridden.default_bg, s->color_profile->configured.default_bg);
+            }
+        }
+    }
+    blank_canvas(w->is_semi_transparent ? w->background_opacity : 1.0f, color);
 }
 
 static void
@@ -388,6 +399,20 @@ toggle_fullscreen_for_os_window(OSWindow *w) {
     return false;
 }
 
+static bool
+toggle_maximized_for_os_window(OSWindow *w) {
+    bool maximized = false;
+    if (w && w->handle) {
+        if (glfwGetWindowAttrib(w->handle, GLFW_MAXIMIZED)) {
+            glfwRestoreWindow(w->handle);
+        } else {
+            glfwMaximizeWindow(w->handle);
+            maximized = true;
+        }
+    }
+    return maximized;
+}
+
 
 #ifdef __APPLE__
 static int
@@ -523,7 +548,7 @@ create_os_window(PyObject UNUSED *self, PyObject *args) {
     bool is_semi_transparent = glfwGetWindowAttrib(glfw_window, GLFW_TRANSPARENT_FRAMEBUFFER);
     // blank the window once so that there is no initial flash of color
     // changing, in case the background color is not black
-    blank_canvas(is_semi_transparent ? OPT(background_opacity) : 1.0f);
+    blank_canvas(is_semi_transparent ? OPT(background_opacity) : 1.0f, OPT(background));
 #ifndef __APPLE__
     if (is_first_window) glfwSwapInterval(OPT(sync_to_monitor) && !global_state.is_wayland ? 1 : 0);
 #endif
@@ -843,6 +868,14 @@ toggle_fullscreen(PYNOARG) {
 }
 
 static PyObject*
+toggle_maximized(PYNOARG) {
+    OSWindow *w = current_os_window();
+    if (!w) Py_RETURN_NONE;
+    if (toggle_maximized_for_os_window(w)) { Py_RETURN_TRUE; }
+    Py_RETURN_FALSE;
+}
+
+static PyObject*
 change_os_window_state(PyObject *self UNUSED, PyObject *args) {
     char *state;
     if (!PyArg_ParseTuple(args, "s", &state)) return NULL;
@@ -1111,6 +1144,7 @@ static PyMethodDef module_methods[] = {
     METHODB(ring_bell, METH_NOARGS),
     METHODB(set_clipboard_string, METH_VARARGS),
     METHODB(toggle_fullscreen, METH_NOARGS),
+    METHODB(toggle_maximized, METH_NOARGS),
     METHODB(change_os_window_state, METH_VARARGS),
     METHODB(glfw_window_hint, METH_VARARGS),
     METHODB(get_primary_selection, METH_NOARGS),

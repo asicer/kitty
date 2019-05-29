@@ -513,6 +513,9 @@ o('bell_on_tab', True, long_text=_('''
 Show a bell symbol on the tab if a bell occurs in one of the windows in the
 tab and the window is not the currently focused window'''))
 
+o('command_on_bell', 'none', option_type=to_cmdline, long_text=_('''
+Program to run when a bell occurs.
+'''))
 # }}}
 
 g('window')  # {{{
@@ -1156,6 +1159,7 @@ Useful with git, which uses sha1 hashes to identify commits'''))
 
 g('shortcuts.misc')  # {{{
 k('toggle_fullscreen', 'kitty_mod+f11', 'toggle_fullscreen', _('Toggle fullscreen'))
+k('toggle_maximized', 'kitty_mod+f10', 'toggle_maximized', _('Toggle maximized'))
 k('input_unicode_character', 'kitty_mod+u', 'kitten unicode_input', _('Unicode input'))
 k('edit_config_file', 'kitty_mod+f2', 'edit_config_file', _('Edit config file'))
 k('kitty_shell', 'kitty_mod+escape', 'kitty_shell window', _('Open the kitty command shell'), long_text=_('''
