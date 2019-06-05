@@ -586,6 +586,14 @@ Negative values will cause the value of :opt:`window_margin_width` to be used in
 o('window_padding_width', 0.0, option_type=positive_float, long_text=_('''
 The window padding (in pts) (blank area between the text and the window border)'''))
 
+o('placement_strategy', 'center', option_type=choices('center', 'top-left'), long_text=_('''
+When the window size is not an exact multiple of the cell size, the cell area of the terminal
+window will have some extra padding on the sides. You can control how that padding is
+distributed with this option. Using a value of :code:`center` means the cell area will
+be placed centrally. A value of :code:`top-left` means the padding will be on only
+the bottom and right edges.
+'''))
+
 o('hide_title', False, long_text=_('''
 Hide the kitty window title.'''))
 
@@ -959,6 +967,12 @@ o('macos_custom_beam_cursor', False, long_text=_('''
 Enable/disable custom mouse cursor for macOS that is easier to see on both
 light and dark backgrounds. WARNING: this might make your mouse cursor
 invisible on dual GPU machines.'''))
+
+o('linux_display_server', 'auto', option_type=choices('auto', 'x11', 'wayland'), long_text=_('''
+Choose between Wayland and X11 backends. By default, an
+appropriate backend based on the system state is chosen
+automatically. Set it to :code:`x11` or :code:`wayland`
+to force the choice.'''))
 # }}}
 
 g('shortcuts')  # {{{
@@ -986,7 +1000,8 @@ k('paste_from_selection', 'shift+insert', 'paste_from_selection', _('Paste from 
 k('pass_selection_to_program', 'kitty_mod+o', 'pass_selection_to_program', _('Pass selection to program'), long_text=_('''
 You can also pass the contents of the current selection to any program using
 :code:`pass_selection_to_program`. By default, the system's open program is used, but
-you can specify your own, for example::
+you can specify your own, the selection will be passed as a command line argument to the program,
+for example::
 
     map kitty_mod+o pass_selection_to_program firefox
 

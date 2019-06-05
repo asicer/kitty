@@ -731,8 +731,6 @@ def create_opts(args, debug_config=False, accumulate_bad_lines=None):
         if is_macos:
             import subprocess
             print(' '.join(subprocess.check_output(['sw_vers']).decode('utf-8').splitlines()).strip())
-        else:
-            print('Running under:', green('Wayland' if is_wayland else 'X11'))
         if os.path.exists('/etc/issue'):
             print(open('/etc/issue', encoding='utf-8', errors='replace').read().strip())
         if os.path.exists('/etc/lsb-release'):
@@ -743,5 +741,7 @@ def create_opts(args, debug_config=False, accumulate_bad_lines=None):
     overrides = (a.replace('=', ' ', 1) for a in args.override or ())
     opts = load_config(*config, overrides=overrides, accumulate_bad_lines=accumulate_bad_lines)
     if debug_config:
+        if not is_macos:
+            print('Running under:', green('Wayland' if is_wayland(opts) else 'X11'))
         compare_opts(opts)
     return opts

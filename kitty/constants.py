@@ -6,9 +6,10 @@ import os
 import pwd
 import sys
 from collections import namedtuple
+from contextlib import suppress
 
 appname = 'kitty'
-version = (0, 14, 0)
+version = (0, 14, 1)
 str_version = '.'.join(map(str, version))
 _plat = sys.platform.lower()
 is_macos = 'darwin' in _plat
@@ -70,10 +71,8 @@ def _get_config_dir():
 
         def cleanup():
             import shutil
-            try:
+            with suppress(Exception):
                 shutil.rmtree(ans)
-            except Exception:
-                pass
         atexit.register(cleanup)
     return ans
 
@@ -124,10 +123,8 @@ beam_cursor_data_file = os.path.join(base_dir, 'logo', 'beam-cursor.png')
 try:
     shell_path = pwd.getpwuid(os.geteuid()).pw_shell or '/bin/sh'
 except KeyError:
-    try:
+    with suppress(Exception):
         print('Failed to read login shell via getpwuid() for current user, falling back to /bin/sh', file=sys.stderr)
-    except Exception:
-        pass
     shell_path = '/bin/sh'
 
 
@@ -135,9 +132,47 @@ def glfw_path(module):
     return os.path.join(base, 'glfw-{}.so'.format(module))
 
 
-is_wayland = False
-if os.environ.get('WAYLAND_DISPLAY') and 'KITTY_DISABLE_WAYLAND' not in os.environ and os.path.exists(glfw_path('wayland')):
-    is_wayland = True
+def detect_if_wayland_ok():
+    if 'WAYLAND_DISPLAY' not in os.environ:
+        return False
+    if 'KITTY_DISABLE_WAYLAND' in os.environ:
+        return False
+    wayland = glfw_path('wayland')
+    if not os.path.exists(wayland):
+        return False
+    # GNOME does not support xdg-decorations
+    # https://gitlab.gnome.org/GNOME/mutter/issues/217
+    import ctypes
+    lib = ctypes.CDLL(wayland)
+    check = lib.glfwWaylandCheckForServerSideDecorations
+    check.restype = ctypes.c_char_p
+    check.argtypes = ()
+    try:
+        ans = bytes(check())
+    except Exception:
+        return False
+    if ans == b'NO':
+        print(
+                'Your Wayland compositor does not support server side window decorations,'
+                ' disabling Wayland. You can force Wayland support using the'
+                ' linux_display_server option in kitty.conf'
+                ' See https://drewdevault.com/2018/01/27/Sway-and-client-side-decorations.html'
+                ' for more information.',
+                file=sys.stderr)
+    return ans == b'YES'
+
+
+def is_wayland(opts=None):
+    if is_macos:
+        return False
+    if opts is None:
+        return is_wayland.ans
+    if opts.linux_display_server == 'auto':
+        ans = detect_if_wayland_ok()
+    else:
+        ans = opts.linux_display_server == 'wayland'
+    setattr(is_wayland, 'ans', ans)
+    return ans
 
 
 supports_primary_selection = not is_macos

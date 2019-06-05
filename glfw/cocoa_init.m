@@ -313,10 +313,12 @@ static GLFWbool initializeTIS(void)
 
 static inline bool
 is_ctrl_tab(NSEvent *event, NSEventModifierFlags modifierFlags) {
-    if (modifierFlags == NSEventModifierFlagControl || modifierFlags == (
-                NSEventModifierFlagControl | NSEventModifierFlagShift)) {
-        if ([event.charactersIgnoringModifiers isEqualToString:@"\t"]) return true;
-    }
+    if (
+            (modifierFlags == NSEventModifierFlagControl &&
+                [event.charactersIgnoringModifiers isEqualToString:@"\t"]) ||
+            (modifierFlags == (NSEventModifierFlagControl | NSEventModifierFlagShift) &&
+                [event.charactersIgnoringModifiers isEqualToString:@"\x19"])
+       ) return true;
     return false;
 }
 

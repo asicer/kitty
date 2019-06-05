@@ -8,6 +8,7 @@ import re
 import sys
 from collections import namedtuple
 from contextlib import contextmanager
+from contextlib import suppress
 from functools import partial
 
 from . import fast_data_types as defines
@@ -19,6 +20,7 @@ from .conf.utils import (
 from .config_data import all_options, parse_mods, type_map
 from .constants import cache_dir, defconf, is_macos
 from .utils import log_error
+from .key_names import get_key_name_lookup
 
 named_keys = {
     "'": 'APOSTROPHE',
@@ -46,13 +48,12 @@ def parse_shortcut(sc):
     key = getattr(defines, 'GLFW_KEY_' + named_keys.get(key, key), None)
     is_native = False
     if key is None:
-        if parts[-1].startswith('0x'):
-            try:
-                key = int(parts[-1], 16)
-            except Exception:
-                pass
+        q = parts[-1]
+        if q.startswith('0x'):
+            with suppress(Exception):
+                key = int(q, 16)
         else:
-            key = defines.key_for_native_key_name(parts[-1])
+            key = get_key_name_lookup()(q)
         is_native = key is not None
     return mods, is_native, key
 
@@ -578,10 +579,8 @@ def commented_out_default_config():
 def prepare_config_file_for_editing():
     if not os.path.exists(defconf):
         d = os.path.dirname(defconf)
-        try:
+        with suppress(FileExistsError):
             os.makedirs(d)
-        except FileExistsError:
-            pass
         with open(defconf, 'w', encoding='utf-8') as f:
             f.write(commented_out_default_config())
     return defconf

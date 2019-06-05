@@ -4,7 +4,40 @@ Changelog
 |kitty| is a feature full, cross-platform, *fast*, GPU based terminal emulator.
 To update |kitty|, :doc:`follow the instructions <binary>`.
 
-0.14.1 [future]
+0.14.2 [future]
+---------------------
+
+- Add an option :opt:`placement_strategy` to control how the cell area is
+  aligned inside the window when the window size is not an exact multiple
+  of the cell size (:pull:`1670`)
+
+- hints kitten: Add a :option:`kitty +kitten hints --multiple-joiner` option to
+  control how multiple selections are serialized when copying to clipboard
+  or inserting into the terminal. You can have them on separate lines,
+  separated by arbitrary characters, or even serialized as JSON (:iss:`1665`)
+
+- macOS: Fix a regression in the previous release that broke using
+  :kbd:`ctrl+shift+tab` (:iss:`1671`)
+
+- panel kitten: Fix the contents of the panel kitten not being positioned
+  correctly on the vertical axis
+
+- icat kitten: Fix a regression that broke passing directories to icat
+  (:iss:`1683`)
+
+- Linux: Disable the Wayland backend on GNOME by default as GNOME has no
+  support for server side decorations. Can be controlled by
+  :opt:`linux_display_server`.
+
+- Add an option to control the default :opt:`update_check_interval` when
+  building kitty packages
+
+- Wayland: Fix resizing the window on a compositor that does not provide
+  server side window decorations, such a GNOME or Weston not working
+  correctly (:iss:`1659`)
+
+
+0.14.1 [2019-05-29]
 ---------------------
 
 - Add an option :opt:`command_on_bell` to run an arbitrary command when

@@ -15,6 +15,7 @@ import subprocess
 import sys
 import sysconfig
 import time
+from contextlib import suppress
 
 base = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(base, 'glfw'))
@@ -292,10 +293,8 @@ def kitty_env():
     if '-lz' not in ans.ldpaths:
         ans.ldpaths.append('-lz')
 
-    try:
+    with suppress(FileExistsError):
         os.mkdir(build_dir)
-    except FileExistsError:
-        pass
     return ans
 
 
@@ -440,10 +439,8 @@ def compile_c_extension(kenv, module, incremental, compilation_database, all_key
         try:
             run_tool([kenv.cc] + linker_cflags + kenv.ldflags + objects + kenv.ldpaths + ['-o', dest], desc='Linking {} ...'.format(emphasis(module)))
         except Exception:
-            try:
+            with suppress(EnvironmentError):
                 os.remove(dest)
-            except EnvironmentError:
-                pass
         else:
             os.rename(dest, real_dest)
 
@@ -603,10 +600,8 @@ def build_launcher(args, launcher_dir='.', for_bundle=False, sh_launcher=False, 
 def copy_man_pages(ddir):
     mandir = os.path.join(ddir, 'share', 'man')
     safe_makedirs(mandir)
-    try:
+    with suppress(FileNotFoundError):
         shutil.rmtree(os.path.join(mandir, 'man1'))
-    except FileNotFoundError:
-        pass
     src = os.path.join(base, 'docs/_build/man')
     if not os.path.exists(src):
         raise SystemExit('''\
@@ -620,10 +615,8 @@ make && make docs
 def copy_html_docs(ddir):
     htmldir = os.path.join(ddir, 'share', 'doc', appname, 'html')
     safe_makedirs(os.path.dirname(htmldir))
-    try:
+    with suppress(FileNotFoundError):
         shutil.rmtree(htmldir)
-    except FileNotFoundError:
-        pass
     src = os.path.join(base, 'docs/_build/html')
     if not os.path.exists(src):
         raise SystemExit('''\
@@ -680,6 +673,13 @@ def package(args, for_bundle=False, sh_launcher=False):
 
     shutil.copytree('kitty', os.path.join(libdir, 'kitty'), ignore=src_ignore)
     shutil.copytree('kittens', os.path.join(libdir, 'kittens'), ignore=src_ignore)
+    if args.update_check_interval != 24.0:
+        with open(os.path.join(libdir, 'kitty/config_data.py'), 'r+', encoding='utf-8') as f:
+            raw = f.read()
+            nraw = raw.replace("update_check_interval', 24", "update_check_interval', {}".format(args.update_check_interval), 1)
+            if nraw == raw:
+                raise SystemExit('Failed to change the value of update_check_interval')
+            f.seek(0), f.truncate(), f.write(nraw)
     compile_python(libdir)
     for root, dirs, files in os.walk(libdir):
         for f in files:
@@ -881,7 +881,14 @@ def option_parser():  # {{{
         default=[],
         choices=('event-loop',),
         help='Turn on extra logging for debugging in this build. Can be specified multiple times, to turn'
-        'on different types of logging.'
+        ' on different types of logging.'
+    )
+    p.add_argument(
+        '--update-check-interval',
+        type=float,
+        default=24,
+        help='When building a package, the default value for the update_check_interval setting will'
+        ' be set to this number. Use zero to disable update checking.'
     )
     return p
 # }}}
