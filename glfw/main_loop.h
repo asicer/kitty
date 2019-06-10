@@ -12,20 +12,20 @@
 #define GLFW_LOOP_BACKEND x11
 #endif
 
-static GLFWbool keep_going = GLFW_FALSE;
+static bool keep_going = false;
 
 void _glfwPlatformRequestTickCallback() {
 }
 
 void _glfwPlatformStopMainLoop(void) {
     if (keep_going) {
-        keep_going = GLFW_FALSE;
+        keep_going = false;
         _glfwPlatformPostEmptyEvent();
     }
 }
 
 void _glfwPlatformRunMainLoop(GLFWtickcallback tick_callback, void* data) {
-    keep_going = GLFW_TRUE;
+    keep_going = true;
     while(keep_going) {
         _glfwPlatformWaitEvents();
 		EVDBG("loop tick");
@@ -41,7 +41,7 @@ void _glfwPlatformRemoveTimer(unsigned long long timer_id) {
     removeTimer(&_glfw.GLFW_LOOP_BACKEND.eventLoopData, timer_id);
 }
 
-void _glfwPlatformUpdateTimer(unsigned long long timer_id, double interval, GLFWbool enabled) {
+void _glfwPlatformUpdateTimer(unsigned long long timer_id, double interval, bool enabled) {
     changeTimerInterval(&_glfw.GLFW_LOOP_BACKEND.eventLoopData, timer_id, interval);
     toggleTimer(&_glfw.GLFW_LOOP_BACKEND.eventLoopData, timer_id, enabled);
 }

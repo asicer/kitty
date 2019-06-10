@@ -197,7 +197,7 @@ static void createKeyTables(void)
 
 // Retrieve Unicode data for the current keyboard layout
 //
-static GLFWbool updateUnicodeDataNS(void)
+static bool updateUnicodeDataNS(void)
 {
     if (_glfw.ns.inputSource)
     {
@@ -214,7 +214,7 @@ static GLFWbool updateUnicodeDataNS(void)
     {
         _glfwInputError(GLFW_PLATFORM_ERROR,
                         "Cocoa: Failed to retrieve keyboard layout input source");
-        return GLFW_FALSE;
+        return false;
     }
 
     _glfw.ns.unicodeData =
@@ -224,15 +224,15 @@ static GLFWbool updateUnicodeDataNS(void)
     {
         _glfwInputError(GLFW_PLATFORM_ERROR,
                         "Cocoa: Failed to retrieve keyboard layout Unicode data");
-        return GLFW_FALSE;
+        return false;
     }
 
-    return GLFW_TRUE;
+    return true;
 }
 
 // Load HIToolbox.framework and the TIS symbols we need from it
 //
-static GLFWbool initializeTIS(void)
+static bool initializeTIS(void)
 {
     // This works only because Cocoa has already loaded it properly
     _glfw.ns.tis.bundle =
@@ -241,7 +241,7 @@ static GLFWbool initializeTIS(void)
     {
         _glfwInputError(GLFW_PLATFORM_ERROR,
                         "Cocoa: Failed to load HIToolbox.framework");
-        return GLFW_FALSE;
+        return false;
     }
 
     CFStringRef* kPropertyUnicodeKeyLayoutData =
@@ -264,7 +264,7 @@ static GLFWbool initializeTIS(void)
     {
         _glfwInputError(GLFW_PLATFORM_ERROR,
                         "Cocoa: Failed to load TIS API symbols");
-        return GLFW_FALSE;
+        return false;
     }
 
     _glfw.ns.tis.kPropertyUnicodeKeyLayoutData =
@@ -387,12 +387,12 @@ int _glfwPlatformInit(void)
 
     _glfw.ns.eventSource = CGEventSourceCreate(kCGEventSourceStateHIDSystemState);
     if (!_glfw.ns.eventSource)
-        return GLFW_FALSE;
+        return false;
 
     CGEventSourceSetLocalEventsSuppressionInterval(_glfw.ns.eventSource, 0.0);
 
     if (!initializeTIS())
-        return GLFW_FALSE;
+        return false;
 
     _glfw.ns.displayLinks.lock = [NSLock new];
     _glfwInitTimerNS();
@@ -400,7 +400,7 @@ int _glfwPlatformInit(void)
 
     _glfwPollMonitorsNS();
     }
-    return GLFW_TRUE;
+    return true;
 }
 
 void _glfwPlatformTerminate(void)
@@ -516,10 +516,7 @@ remove_timer_at(size_t idx) {
         Timer *t = timers + idx;
         if (t->os_timer) { [t->os_timer invalidate]; t->os_timer = NULL; }
         if (t->callback_data && t->free_callback_data) { t->free_callback_data(t->id, t->callback_data); t->callback_data = NULL; }
-        num_timers--;
-        if (idx < num_timers) {
-            memmove(timers + idx, timers + idx + 1, sizeof(timers[0]) * (num_timers - idx));
-        }
+        remove_i_from_array(timers, idx, num_timers);
     }
 }
 
@@ -561,7 +558,7 @@ void _glfwPlatformRemoveTimer(unsigned long long timer_id) {
     }
 }
 
-void _glfwPlatformUpdateTimer(unsigned long long timer_id, double interval, GLFWbool enabled) {
+void _glfwPlatformUpdateTimer(unsigned long long timer_id, double interval, bool enabled) {
     for (size_t i = 0; i < num_timers; i++) {
         if (timers[i].id == timer_id) {
             Timer *t = timers + i;

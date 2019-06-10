@@ -4,7 +4,7 @@ Changelog
 |kitty| is a feature full, cross-platform, *fast*, GPU based terminal emulator.
 To update |kitty|, :doc:`follow the instructions <binary>`.
 
-0.14.2 [future]
+0.14.2 [2019-06-09]
 ---------------------
 
 - Add an option :opt:`placement_strategy` to control how the cell area is
@@ -25,6 +25,13 @@ To update |kitty|, :doc:`follow the instructions <binary>`.
 - icat kitten: Fix a regression that broke passing directories to icat
   (:iss:`1683`)
 
+- clipboard kitten: Add a :option:`kitty +kitten clipboard --wait-for-completion`
+  option to have the kitten wait till copying to clipboard is complete
+  (:iss:`1693`)
+
+- Allow using the :doc:`pipe <pipe>` command to send screen and scrollback
+  contents directly to the clipboard (:iss:`1693`)
+
 - Linux: Disable the Wayland backend on GNOME by default as GNOME has no
   support for server side decorations. Can be controlled by
   :opt:`linux_display_server`.
@@ -35,6 +42,8 @@ To update |kitty|, :doc:`follow the instructions <binary>`.
 - Wayland: Fix resizing the window on a compositor that does not provide
   server side window decorations, such a GNOME or Weston not working
   correctly (:iss:`1659`)
+
+- Wayland: Fix crash when enabling disabling monitors on sway (:iss:`1696`)
 
 
 0.14.1 [2019-05-29]

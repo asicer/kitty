@@ -45,6 +45,10 @@ update_os_window_viewport(OSWindow *window, bool notify_boss) {
     if (fw == window->viewport_width && fh == window->viewport_height && w == window->window_width && h == window->window_height) {
         return; // no change, ignore
     }
+    if (fw / w > 5 || fh / h > 5 || fw < min_width || fh < min_height || fw < w || fh < h) {
+        log_error("Invalid geometry ignored: framebuffer: %dx%d window: %dx%d\n", fw, fh, w, h);
+        return;
+    }
     window->viewport_width = fw; window->viewport_height = fh;
     double xr = window->viewport_x_ratio, yr = window->viewport_y_ratio;
     window->viewport_x_ratio = w > 0 ? (double)window->viewport_width / (double)w : xr;
@@ -512,7 +516,7 @@ create_os_window(PyObject UNUSED *self, PyObject *args) {
     // We use a temp window to avoid the need to set the window size after
     // creation, which causes a resize event and all the associated processing.
     // The temp window is used to get the DPI.
-    glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
+    glfwWindowHint(GLFW_VISIBLE, false);
     GLFWwindow *common_context = global_state.num_os_windows ? global_state.os_windows[0].handle : NULL;
 #ifdef __APPLE__
     if (is_first_window && !application_quit_canary) {
@@ -537,7 +541,7 @@ create_os_window(PyObject UNUSED *self, PyObject *args) {
     // https://github.com/glfw/glfw/issues/1268 It doesn't matter since there
     // is no startup notification in Wayland anyway. It amazes me that anyone
     // uses Wayland as anything other than a butt for jokes.
-    if (global_state.is_wayland) glfwWindowHint(GLFW_VISIBLE, GLFW_TRUE);
+    if (global_state.is_wayland) glfwWindowHint(GLFW_VISIBLE, true);
     GLFWwindow *glfw_window = glfwCreateWindow(width, height, title, NULL, temp_window);
     glfwDestroyWindow(temp_window); temp_window = NULL;
     if (glfw_window == NULL) { PyErr_SetString(PyExc_ValueError, "Failed to create GLFWwindow"); return NULL; }
@@ -853,7 +857,8 @@ get_content_scale_for_window(PYNOARG) {
 static PyObject*
 set_clipboard_string(PyObject UNUSED *self, PyObject *args) {
     char *title;
-    if(!PyArg_ParseTuple(args, "s", &title)) return NULL;
+    Py_ssize_t sz;
+    if(!PyArg_ParseTuple(args, "s#", &title, &sz)) return NULL;
     OSWindow *w = current_os_window();
     if (w) glfwSetClipboardString(w->handle, title);
     Py_RETURN_NONE;
@@ -997,7 +1002,8 @@ get_primary_selection(PYNOARG) {
 static PyObject*
 set_primary_selection(PyObject UNUSED *self, PyObject *args) {
     char *text;
-    if (!PyArg_ParseTuple(args, "s", &text)) return NULL;
+    Py_ssize_t sz;
+    if (!PyArg_ParseTuple(args, "s#", &text, &sz)) return NULL;
     if (glfwSetPrimarySelectionString) {
         OSWindow *w = current_os_window();
         if (w) glfwSetPrimarySelectionString(w->handle, text);
@@ -1180,7 +1186,7 @@ init_glfw(PyObject *m) {
     ADDC(GLFW_RELEASE);
     ADDC(GLFW_PRESS);
     ADDC(GLFW_REPEAT);
-    ADDC(GLFW_TRUE); ADDC(GLFW_FALSE);
+    ADDC(true); ADDC(false);
     ADDC(GLFW_IBEAM_CURSOR); ADDC(GLFW_HAND_CURSOR); ADDC(GLFW_ARROW_CURSOR);
 
 // --- Keys --------------------------------------------------------------------
