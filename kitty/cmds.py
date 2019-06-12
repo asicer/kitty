@@ -627,7 +627,6 @@ def cmd_new_window(global_opts, opts, args):
     cwd: Working directory for the new window
     tab_title: Title for the new tab
     window_type: One of :code:`kitty` or :code:`os`
-    no_response: Boolean indicating whether to send a response or not
     keep_focus: Boolean indicating whether the current window should retain focus or not
     '''
     if opts.no_response:
@@ -690,14 +689,18 @@ the command will exit with a success code.
 '''
 )
 def cmd_focus_window(global_opts, opts, args):
+    '''
+    match: The tab to open the new window in
+    '''
     if opts.no_response:
         global_opts.no_command_response = True
     return {'match': opts.match, 'no_response': opts.no_response}
 
 
 def focus_window(boss, window, payload):
+    pg = cmd_focus_window.payload_get
     windows = [window or boss.active_window]
-    match = payload['match']
+    match = pg(payload, 'match')
     if match:
         windows = tuple(boss.match_windows(match))
         if not windows:
@@ -727,13 +730,17 @@ using this option means that you will not be notified of failures.
     no_response=True,
 )
 def cmd_focus_tab(global_opts, opts, args):
+    '''
+    match: The tab to focus
+    '''
     if opts.no_response:
         global_opts.no_command_response = True
     return {'match': opts.match}
 
 
 def focus_tab(boss, window, payload):
-    match = payload['match']
+    pg = cmd_focus_tab.payload_get
+    match = pg(payload, 'match')
     tabs = tuple(boss.match_tabs(match))
     if not tabs:
         raise MatchError(match, 'tabs')
@@ -767,22 +774,29 @@ If specified get text from the window this command is run in, rather than the ac
     argspec=''
 )
 def cmd_get_text(global_opts, opts, args):
+    '''
+    match: The tab to focus
+    extent: One of :code:`screen`, :code:`all`, or :code:`selection`
+    ansi: Boolean, if True send ANSI formatting codes
+    self: Boolean, if True use window command was run in
+    '''
     return {'match': opts.match, 'extent': opts.extent, 'ansi': opts.ansi, 'self': opts.self}
 
 
 def get_text(boss, window, payload):
-    match = payload['match']
+    pg = cmd_get_text.payload_get
+    match = pg(payload, 'match')
     if match:
         windows = tuple(boss.match_windows(match))
         if not windows:
             raise MatchError(match)
     else:
-        windows = [window if window and payload['self'] else boss.active_window]
+        windows = [window if window and pg(payload, 'self') else boss.active_window]
     window = windows[0]
-    if payload['extent'] == 'selection':
+    if pg(payload, 'extent') == 'selection':
         ans = window.text_for_selection()
     else:
-        ans = window.as_text(as_ansi=bool(payload['ansi']), add_history=payload['extent'] == 'all')
+        ans = window.as_text(as_ansi=bool(pg(payload, 'ansi')), add_history=pg(payload, 'extent') == 'all')
     return ans
 # }}}
 
@@ -814,6 +828,15 @@ this option, any color arguments are ignored and --configured and --all are impl
     argspec='COLOR_OR_FILE ...'
 )
 def cmd_set_colors(global_opts, opts, args):
+    '''
+    colors+: An object mapping names to colors as 24-bit RGB integers
+    cursor_text_color: A 24-bit clor for text under the cursor
+    match_window: Window to change colors in
+    match_tab: Tab to change colors in
+    all: Boolean indicating change colors everywhere or not
+    configured: Boolean indicating whether to change the configured colors. Must be True if reset is True
+    reset: Boolean indicating colors should be reset to startup values
+    '''
     from .rgb import color_as_int, Color
     colors, cursor_text_color = {}, False
     if not opts.reset:
@@ -826,16 +849,17 @@ def cmd_set_colors(global_opts, opts, args):
         cursor_text_color = colors.pop('cursor_text_color', False)
         colors = {k: color_as_int(v) for k, v in colors.items() if isinstance(v, Color)}
     return {
-        'title': ' '.join(args), 'match_window': opts.match, 'match_tab': opts.match_tab,
+        'match_window': opts.match, 'match_tab': opts.match_tab,
         'all': opts.all or opts.reset, 'configured': opts.configured or opts.reset,
         'colors': colors, 'reset': opts.reset, 'cursor_text_color': cursor_text_color
     }
 
 
 def set_colors(boss, window, payload):
+    pg = cmd_set_colors.payload_get
     from .rgb import color_as_int, Color
     windows = windows_for_payload(boss, window, payload)
-    if payload['reset']:
+    if pg(payload, 'reset'):
         payload['colors'] = {k: color_as_int(v) for k, v in boss.startup_colors.items()}
         payload['cursor_text_color'] = boss.startup_cursor_text_color
     profiles = tuple(w.screen.color_profile for w in windows)
@@ -843,8 +867,8 @@ def set_colors(boss, window, payload):
     cursor_text_color = payload.get('cursor_text_color', False)
     if isinstance(cursor_text_color, (tuple, list, Color)):
         cursor_text_color = color_as_int(Color(*cursor_text_color))
-    patch_color_profiles(payload['colors'], cursor_text_color, profiles, payload['configured'])
-    boss.patch_colors(payload['colors'], cursor_text_color, payload['configured'])
+    patch_color_profiles(payload['colors'], cursor_text_color, profiles, pg(payload, 'configured'))
+    boss.patch_colors(payload['colors'], cursor_text_color, pg(payload, 'configured'))
     default_bg_changed = 'background' in payload['colors']
     for w in windows:
         if default_bg_changed:
@@ -866,18 +890,23 @@ configured colors.
 ''' + '\n\n' + MATCH_WINDOW_OPTION
 )
 def cmd_get_colors(global_opts, opts, args):
+    '''
+    match: The window to get the colors for
+    configured: Boolean indicating whether to get configured or current colors
+    '''
     return {'configured': opts.configured, 'match': opts.match}
 
 
 def get_colors(boss, window, payload):
     from .rgb import Color, color_as_sharp, color_from_int
+    pg = cmd_get_colors.payload_get
     ans = {k: getattr(boss.opts, k) for k in boss.opts if isinstance(getattr(boss.opts, k), Color)}
-    if not payload['configured']:
+    if not pg(payload, 'configured'):
         windows = (window or boss.active_window,)
-        if payload['match']:
-            windows = tuple(boss.match_windows(payload['match']))
+        if pg(payload, 'match'):
+            windows = tuple(boss.match_windows(pg(payload, 'match')))
             if not windows:
-                raise MatchError(payload['match'])
+                raise MatchError(pg(payload, 'match'))
         ans.update({k: color_from_int(v) for k, v in windows[0].current_colors.items()})
     all_keys = natsort_ints(ans)
     maxlen = max(map(len, all_keys))
@@ -902,24 +931,23 @@ cause colors to be changed in all windows.
     args_count=1
 )
 def cmd_set_background_opacity(global_opts, opts, args):
+    '''
+    opacity+: A number between 0.1 and 1
+    match_window: Window to change opacity in
+    match_tab: Tab to change opacity in
+    all: Boolean indicating operate on all windows
+    '''
     opacity = max(0.1, min(float(args[0]), 1.0))
     return {
             'opacity': opacity, 'match_window': opts.match,
-            'all': opts.all,
+            'all': opts.all, 'match_tab': opts.match_tab
     }
 
 
 def set_background_opacity(boss, window, payload):
     if not boss.opts.dynamic_background_opacity:
         raise OpacityError('You must turn on the dynamic_background_opacity option in kitty.conf to be able to set background opacity')
-    if payload['all']:
-        windows = tuple(boss.all_windows)
-    else:
-        windows = (window or boss.active_window,)
-        if payload['match_window']:
-            windows = tuple(boss.match_windows(payload['match_window']))
-            if not windows:
-                raise MatchError(payload['match_window'])
+    windows = windows_for_payload(payload)
     for os_window_id in {w.os_window_id for w in windows}:
         boss._set_os_window_background_opacity(os_window_id, payload['opacity'])
 # }}}
@@ -940,6 +968,12 @@ cause ligatures to be changed in all windows.
     argspec='STRATEGY'
 )
 def cmd_disable_ligatures(global_opts, opts, args):
+    '''
+    strategy+: One of :code:`never`, :code:`always` or :code:`cursor`
+    match_window: Window to change opacity in
+    match_tab: Tab to change opacity in
+    all: Boolean indicating operate on all windows
+    '''
     strategy = args[0]
     if strategy not in ('never', 'always', 'cursor'):
         raise ValueError('{} is not a valid disable_ligatures strategy'.format('strategy'))
@@ -966,6 +1000,11 @@ def disable_ligatures(boss, window, payload):
     argspec='kitten_name',
 )
 def cmd_kitten(global_opts, opts, args):
+    '''
+    kitten+: The name of the kitten to run
+    args: Arguments to pass to the kitten as a list
+    match: The window to run the kitten over
+    '''
     if len(args) < 1:
         raise SystemExit('Must specify kitten name')
     return {'match': opts.match, 'args': list(args)[1:], 'kitten': args[0]}
@@ -973,14 +1012,15 @@ def cmd_kitten(global_opts, opts, args):
 
 def kitten(boss, window, payload):
     windows = [window or boss.active_window]
-    match = payload['match']
+    pg = cmd_kitten.payload_get
+    match = pg(payload, 'match')
     if match:
         windows = tuple(boss.match_windows(match))
         if not windows:
             raise MatchError(match)
     for window in windows:
         if window:
-            boss._run_kitten(payload['kitten'], args=tuple(payload['args']), window=window)
+            boss._run_kitten(payload['kitten'], args=tuple(payload.get('args', ())), window=window)
             break
 # }}}
 

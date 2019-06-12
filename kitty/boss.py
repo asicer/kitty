@@ -6,12 +6,12 @@ import atexit
 import json
 import os
 import re
+from contextlib import suppress
 from functools import partial
 from gettext import gettext as _
 from weakref import WeakValueDictionary
-from contextlib import suppress
 
-from .child import cached_process_data
+from .child import cached_process_data, cwd_of_process
 from .cli import create_opts, parse_args
 from .conf.utils import to_cmdline
 from .config import initial_window_size_func, prepare_config_file_for_editing
@@ -25,8 +25,8 @@ from .fast_data_types import (
     change_os_window_state, create_os_window, current_os_window,
     destroy_global_data, get_clipboard_string, global_font_size,
     mark_os_window_for_close, os_window_font_size, patch_global_colors,
-    set_clipboard_string, set_in_sequence_mode, toggle_fullscreen,
-    toggle_maximized
+    safe_pipe, set_clipboard_string, set_in_sequence_mode, thread_write,
+    toggle_fullscreen, toggle_maximized
 )
 from .keys import get_shortcut, shortcut_matches
 from .layout import set_layout_options
@@ -918,11 +918,22 @@ class Boss:
         else:
             import subprocess
             env, stdin = self.process_stdin_source(stdin=source, window=window)
+            cwd = None
+            if cwd_from:
+                with suppress(Exception):
+                    cwd = cwd_of_process(cwd_from)
             if stdin:
-                p = subprocess.Popen(cmd, env=env, stdin=subprocess.PIPE)
-                p.communicate(stdin)
+                r, w = safe_pipe(False)
+                try:
+                    subprocess.Popen(cmd, env=env, stdin=r, cwd=cwd)
+                except Exception:
+                    os.close(w)
+                else:
+                    thread_write(w, stdin)
+                finally:
+                    os.close(r)
             else:
-                subprocess.Popen(cmd)
+                subprocess.Popen(cmd, env=env, cwd=cwd)
 
     def args_to_special_window(self, args, cwd_from=None):
         args = list(args)
