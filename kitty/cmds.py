@@ -7,7 +7,7 @@ import os
 import sys
 from contextlib import suppress
 
-from .cli import parse_args
+from .cli import parse_args, parse_option_spec, get_defaults_from_seq
 from .config import parse_config, parse_send_text_bytes
 from .constants import appname
 from .fast_data_types import focus_os_window
@@ -36,7 +36,33 @@ class UnknownLayout(ValueError):
 cmap = {}
 
 
-def cmd(short_desc, desc=None, options_spec=None, no_response=False, argspec='...', string_return_is_error=False, args_count=None):
+def cmd(
+    short_desc,
+    desc=None,
+    options_spec=None,
+    no_response=False,
+    argspec='...',
+    string_return_is_error=False,
+    args_count=None,
+):
+
+    if options_spec:
+        defaults = None
+
+        def get_defaut_value(name, missing=None):
+            nonlocal defaults
+            if defaults is None:
+                defaults = get_defaults_from_seq(parse_option_spec(options_spec)[0])
+            return defaults.get(name, missing)
+    else:
+        def get_defaut_value(name, missing=None):
+            return missing
+
+    def payload_get(payload, key, opt_name=None):
+        ans = payload.get(key, payload_get)
+        if ans is not payload_get:
+            return ans
+        return get_defaut_value(opt_name or key)
 
     def w(func):
         func.short_desc = short_desc
@@ -49,6 +75,8 @@ def cmd(short_desc, desc=None, options_spec=None, no_response=False, argspec='..
         func.no_response = no_response
         func.string_return_is_error = string_return_is_error
         func.args_count = 0 if not argspec else args_count
+        func.get_default = get_defaut_value
+        func.payload_get = payload_get
         cmap[func.name] = func
         return func
     return w
@@ -109,6 +137,9 @@ def windows_for_payload(boss, window, payload):
     argspec=''
 )
 def cmd_ls(global_opts, opts, args):
+    '''
+    No payload
+    '''
     pass
 
 
@@ -135,6 +166,11 @@ By default, the font size is only changed in the active OS window,
 this option will cause it to be changed in all OS windows.
 ''')
 def cmd_set_font_size(global_opts, opts, args):
+    '''
+    size+: The new font size in pts (a positive number)
+    all: Boolean whether to change font size in the current window or all windows
+    increment_op: The string ``+`` or ``-`` to interpret size as an increment
+    '''
     if not args:
         raise SystemExit('No font size specified')
     fs = args[0]
@@ -143,7 +179,9 @@ def cmd_set_font_size(global_opts, opts, args):
 
 
 def set_font_size(boss, window, payload):
-    boss.change_font_size(payload['all'], payload['increment_op'], payload['size'])
+    boss.change_font_size(
+        cmd_set_font_size.payload_get(payload, 'all'),
+        payload.get('increment_op', None), payload['size'])
 # }}}
 
 
@@ -170,6 +208,12 @@ are sent as is, not interpreted for escapes.
     argspec='[TEXT TO SEND]'
 )
 def cmd_send_text(global_opts, opts, args):
+    '''
+    text+: The text being sent
+    is_binary+: If False text is interpreted as a python string literal instead of plain text
+    match: A string indicating the window to send text to
+    match_tab: A string indicating the tab to send text to
+    '''
     limit = 1024
     ret = {'match': opts.match, 'is_binary': False, 'match_tab': opts.match_tab}
 
@@ -235,12 +279,14 @@ def cmd_send_text(global_opts, opts, args):
 
 def send_text(boss, window, payload):
     windows = [boss.active_window]
-    match = payload['match']
+    pg = cmd_send_text.payload_get
+    match = pg(payload, 'match')
     if match:
         windows = tuple(boss.match_windows(match))
-    if payload['match_tab']:
+    mt = pg(payload, 'match_tab')
+    if mt:
         windows = []
-        tabs = tuple(boss.match_tabs(payload['match_tab']))
+        tabs = tuple(boss.match_tabs(mt))
         if not tabs:
             raise MatchError(payload['match_tab'], 'tabs')
         for tab in tabs:
@@ -269,19 +315,25 @@ want to allow other programs to change it afterwards, use this option.
     argspec='TITLE ...'
 )
 def cmd_set_window_title(global_opts, opts, args):
+    '''
+    title+: The new title
+    match: Which windows to change the title in
+    temporary: Boolean indicating if the change is temporary or permanent
+    '''
     return {'title': ' '.join(args), 'match': opts.match, 'temporary': opts.temporary}
 
 
 def set_window_title(boss, window, payload):
     windows = [window or boss.active_window]
-    match = payload['match']
+    pg = cmd_set_window_title.payload_get
+    match = pg(payload, 'match')
     if match:
         windows = tuple(boss.match_windows(match))
         if not windows:
             raise MatchError(match)
     for window in windows:
         if window:
-            if payload['temporary']:
+            if pg(payload, 'temporary'):
                 window.override_title = None
                 window.title_changed(payload['title'])
             else:
@@ -301,11 +353,16 @@ def set_window_title(boss, window, payload):
     argspec='TITLE ...'
 )
 def cmd_set_tab_title(global_opts, opts, args):
+    '''
+    title+: The new title
+    match: Which tab to change the title of
+    '''
     return {'title': ' '.join(args), 'match': opts.match}
 
 
 def set_tab_title(boss, window, payload):
-    match = payload['match']
+    pg = cmd_set_tab_title.payload_get
+    match = pg(payload, 'match')
     if match:
         tabs = tuple(boss.match_tabs(match))
         if not tabs:
@@ -327,6 +384,10 @@ def set_tab_title(boss, window, payload):
     argspec='LAYOUT_NAME'
 )
 def cmd_goto_layout(global_opts, opts, args):
+    '''
+    layout+: The new layout name
+    match: Which tab to change the layout of
+    '''
     try:
         return {'layout': args[0], 'match': opts.match}
     except IndexError:
@@ -334,7 +395,8 @@ def cmd_goto_layout(global_opts, opts, args):
 
 
 def goto_layout(boss, window, payload):
-    match = payload['match']
+    pg = cmd_goto_layout.payload_get
+    match = pg(payload, 'match')
     if match:
         if match == 'all':
             tabs = tuple(boss.all_tabs)
@@ -361,11 +423,15 @@ def goto_layout(boss, window, payload):
     options_spec=MATCH_TAB_OPTION,
 )
 def cmd_last_used_layout(global_opts, opts, args):
+    '''
+    match: Which tab to change the layout of
+    '''
     return {'match': opts.match}
 
 
 def last_used_layout(boss, window, payload):
-    match = payload['match']
+    pg = cmd_last_used_layout.payload_get
+    match = pg(payload, 'match')
     if match:
         if match == 'all':
             tabs = tuple(boss.all_tabs)
@@ -392,17 +458,22 @@ If specified close the window this command is run in, rather than the active win
     argspec=''
 )
 def cmd_close_window(global_opts, opts, args):
+    '''
+    match: Which window to close
+    self: Boolean indicating whether to close the window the command is run in
+    '''
     return {'match': opts.match, 'self': opts.self}
 
 
 def close_window(boss, window, payload):
-    match = payload['match']
+    pg = cmd_close_window.payload_get
+    match = pg(payload, 'match')
     if match:
         windows = tuple(boss.match_windows(match))
         if not windows:
             raise MatchError(match)
     else:
-        windows = [window if window and payload['self'] else boss.active_window]
+        windows = [window if window and pg(payload, 'self') else boss.active_window]
     for window in windows:
         if window:
             boss.close_window(window)
@@ -437,22 +508,29 @@ If specified resize the window this command is run in, rather than the active wi
     string_return_is_error=True
 )
 def cmd_resize_window(global_opts, opts, args):
+    '''
+    match: Which window to resize
+    self: Boolean indicating whether to close the window the command is run in
+    increment: Integer specifying the resize increment
+    axis: One of :code:`horizontal, vertical` or :code:`reset`
+    '''
     return {'match': opts.match, 'increment': opts.increment, 'axis': opts.axis, 'self': opts.self}
 
 
 def resize_window(boss, window, payload):
-    match = payload['match']
+    pg = cmd_resize_window.payload_get
+    match = pg(payload, 'match')
     if match:
         windows = tuple(boss.match_windows(match))
         if not windows:
             raise MatchError(match)
     else:
-        windows = [window if window and payload['self'] else boss.active_window]
+        windows = [window if window and pg(payload, 'self') else boss.active_window]
     resized = False
     if windows and windows[0]:
         resized = boss.resize_layout_window(
-            windows[0], increment=payload['increment'], is_horizontal=payload['axis'] == 'horizontal',
-            reset=payload['axis'] == 'reset'
+            windows[0], increment=pg(payload, 'increment'), is_horizontal=pg(payload, 'axis') == 'horizontal',
+            reset=pg(payload, 'axis') == 'reset'
         )
     return resized
 # }}}
@@ -469,17 +547,22 @@ If specified close the tab this command is run in, rather than the active tab.
     argspec=''
 )
 def cmd_close_tab(global_opts, opts, args):
+    '''
+    match: Which tab to close
+    self: Boolean indicating whether to close the window the command is run in
+    '''
     return {'match': opts.match, 'self': opts.self}
 
 
 def close_tab(boss, window, payload):
-    match = payload['match']
+    pg = cmd_close_tab.payload_get
+    match = pg(payload, 'match')
     if match:
         tabs = tuple(boss.match_tabs(match))
         if not tabs:
             raise MatchError(match, 'tabs')
     else:
-        tabs = [boss.tab_for_window(window) if window and payload['self'] else boss.active_tab]
+        tabs = [boss.tab_for_window(window) if window and pg(payload, 'self') else boss.active_tab]
     for tab in tabs:
         if window:
             if tab:
@@ -537,6 +620,16 @@ the id of the new window will not be printed out.
     argspec='[CMD ...]'
 )
 def cmd_new_window(global_opts, opts, args):
+    '''
+    args+: The command line to run in the new window, as a list, use an empty list to run the default shell
+    match: The tab to open the new window in
+    title: Title for the new window
+    cwd: Working directory for the new window
+    tab_title: Title for the new tab
+    window_type: One of :code:`kitty` or :code:`os`
+    no_response: Boolean indicating whether to send a response or not
+    keep_focus: Boolean indicating whether the current window should retain focus or not
+    '''
     if opts.no_response:
         global_opts.no_command_response = True
     return {'match': opts.match, 'title': opts.title, 'cwd': opts.cwd,
@@ -546,28 +639,29 @@ def cmd_new_window(global_opts, opts, args):
 
 
 def new_window(boss, window, payload):
-    w = SpecialWindow(cmd=payload['args'] or None, override_title=payload['title'], cwd=payload['cwd'])
+    pg = cmd_new_window.payload_get
+    w = SpecialWindow(cmd=payload['args'] or None, override_title=pg(payload, 'title'), cwd=pg(payload, 'cwd'))
     old_window = boss.active_window
-    if payload['new_tab']:
+    if pg(payload, 'new_tab'):
         boss._new_tab(w)
         tab = boss.active_tab
-        if payload['tab_title']:
-            tab.set_title(payload['tab_title'])
+        if pg(payload, 'tab_title'):
+            tab.set_title(pg(payload, 'tab_title'))
         wid = boss.active_window.id
-        if payload['keep_focus'] and old_window:
+        if pg(payload, 'keep_focus') and old_window:
             boss.set_active_window(old_window)
-        return None if payload['no_response'] else str(wid)
+        return None if pg(payload, 'no_response') else str(wid)
 
-    if payload['window_type'] == 'os':
+    if pg(payload, 'window_type') == 'os':
         boss._new_os_window(w)
         wid = boss.active_window.id
-        if payload['keep_focus'] and old_window:
+        if pg(payload, 'keep_focus') and old_window:
             os_window_id = boss.set_active_window(old_window)
             if os_window_id:
                 focus_os_window(os_window_id)
-        return None if payload['no_response'] else str(wid)
+        return None if pg(payload, 'no_response') else str(wid)
 
-    match = payload['match']
+    match = pg(payload, 'match')
     if match:
         tabs = tuple(boss.match_tabs(match))
         if not tabs:
@@ -576,9 +670,9 @@ def new_window(boss, window, payload):
         tabs = [boss.active_tab]
     tab = tabs[0]
     w = tab.new_special_window(w)
-    if payload['keep_focus'] and old_window:
+    if pg(payload, 'keep_focus') and old_window:
         boss.set_active_window(old_window)
-    return None if payload['no_response'] else str(w.id)
+    return None if pg(payload, 'no_response') else str(w.id)
 # }}}
 
 
