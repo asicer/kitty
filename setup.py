@@ -327,6 +327,9 @@ def get_vcs_rev_defines():
                 gitloc = open('.git').read()
                 with open(os.path.join(gitloc, 'refs/heads/master')) as f:
                     rev = f.read()
+        with suppress(FileNotFoundError):
+            version = subprocess.check_output(['git', 'describe', '--abbrev=4', '--dirty', '--always', '--tags']).decode('utf-8')
+            ans.append('KITTY_VCS_VERSION="{}"'.format(version.strip()))
 
         ans.append('KITTY_VCS_REV="{}"'.format(rev.strip()))
     return ans
@@ -719,6 +722,9 @@ def create_macos_bundle_gunk(ddir):
         os.mkdir('Contents')
         os.chdir('Contents')
         VERSION = '.'.join(map(str, version))
+        from kitty import fast_data_types
+        if hasattr(fast_data_types, 'KITTY_VCS_VERSION'):
+            VERSION = fast_data_types.KITTY_VCS_VERSION
         pl = dict(
             CFBundleDevelopmentRegion='English',
             CFBundleDisplayName=appname,
