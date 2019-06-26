@@ -38,8 +38,6 @@ version = tuple(
 _plat = sys.platform.lower()
 is_macos = 'darwin' in _plat
 env = None
-vcs_hash = None
-vcs_version = None
 
 PKGCONFIG = os.environ.get('PKGCONFIG_EXE', 'pkg-config')
 
@@ -89,17 +87,6 @@ def at_least_version(package, major, minor=0):
                 )
             )
 
-def get_vcs_hash():
-    global vcs_hash
-    if vcs_hash == None and os.path.exists('.git'):
-        vcs_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode('utf-8').strip()
-    return vcs_hash
-
-def get_vcs_version():
-    global vcs_version
-    if vcs_version == None and os.path.exists('.git'):
-        vcs_version = subprocess.check_output(['git', 'describe', '--abbrev=4', '--dirty', '--always', '--tags']).decode('utf-8').strip()
-    return vcs_version
 
 def cc_version():
     if 'CC' in os.environ:
@@ -408,11 +395,10 @@ def compile_c_extension(kenv, module, incremental, compilation_database, all_key
             cppflags.extend(map(define, defines))
 
         if src == 'kitty/data-types.c':
-            vcs_hash = get_vcs_hash()
-            if vcs_hash:
+            if os.path.exists('.git'):
+                vcs_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode('utf-8').strip()
+                vcs_version = subprocess.check_output(['git', 'describe', '--abbrev=4', '--dirty', '--always', '--tags']).decode('utf-8').strip()
                 cppflags.append(define('KITTY_VCS_HASH="{}"'.format(vcs_hash)))
-            vcs_version = get_vcs_version()
-            if vcs_version:
                 cppflags.append(define('KITTY_VCS_VERSION="{}"'.format(vcs_version)))
         cmd = [kenv.cc, '-MMD'] + cppflags + kenv.cflags
         key = original_src, os.path.basename(dest)
@@ -720,11 +706,7 @@ Categories=System;TerminalEmulator;
         os.chdir(ddir)
         os.mkdir('Contents')
         os.chdir('Contents')
-
         VERSION = '.'.join(map(str, version))
-        vcs_version = get_vcs_version()
-        if vcs_version:
-            VERSION = vcs_version
         pl = dict(
             CFBundleDevelopmentRegion='English',
             CFBundleDisplayName=appname,
