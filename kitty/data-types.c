@@ -291,8 +291,8 @@ PyInit_fast_data_types(void) {
         PyModule_AddIntConstant(m, "DIM", DIM_SHIFT);
         PyModule_AddIntConstant(m, "DECORATION", DECORATION_SHIFT);
         PyModule_AddStringMacro(m, ERROR_PREFIX);
-#ifdef KITTY_VCS_HASH
-        PyModule_AddStringMacro(m, KITTY_VCS_HASH);
+#ifdef KITTY_VCS_REV
+        PyModule_AddStringMacro(m, KITTY_VCS_REV);
 #endif
         PyModule_AddIntMacro(m, CURSOR_BLOCK);
         PyModule_AddIntMacro(m, CURSOR_BEAM);
