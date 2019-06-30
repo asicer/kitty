@@ -77,7 +77,6 @@ jobs:
       steps:
           - checkout
           - run: brew bundle
-          - run: python3 logo/make.py
           - run: python3 setup.py build --debug --verbose
           - run: ./kitty/launcher/kitty +launch test.py
           - run: echo "export PATH=/usr/local/opt/sphinx-doc/bin:$PATH" >> $BASH_ENV

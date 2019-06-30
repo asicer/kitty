@@ -16,7 +16,8 @@ import sys
 import sysconfig
 import time
 from collections import namedtuple
-from contextlib import suppress, contextmanager
+from contextlib import suppress
+from pathlib import Path
 
 base = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(base, 'glfw'))
@@ -41,16 +42,6 @@ is_macos = 'darwin' in _plat
 env = None
 
 PKGCONFIG = os.environ.get('PKGCONFIG_EXE', 'pkg-config')
-
-
-@contextmanager
-def current_dir(path):
-    cwd = os.getcwd()
-    try:
-        os.chdir(path)
-        yield path
-    finally:
-        os.chdir(cwd)
 
 
 def emphasis(text):
@@ -315,7 +306,7 @@ def get_vcs_rev_defines():
     ans = []
     if os.path.exists('.git'):
         try:
-            rev = subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode('utf-8').strip()
+            rev = subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode('utf-8')
         except FileNotFoundError:
             try:
                 with open('.git/refs/heads/master') as f:
@@ -607,7 +598,7 @@ def build_launcher(args, launcher_dir='.', bundle_type='source'):
     elif bundle_type.startswith('linux-'):
         klp = '../{}/kitty'.format(args.libdir_name.strip('/'))
     elif bundle_type == 'source':
-        klp = '../..'
+        klp = os.path.relpath('.', launcher_dir)
     else:
         raise SystemExit('Unknown bundle type: {}'.format(bundle_type))
     cppflags.append('-DKITTY_LIB_PATH="{}"'.format(klp))
@@ -703,81 +694,101 @@ Icon=kitty
 Categories=System;TerminalEmulator;
 '''
             )
-    with current_dir(ddir):
-        in_src_launcher = libdir_name + '/kitty/kitty/launcher/kitty'
-        launcher = 'bin/kitty'
-        if os.path.exists(in_src_launcher):
-            os.remove(in_src_launcher)
-        os.makedirs(os.path.dirname(in_src_launcher), exist_ok=True)
-        os.symlink(os.path.relpath(launcher, os.path.dirname(in_src_launcher)), in_src_launcher)
+    ddir = Path(ddir)
+    in_src_launcher = ddir / (libdir_name + '/kitty/kitty/launcher/kitty')
+    launcher = ddir / 'bin/kitty'
+    if os.path.exists(in_src_launcher):
+        os.remove(in_src_launcher)
+    os.makedirs(os.path.dirname(in_src_launcher), exist_ok=True)
+    os.symlink(os.path.relpath(launcher, os.path.dirname(in_src_launcher)), in_src_launcher)
+
+
+def macos_info_plist():
+    import plistlib
+    VERSION = '.'.join(map(str, version))
+    from kitty import fast_data_types
+    if hasattr(fast_data_types, 'KITTY_VCS_VERSION'):
+        VERSION = fast_data_types.KITTY_VCS_VERSION
+    pl = dict(
+        CFBundleDevelopmentRegion='English',
+        CFBundleDisplayName=appname,
+        CFBundleName=appname,
+        CFBundleIdentifier='net.kovidgoyal.' + appname,
+        CFBundleVersion=VERSION,
+        CFBundleShortVersionString=VERSION,
+        CFBundlePackageType='APPL',
+        CFBundleSignature='????',
+        CFBundleExecutable=appname,
+        LSMinimumSystemVersion='10.12.0',
+        LSRequiresNativeExecution=True,
+        NSAppleScriptEnabled=False,
+        # Needed for dark mode in Mojave when linking against older SDKs
+        NSRequiresAquaSystemAppearance='NO',
+        NSHumanReadableCopyright=time.strftime(
+            'Copyright %Y, Kovid Goyal'),
+        CFBundleGetInfoString='kitty, an OpenGL based terminal emulator https://sw.kovidgoyal.net/kitty',
+        CFBundleIconFile=appname + '.icns',
+        NSHighResolutionCapable=True,
+        NSSupportsAutomaticGraphicsSwitching=True,
+        LSApplicationCategoryType='public.app-category.utilities',
+        LSEnvironment={'KITTY_LAUNCHED_BY_LAUNCH_SERVICES': '1'},
+        NSServices=[
+            {
+                'NSMenuItem': {'default': 'New ' + appname + ' Tab Here'},
+                'NSMessage': 'openTab',
+                'NSRequiredContext': {'NSTextContent': 'FilePath'},
+                'NSSendTypes': ['NSFilenamesPboardType', 'public.plain-text'],
+            },
+            {
+                'NSMenuItem': {'default': 'New ' + appname + ' Window Here'},
+                'NSMessage': 'openOSWindow',
+                'NSRequiredContext': {'NSTextContent': 'FilePath'},
+                'NSSendTypes': ['NSFilenamesPboardType', 'public.plain-text'],
+            },
+        ],
+    )
+    return plistlib.dumps(pl)
+
+
+def create_macos_app_icon(where='Resources'):
+    logo_dir = os.path.abspath(os.path.join('logo', appname + '.iconset'))
+    subprocess.check_call([
+        'iconutil', '-c', 'icns', logo_dir, '-o',
+        os.path.join(where, os.path.basename(logo_dir).partition('.')[0] + '.icns')
+    ])
+
+
+def create_minimal_macos_bundle(args, where):
+    if os.path.exists(where):
+        shutil.rmtree(where)
+    bin_dir = os.path.join(where, 'kitty.app/Contents/MacOS')
+    resources_dir = os.path.join(where, 'kitty.app/Contents/Resources')
+    os.makedirs(resources_dir), os.makedirs(bin_dir)
+    with open(os.path.join(where, 'kitty.app/Contents/Info.plist'), 'wb') as f:
+        f.write(macos_info_plist())
+    build_launcher(args, bin_dir)
+    os.symlink(
+        os.path.join(os.path.relpath(bin_dir, where), appname),
+        os.path.join(where, appname))
+    create_macos_app_icon(resources_dir)
 
 
 def create_macos_bundle_gunk(ddir):
-    import plistlib
-    logo_dir = os.path.abspath(os.path.join('logo', appname + '.iconset'))
-    with current_dir(ddir):
-        os.mkdir('Contents')
-        os.chdir('Contents')
-        VERSION = '.'.join(map(str, version))
-        from kitty import fast_data_types
-        if hasattr(fast_data_types, 'KITTY_VCS_VERSION'):
-            VERSION = fast_data_types.KITTY_VCS_VERSION
-        pl = dict(
-            CFBundleDevelopmentRegion='English',
-            CFBundleDisplayName=appname,
-            CFBundleName=appname,
-            CFBundleIdentifier='net.kovidgoyal.' + appname,
-            CFBundleVersion=VERSION,
-            CFBundleShortVersionString=VERSION,
-            CFBundlePackageType='APPL',
-            CFBundleSignature='????',
-            CFBundleExecutable=appname,
-            LSMinimumSystemVersion='10.12.0',
-            LSRequiresNativeExecution=True,
-            NSAppleScriptEnabled=False,
-            # Needed for dark mode in Mojave when linking against older SDKs
-            NSRequiresAquaSystemAppearance='NO',
-            NSHumanReadableCopyright=time.strftime(
-                'Copyright %Y, Kovid Goyal'),
-            CFBundleGetInfoString='kitty, an OpenGL based terminal emulator https://sw.kovidgoyal.net/kitty',
-            CFBundleIconFile=appname + '.icns',
-            NSHighResolutionCapable=True,
-            NSSupportsAutomaticGraphicsSwitching=True,
-            LSApplicationCategoryType='public.app-category.utilities',
-            LSEnvironment={'KITTY_LAUNCHED_BY_LAUNCH_SERVICES': '1'},
-            NSServices=[
-                {
-                    'NSMenuItem': {'default': 'New ' + appname + ' Tab Here'},
-                    'NSMessage': 'openTab',
-                    'NSRequiredContext': {'NSTextContent': 'FilePath'},
-                    'NSSendTypes': ['NSFilenamesPboardType', 'public.plain-text'],
-                },
-                {
-                    'NSMenuItem': {'default': 'New ' + appname + ' Window Here'},
-                    'NSMessage': 'openOSWindow',
-                    'NSRequiredContext': {'NSTextContent': 'FilePath'},
-                    'NSSendTypes': ['NSFilenamesPboardType', 'public.plain-text'],
-                },
-            ],
-        )
-        with open('Info.plist', 'wb') as fp:
-            plistlib.dump(pl, fp)
-        os.rename('../share', 'Resources')
-        os.rename('../bin', 'MacOS')
-        os.rename('../lib', 'Frameworks')
-        if not os.path.exists(logo_dir):
-            raise SystemExit('The kitty logo has not been generated, you need to run logo/make.py')
-        os.symlink(os.path.join('MacOS', 'kitty'), os.path.join('MacOS', 'kitty-deref-symlink'))
-        subprocess.check_call([
-            'iconutil', '-c', 'icns', logo_dir, '-o',
-            os.path.join('Resources', os.path.basename(logo_dir).partition('.')[0] + '.icns')
-        ])
-        launcher = 'MacOS/kitty'
-        in_src_launcher = 'Frameworks/kitty/kitty/launcher/kitty'
-        if os.path.exists(in_src_launcher):
-            os.remove(in_src_launcher)
-        os.makedirs(os.path.dirname(in_src_launcher), exist_ok=True)
-        os.symlink(os.path.relpath(launcher, os.path.dirname(in_src_launcher)), in_src_launcher)
+    ddir = Path(ddir)
+    os.mkdir(ddir / 'Contents')
+    with open(ddir / 'Contents/Info.plist', 'wb') as fp:
+        fp.write(macos_info_plist())
+    os.rename(ddir / 'share', ddir / 'Contents/Resources')
+    os.rename(ddir / 'bin', ddir / 'Contents/MacOS')
+    os.rename(ddir / 'lib', ddir / 'Contents/Frameworks')
+    os.symlink('kitty', ddir / 'Contents/MacOS/kitty-deref-symlink')
+    launcher = ddir / 'Contents/MacOS/kitty'
+    in_src_launcher = ddir / 'Contents/Frameworks/kitty/kitty/launcher/kitty'
+    if os.path.exists(in_src_launcher):
+        os.remove(in_src_launcher)
+    os.makedirs(os.path.dirname(in_src_launcher), exist_ok=True)
+    os.symlink(os.path.relpath(launcher, os.path.dirname(in_src_launcher)), in_src_launcher)
+    create_macos_app_icon(os.path.join(ddir, 'Contents', 'Resources'))
 
 
 def package(args, bundle_type):
@@ -951,7 +962,11 @@ def main():
         args.compilation_database = cdb
         if args.action == 'build':
             build(args)
-            build_launcher(args, launcher_dir='kitty/launcher')
+            launcher_dir = 'kitty/launcher'
+            if is_macos:
+                create_minimal_macos_bundle(args, launcher_dir)
+            else:
+                build_launcher(args, launcher_dir=launcher_dir)
         elif args.action == 'linux-package':
             build(args, native_optimizations=False)
             if not os.path.exists(os.path.join(base, 'docs/_build/html')):

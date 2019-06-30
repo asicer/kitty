@@ -7,6 +7,11 @@ To update |kitty|, :doc:`follow the instructions <binary>`.
 0.14.3 [future]
 ---------------------
 
+- Remote control: Add a command `kitty @ scroll-window` to scroll windows
+
+- Allow passing a ``!neighbor`` argument to the new_window mapping to open a
+  new window next to the active window (:iss:`1746`)
+
 - Fix an out of bounds read causing a crash when selecting text with the mouse
   in the alternate screen mode (:iss:`1578`)
 
@@ -20,6 +25,16 @@ To update |kitty|, :doc:`follow the instructions <binary>`.
 
 - Fix a regression that caused closing an overlay window to focus
   the previously focused window rather than the underlying window (:iss:`1720`)
+
+- macOS: Reduce energy consumption when idle by shutting down Apple's display
+  link thread after 30 second of inactivity (:iss:`1763`)
+
+- Linux: Fix incorrect scaling for fallback fonts when the font has an
+  underscore that renders out of bounds (:iss:`1713`)
+
+- macOS: Fix finding fallback font for private use unicode symbols not working
+  reliably (:iss:`1650`)
+
 
 0.14.2 [2019-06-09]
 ---------------------
