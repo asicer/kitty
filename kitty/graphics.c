@@ -267,7 +267,7 @@ find_or_create_image(GraphicsManager *self, uint32_t id, bool *existing) {
 static Image*
 handle_add_command(GraphicsManager *self, const GraphicsCommand *g, const uint8_t *payload, bool *is_dirty, uint32_t iid) {
 #define ABRT(code, ...) { set_add_response(#code, __VA_ARGS__); self->loading_image = 0; if (img) img->data_loaded = false; return NULL; }
-#define MAX_DATA_SZ (4 * 100000000)
+#define MAX_DATA_SZ (4u * 100000000u)
     has_add_respose = false;
     bool existing, init_img = true;
     Image *img = NULL;
@@ -359,7 +359,7 @@ handle_add_command(GraphicsManager *self, const GraphicsCommand *g, const uint8_
             else fd = open(fname, O_CLOEXEC | O_RDONLY);
             if (fd == -1) ABRT(EBADF, "Failed to open file %s for graphics transmission with error: [%d] %s", fname, errno, strerror(errno));
             img->data_loaded = mmap_img_file(self, img, fd, g->data_sz, g->data_offset);
-            close(fd);
+            safe_close(fd);
             break;
         default:
             ABRT(EINVAL, "Unknown transmission type: %c", g->transmission_type);
@@ -834,12 +834,12 @@ W(shm_write) {
     int fd = shm_open(name, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
     if (fd == -1) { PyErr_SetFromErrnoWithFilename(PyExc_OSError, name); return NULL; }
     int ret = ftruncate(fd, sz);
-    if (ret != 0) { close(fd); PyErr_SetFromErrnoWithFilename(PyExc_OSError, name); return NULL; }
+    if (ret != 0) { safe_close(fd); PyErr_SetFromErrnoWithFilename(PyExc_OSError, name); return NULL; }
     void *addr = mmap(0, sz, PROT_WRITE, MAP_SHARED, fd, 0);
-    if (addr == MAP_FAILED) { close(fd); PyErr_SetFromErrnoWithFilename(PyExc_OSError, name); return NULL; }
+    if (addr == MAP_FAILED) { safe_close(fd); PyErr_SetFromErrnoWithFilename(PyExc_OSError, name); return NULL; }
     memcpy(addr, data, sz);
-    if (munmap(addr, sz) != 0) { close(fd); PyErr_SetFromErrnoWithFilename(PyExc_OSError, name); return NULL; }
-    close(fd);
+    if (munmap(addr, sz) != 0) { safe_close(fd); PyErr_SetFromErrnoWithFilename(PyExc_OSError, name); return NULL; }
+    safe_close(fd);
     Py_RETURN_NONE;
 }
 

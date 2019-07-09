@@ -67,6 +67,22 @@ update_os_window_viewport(OSWindow *window, bool notify_boss) {
     }
 }
 
+void
+log_event(const char *format, ...) {
+    if (format)
+    {
+        va_list vl;
+
+        fprintf(stderr, "[%.4f] ", glfwGetTime());
+        va_start(vl, format);
+        vfprintf(stderr, format, vl);
+        va_end(vl);
+        fprintf(stderr, "\n");
+    }
+
+}
+
+
 // callbacks {{{
 
 void
@@ -829,14 +845,18 @@ get_clipboard_string(PYNOARG) {
 }
 
 void
-ring_audio_bell(OSWindow *w) {
+ring_audio_bell(OSWindow *w UNUSED) {
     static double last_bell_at = -1;
     double now = monotonic();
     if (now - last_bell_at <= 0.1) return;
     last_bell_at = now;
+#ifdef __APPLE__
     if (w->handle) {
         glfwWindowBell(w->handle);
     }
+#else
+    play_canberra_sound("bell", "kitty bell");
+#endif
 }
 
 static PyObject*

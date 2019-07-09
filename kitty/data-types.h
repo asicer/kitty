@@ -22,8 +22,12 @@
 #define EXPORTED __attribute__ ((visibility ("default")))
 #define LIKELY(x)    __builtin_expect (!!(x), 1)
 #define UNLIKELY(x)  __builtin_expect (!!(x), 0)
-#define MAX(x, y) (((x) > (y)) ? (x) : (y))
-#define MIN(x, y) (((x) > (y)) ? (y) : (x))
+#define MAX(x, y) __extension__ ({ \
+    __typeof__ (x) a = (x); __typeof__ (y) b = (y); \
+        a > b ? a : b;})
+#define MIN(x, y) __extension__ ({ \
+    __typeof__ (x) a = (x); __typeof__ (y) b = (y); \
+        a < b ? a : b;})
 #define xstr(s) str(s)
 #define str(s) #s
 #define arraysz(x) (sizeof(x)/sizeof(x[0]))
@@ -250,7 +254,7 @@ typedef struct {FONTS_DATA_HEAD} *FONTS_DATA_HANDLE;
 
 #define ensure_space_for(base, array, type, num, capacity, initial_cap, zero_mem) \
     if ((base)->capacity < num) { \
-        size_t _newcap = MAX(initial_cap, MAX(2 * (base)->capacity, num)); \
+        size_t _newcap = MAX((size_t)initial_cap, MAX(2 * (base)->capacity, (size_t)num)); \
         (base)->array = realloc((base)->array, sizeof(type) * _newcap); \
         if ((base)->array == NULL) fatal("Out of memory while ensuring space for %zu elements in array of %s", (size_t)num, #type); \
         if (zero_mem) memset((base)->array + (base)->capacity, 0, sizeof(type) * (_newcap - (base)->capacity)); \
@@ -297,11 +301,16 @@ void set_mouse_cursor(MouseShape);
 void enter_event(void);
 void mouse_event(int, int, int);
 void focus_in_event(void);
-void wakeup_io_loop(bool);
 void scroll_event(double, double, int);
 void fake_scroll(int, bool);
 void set_special_key_combo(int glfw_key, int mods, bool is_native);
 void on_key_input(int key, int scancode, int action, int mods, const char*, int);
 void request_window_attention(id_type, bool);
+#ifndef __APPLE__
+void play_canberra_sound(const char *which_sound, const char *event_id);
+#endif
 SPRITE_MAP_HANDLE alloc_sprite_map(unsigned int, unsigned int);
 SPRITE_MAP_HANDLE free_sprite_map(SPRITE_MAP_HANDLE);
+
+static inline void safe_close(int fd) { while(close(fd) != 0 && errno == EINTR); }
+void log_event(const char *format, ...) __attribute__((format(printf, 1, 2)));

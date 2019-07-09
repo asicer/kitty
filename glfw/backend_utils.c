@@ -11,6 +11,8 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
+#include <fcntl.h>
 #include <errno.h>
 #include <float.h>
 #include <time.h>
@@ -220,22 +222,63 @@ dispatchTimers(EventLoopData *eld) {
 }
 
 static void
-drain_wakeup_fd(int fd, int events, void* data) {
+drain_wakeup_fd(int fd, int events UNUSED, void* data UNUSED) {
     static char drain_buf[64];
     while(read(fd, drain_buf, sizeof(drain_buf)) < 0 && errno == EINTR);
 }
 
-void
-initPollData(EventLoopData *eld, int wakeup_fd, int display_fd) {
-    addWatch(eld, "display", display_fd, POLLIN, 1, NULL, NULL);
-    addWatch(eld, "wakeup", wakeup_fd, POLLIN, 1, drain_wakeup_fd, NULL);
+bool
+initPollData(EventLoopData *eld, int display_fd) {
+    if (!addWatch(eld, "display", display_fd, POLLIN, 1, NULL, NULL)) return false;
+#ifdef HAS_EVENT_FD
+    eld->wakeupFd = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
+    if (eld->wakeupFd == -1) return false;
+    const int wakeup_fd = eld->wakeupFd;
+#else
+    if (pipe2(eld->wakeupFds, O_CLOEXEC | O_NONBLOCK) != 0) return false;
+    const int wakeup_fd = eld->wakeupFds[0];
+#endif
+    if (!addWatch(eld, "wakeup", wakeup_fd, POLLIN, 1, drain_wakeup_fd, NULL)) return false;
+    return true;
 }
 
+void
+wakeupEventLoop(EventLoopData *eld) {
+#ifdef HAS_EVENT_FD
+    static const int64_t value = 1;
+    while (write(eld->wakeupFd, &value, sizeof value) < 0 && errno == EINTR);
+#else
+    while (write(eld->wakeupFds[1], "w", 1) < 0 && errno == EINTR);
+#endif
+}
+
+#ifndef HAS_EVENT_FD
+static inline void
+closeFds(int *fds, size_t count) {
+    while(count--) {
+        if (*fds > 0) {
+            close(*fds);
+            *fds = -1;
+        }
+        fds++;
+    }
+}
+#endif
+
+void
+finalizePollData(EventLoopData *eld) {
+#ifdef HAS_EVENT_FD
+    close(eld->wakeupFd); eld->wakeupFd = -1;
+#else
+    closeFds(eld->wakeupFds, arraysz(eld->wakeupFds));
+#endif
+}
 
 int
 pollForEvents(EventLoopData *eld, double timeout) {
     int read_ok = 0;
     timeout = prepareForPoll(eld, timeout);
+    EVDBG("pollForEvents final timeout: %.3f", timeout);
     int result;
     double end_time = monotonic() + timeout;
 
@@ -268,17 +311,6 @@ pollForEvents(EventLoopData *eld, double timeout) {
         }
     }
     return read_ok;
-}
-
-void
-closeFds(int *fds, size_t count) {
-    while(count--) {
-        if (*fds > 0) {
-            close(*fds);
-            *fds = -1;
-        }
-        fds++;
-    }
 }
 
 // Splits and translates a text/uri-list into separate file paths
