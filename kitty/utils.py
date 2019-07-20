@@ -415,7 +415,7 @@ def get_editor():
         import shlex
         ans = os.environ.get('EDITOR')
         if not ans or not exe_exists(shlex.split(ans)[0]):
-            for q in ('nvim', 'vim', 'vi', 'emacs', 'micro', 'nano', 'vis'):
+            for q in ('nvim', 'vim', 'vi', 'emacs', 'kak', 'micro', 'nano', 'vis'):
                 r = exe_exists(q)
                 if r:
                     ans = r
