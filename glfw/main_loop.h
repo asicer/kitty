@@ -7,6 +7,7 @@
 #pragma once
 
 #include "internal.h"
+#include <stdatomic.h>
 
 #ifndef GLFW_LOOP_BACKEND
 #define GLFW_LOOP_BACKEND x11
@@ -14,8 +15,6 @@
 
 static bool keep_going = false;
 
-void _glfwPlatformRequestTickCallback() {
-}
 
 void _glfwPlatformStopMainLoop(void) {
     if (keep_going) {
@@ -25,12 +24,17 @@ void _glfwPlatformStopMainLoop(void) {
 }
 
 void _glfwPlatformRunMainLoop(GLFWtickcallback tick_callback, void* data) {
-    keep_going = true;
+    keep_going = 1;
+    EventLoopData *eld = &_glfw.GLFW_LOOP_BACKEND.eventLoopData;
     while(keep_going) {
         _glfwPlatformWaitEvents();
-        EVDBG("loop tick");
-        tick_callback(data);
+        EVDBG("--------- loop tick, wakeups_happened: %d ----------", eld->wakeup_data_read);
+        if (eld->wakeup_data_read) {
+            eld->wakeup_data_read = false;
+            tick_callback(data);
+        }
     }
+    EVDBG("main loop exiting");
 }
 
 unsigned long long _glfwPlatformAddTimer(double interval, bool repeats, GLFWuserdatafreefun callback, void *callback_data, GLFWuserdatafreefun free_callback) {

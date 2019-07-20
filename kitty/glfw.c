@@ -5,13 +5,14 @@
  */
 
 #include "state.h"
+#include "glfw_tests.h"
 #include "fonts.h"
 #include <structmember.h>
 #include "glfw-wrapper.h"
 extern bool cocoa_make_window_resizable(void *w, bool);
 extern void cocoa_focus_window(void *w);
 extern void cocoa_create_global_menu(void);
-extern void cocoa_set_hide_from_tasks(void);
+extern void cocoa_set_activation_policy(bool);
 extern void cocoa_set_titlebar_color(void *w, color_type color);
 extern void cocoa_hide_window_title(void *w);
 extern bool cocoa_alt_option_key_pressed(unsigned long);
@@ -28,11 +29,9 @@ static GLFWcursor *standard_cursor = NULL, *click_cursor = NULL, *arrow_cursor =
 static void set_os_window_dpi(OSWindow *w);
 
 
-static void
+void
 request_tick_callback(void) {
-#ifdef __APPLE__
-    glfwRequestTickCallback();
-#endif
+    glfwPostEmptyEvent();
 }
 
 static int min_width = 100, min_height = 100;
@@ -243,10 +242,13 @@ cursor_enter_callback(GLFWwindow *w, int entered) {
     global_state.callback_os_window = NULL;
 }
 
+static int mods_at_last_button_event = 0;
+
 static void
 mouse_button_callback(GLFWwindow *w, int button, int action, int mods) {
     if (!set_callback_window(w)) return;
     show_mouse_cursor(w);
+    mods_at_last_button_event = mods;
     double now = monotonic();
     global_state.callback_os_window->last_mouse_activity_at = now;
     if (button >= 0 && (unsigned int)button < arraysz(global_state.callback_os_window->mouse_button_pressed)) {
@@ -266,7 +268,7 @@ cursor_pos_callback(GLFWwindow *w, double x, double y) {
     global_state.callback_os_window->cursor_blink_zero_time = now;
     global_state.callback_os_window->mouse_x = x * global_state.callback_os_window->viewport_x_ratio;
     global_state.callback_os_window->mouse_y = y * global_state.callback_os_window->viewport_y_ratio;
-    if (is_window_ready_for_callbacks()) mouse_event(-1, 0, -1);
+    if (is_window_ready_for_callbacks()) mouse_event(-1, mods_at_last_button_event, -1);
     request_tick_callback();
     global_state.callback_os_window = NULL;
 }
@@ -509,6 +511,7 @@ create_os_window(PyObject UNUSED *self, PyObject *args) {
         glfwWindowHint(GLFW_DEPTH_BITS, 0);
         glfwWindowHint(GLFW_STENCIL_BITS, 0);
 #ifdef __APPLE__
+        cocoa_set_activation_policy(OPT(macos_hide_from_tasks));
         glfwWindowHint(GLFW_COCOA_GRAPHICS_SWITCHING, true);
         glfwSetApplicationShouldHandleReopen(on_application_reopen);
         if (OPT(hide_window_decorations)) glfwWindowHint(GLFW_DECORATED, false);
@@ -586,8 +589,6 @@ create_os_window(PyObject UNUSED *self, PyObject *args) {
         Py_DECREF(ret);
 #ifdef __APPLE__
         cocoa_create_global_menu();
-        // This needs to be done only after the first window has been created, because glfw only sets the activation policy once upon initialization.
-        if (OPT(macos_hide_from_tasks)) cocoa_set_hide_from_tasks();
 #endif
 #define CC(dest, shape) {\
     if (!dest##_cursor) { \
@@ -945,12 +946,7 @@ swap_window_buffers(OSWindow *os_window) {
 
 void
 wakeup_main_loop() {
-    request_tick_callback();
-#ifndef __APPLE__
-    // On Cocoa request_tick_callback() uses performSelectorOnMainLoop which
-    // wakes up the main loop anyway
     glfwPostEmptyEvent();
-#endif
 }
 
 void
@@ -1160,6 +1156,19 @@ stop_main_loop(void) {
     glfwStopMainLoop();
 }
 
+
+static PyObject*
+test_empty_event(PYNOARG) {
+    // To run this, use
+    // kitty +runpy "from kitty.main import init_glfw_module; init_glfw_module('x11'); from kitty.fast_data_types import glfw_test_empty_event; glfw_test_empty_event()"
+    int ret = empty_main();
+    if (ret != EXIT_SUCCESS) {
+        PyErr_Format(PyExc_RuntimeError, "Empty test returned failure code: %d", ret);
+        return NULL;
+    }
+    Py_RETURN_NONE;
+}
+
 // Boilerplate {{{
 
 static PyMethodDef module_methods[] = {
@@ -1188,6 +1197,7 @@ static PyMethodDef module_methods[] = {
     {"glfw_get_key_name", (PyCFunction)glfw_get_key_name, METH_VARARGS, ""},
     {"glfw_primary_monitor_size", (PyCFunction)primary_monitor_size, METH_NOARGS, ""},
     {"glfw_primary_monitor_content_scale", (PyCFunction)primary_monitor_content_scale, METH_NOARGS, ""},
+    {"glfw_test_empty_event", (PyCFunction)test_empty_event, METH_NOARGS, ""},
     {NULL, NULL, 0, NULL}        /* Sentinel */
 };
 

@@ -244,6 +244,11 @@ get_url_sentinel(Line *line, index_type url_start) {
 }
 
 static inline void
+set_mouse_cursor_for_screen(Screen *screen) {
+    mouse_cursor_shape = screen->modes.mouse_tracking_mode == NO_TRACKING ? BEAM : OPT(pointer_shape_when_grabbed);
+}
+
+static inline void
 detect_url(Screen *screen, unsigned int x, unsigned int y) {
     bool has_url = false;
     index_type url_start, url_end = 0;
@@ -261,7 +266,7 @@ detect_url(Screen *screen, unsigned int x, unsigned int y) {
         extend_url(screen, line, &url_end, &y_extended, sentinel);
         screen_mark_url(screen, url_start, y, url_end, y_extended);
     } else {
-        mouse_cursor_shape = BEAM;
+        set_mouse_cursor_for_screen(screen);
         screen_mark_url(screen, 0, 0, 0, 0);
     }
 }
@@ -280,11 +285,11 @@ HANDLER(handle_move_event) {
     detect_url(screen, x, y);
     bool mouse_cell_changed = x != w->mouse_pos.cell_x || y != w->mouse_pos.cell_y;
     w->mouse_pos.cell_x = x; w->mouse_pos.cell_y = y;
-    bool handle_in_kitty = (
-            (screen->modes.mouse_tracking_mode == ANY_MODE ||
-            (screen->modes.mouse_tracking_mode == MOTION_MODE && button >= 0)) &&
-            (modifiers & OPT(terminal_select_modifiers))
-    ) ? false : true;
+    bool in_tracking_mode = (
+        screen->modes.mouse_tracking_mode == ANY_MODE ||
+        (screen->modes.mouse_tracking_mode == MOTION_MODE && button >= 0));
+    bool has_terminal_select_modifiers = modifiers == (int)OPT(terminal_select_modifiers) || modifiers == ((int)OPT(rectangle_select_modifiers) | (int)OPT(terminal_select_modifiers));
+    bool handle_in_kitty = !in_tracking_mode || has_terminal_select_modifiers;
     if (handle_in_kitty) {
         if (screen->selection.in_progress && button == GLFW_MOUSE_BUTTON_LEFT) {
             double now = monotonic();
@@ -491,9 +496,12 @@ focus_in_event() {
     bool in_tab_bar;
     unsigned int window_idx = 0;
     mouse_cursor_shape = BEAM;
-    set_mouse_cursor(BEAM);
     Window *w = window_for_event(&window_idx, &in_tab_bar);
-    if (w && w->render_data.screen) screen_mark_url(w->render_data.screen, 0, 0, 0, 0);
+    if (w && w->render_data.screen) {
+        screen_mark_url(w->render_data.screen, 0, 0, 0, 0);
+        set_mouse_cursor_for_screen(w->render_data.screen);
+    }
+    set_mouse_cursor(mouse_cursor_shape);
 }
 
 void

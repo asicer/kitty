@@ -14,8 +14,13 @@ To update |kitty|, :doc:`follow the instructions <binary>`.
 
 - Document the kitty remote control protocol (:iss:`1646`)
 
-- Add an option :opt:`terminal_select_modifiers` to control which
-  modifiers are used to override mouse selection (:iss:`1774`)
+- Add a new option :opt:`pointer_shape_when_grabbed` that allows you to control
+  the mouse pointer shape when the terminal programs grabs the pointer
+  (:iss:`1808`)
+
+- Add an option :opt:`terminal_select_modifiers` to control which modifiers
+  are used to override mouse selection even when a terminal application has
+  grabbed the mouse (:iss:`1774`)
 
 - When piping data to a child in the pipe command do it in a thread so as not
   to block the UI (:iss:`1708`)
@@ -47,6 +52,9 @@ To update |kitty|, :doc:`follow the instructions <binary>`.
   continuously, wasting CPU even when idle (:iss:`1782`)
 
 - ssh kitten: Make argument parsing more like ssh (:iss:`1787`)
+
+- When using :opt:`strip_trailing_spaces` do not remove empty lines
+  (:iss:`1802`)
 
 
 0.14.2 [2019-06-09]

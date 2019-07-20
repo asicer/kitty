@@ -45,6 +45,7 @@ typedef struct {
     bool window_alert_on_bell;
     bool debug_keyboard;
     double resize_debounce_time;
+    MouseShape pointer_shape_when_grabbed;
 } Options;
 
 typedef struct {
@@ -236,6 +237,7 @@ bool application_quit_requested(void);
 void request_application_quit(void);
 #endif
 void request_frame_render(OSWindow *w);
+void request_tick_callback(void);
 typedef void (* timer_callback_fun)(id_type, void*);
 typedef void (* tick_callback_fun)(void*);
 id_type add_main_loop_timer(double interval, bool repeats, timer_callback_fun callback, void *callback_data, timer_callback_fun free_callback);

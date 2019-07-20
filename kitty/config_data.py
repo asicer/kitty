@@ -472,6 +472,10 @@ o('focus_follows_mouse', False, long_text=_('''
 Set the active window to the window under the mouse when
 moving the mouse around'''))
 
+o('pointer_shape_when_grabbed', 'arrow', option_type=choices('arrow', 'beam', 'hand'), long_text=('''
+The shape of the mouse pointer when the program running in the terminal grabs the mouse.
+'''))
+
 # }}}
 
 g('performance')  # {{{
@@ -481,7 +485,8 @@ Delay (in milliseconds) between screen updates. Decreasing it, increases
 frames-per-second (FPS) at the cost of more CPU usage. The default value
 yields ~100 FPS which is more than sufficient for most uses. Note that to
 actually achieve 100 FPS you have to either set :opt:`sync_to_monitor` to no
-or use a monitor with a high refresh rate.'''))
+or use a monitor with a high refresh rate. Also, to minimize latency
+when there is pending input to be processed, repaint_delay is ignored.'''))
 
 o('input_delay', 3, option_type=positive_int, long_text=_('''
 Delay (in milliseconds) before input from the program running in the terminal
