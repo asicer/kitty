@@ -24,6 +24,8 @@
 //    distribution.
 //
 //========================================================================
+// It is fine to use C99 in this file because it will not be built with VS
+//========================================================================
 
 #include "internal.h"
 
@@ -215,7 +217,7 @@ static void endFadeReservation(CGDisplayFadeReservationToken token)
 
 // Finds and caches the NSScreen corresponding to the specified monitor
 //
-bool refreshMonitorScreen(_GLFWmonitor* monitor)
+static bool refreshMonitorScreen(_GLFWmonitor* monitor)
 {
     if (monitor->ns.screen)
         return true;

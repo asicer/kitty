@@ -23,6 +23,8 @@
 //    distribution.
 //
 //========================================================================
+// It is fine to use C99 in this file because it will not be built with VS
+//========================================================================
 
 #define _GNU_SOURCE
 
@@ -738,6 +740,8 @@ abortOnFatalError(int last_error) {
         _glfwInputWindowCloseRequest(window);
         window = window->next;
     }
+    // ensure the tick callback is called
+    _glfw.wl.eventLoopData.wakeup_data_read = true;
 }
 
 static void
@@ -745,16 +749,17 @@ handleEvents(double timeout)
 {
     struct wl_display* display = _glfw.wl.display;
     errno = 0;
+    EVDBG("starting handleEvents(%.2f)", timeout);
 
     while (wl_display_prepare_read(display) != 0) {
         while(1) {
             errno = 0;
             int num_dispatched = wl_display_dispatch_pending(display);
-            if (num_dispatched == 0) return;
             if (num_dispatched < 0) {
                 if (errno == EAGAIN) continue;
                 int last_error = wl_display_get_error(display);
                 if (last_error) abortOnFatalError(last_error);
+                wl_display_cancel_read(display);
                 return;
             }
             break;
@@ -773,9 +778,12 @@ handleEvents(double timeout)
     }
 
     bool display_read_ok = pollForEvents(&_glfw.wl.eventLoopData, timeout);
+    EVDBG("display_read_ok: %d", display_read_ok);
     if (display_read_ok) {
         wl_display_read_events(display);
-        wl_display_dispatch_pending(display);
+        int num = wl_display_dispatch_pending(display);
+        (void)num;
+        EVDBG("dispatched %d Wayland events", num);
     }
     else
     {
@@ -783,6 +791,7 @@ handleEvents(double timeout)
     }
     glfw_ibus_dispatch(&_glfw.wl.xkb.ibus);
     glfw_dbus_session_bus_dispatch();
+    EVDBG("other dispatch done");
     if (_glfw.wl.eventLoopData.wakeup_fd_ready) check_for_wakeup_events(&_glfw.wl.eventLoopData);
 }
 
