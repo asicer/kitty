@@ -19,7 +19,7 @@
 #include "png-reader.h"
 PyTypeObject GraphicsManager_Type;
 
-#define STORAGE_LIMIT (320 * (1024 * 1024))
+#define STORAGE_LIMIT (320u * (1024u * 1024u))
 
 #define REPORT_ERROR(...) { log_error(__VA_ARGS__); }
 
@@ -75,10 +75,10 @@ dealloc(GraphicsManager* self) {
     Py_TYPE(self)->tp_free((PyObject*)self);
 }
 
-static size_t internal_id_counter = 1;
+static id_type internal_id_counter = 1;
 
 static inline Image*
-img_by_internal_id(GraphicsManager *self, size_t id) {
+img_by_internal_id(GraphicsManager *self, id_type id) {
     for (size_t i = 0; i < self->image_count; i++) {
         if (self->images[i].internal_id == id) return self->images + i;
     }
@@ -101,10 +101,10 @@ remove_image(GraphicsManager *self, size_t idx) {
 }
 
 static inline void
-remove_images(GraphicsManager *self, bool(*predicate)(Image*), Image* skip_image) {
+remove_images(GraphicsManager *self, bool(*predicate)(Image*), id_type skip_image_internal_id) {
     for (size_t i = self->image_count; i-- > 0;) {
         Image *img = self->images + i;
-        if (img != skip_image && predicate(img)) {
+        if (img->internal_id != skip_image_internal_id && predicate(img)) {
             remove_image(self, i);
         }
     }
@@ -126,12 +126,12 @@ oldest_last(const void* a, const void *b) {
 }
 
 static inline void
-apply_storage_quota(GraphicsManager *self, size_t storage_limit, Image *currently_added_image) {
+apply_storage_quota(GraphicsManager *self, size_t storage_limit, id_type currently_added_image_internal_id) {
     // First remove unreferenced images, even if they have an id
-    remove_images(self, trim_predicate, currently_added_image);
+    remove_images(self, trim_predicate, currently_added_image_internal_id);
     if (self->used_storage < storage_limit) return;
 
-    qsort(self->images, self->image_count, sizeof(Image), oldest_last);
+    qsort(self->images, self->image_count, sizeof(self->images[0]), oldest_last);
     while (self->used_storage > storage_limit && self->image_count > 0) {
         remove_image(self, self->image_count - 1);
     }
@@ -260,7 +260,9 @@ find_or_create_image(GraphicsManager *self, uint32_t id, bool *existing) {
     }
     *existing = false;
     ensure_space_for(self, images, Image, self->image_count + 1, images_capacity, 64, true);
-    return self->images + self->image_count++;
+    Image *ans = self->images + self->image_count++;
+    zero_at_ptr(ans);
+    return ans;
 }
 
 
@@ -280,7 +282,7 @@ handle_add_command(GraphicsManager *self, const GraphicsCommand *g, const uint8_
         self->last_init_graphics_command.id = iid;
         self->loading_image = 0;
         if (g->data_width > 10000 || g->data_height > 10000) ABRT(EINVAL, "Image too large");
-        remove_images(self, add_trim_predicate, NULL);
+        remove_images(self, add_trim_predicate, 0);
         img = find_or_create_image(self, iid, &existing);
         if (existing) {
             free_load_data(&img->load_data);
@@ -485,7 +487,10 @@ handle_put_command(GraphicsManager *self, const GraphicsCommand *g, Cursor *c, b
             break;
         }
     }
-    if (ref == NULL) ref = img->refs + img->refcnt++;
+    if (ref == NULL) {
+        ref = img->refs + img->refcnt++;
+        zero_at_ptr(ref);
+    }
     img->atime = monotonic();
     ref->src_x = g->x_offset; ref->src_y = g->y_offset; ref->src_width = g->width ? g->width : img->width; ref->src_height = g->height ? g->height : img->height;
     ref->src_width = MIN(ref->src_width, img->width - (img->width > ref->src_x ? ref->src_x : img->width));
@@ -558,6 +563,7 @@ grman_update_layers(GraphicsManager *self, unsigned int scrolled_by, float scree
         if (ref->z_index < 0) self->num_of_negative_refs++; else self->num_of_positive_refs++;
         ensure_space_for(self, render_data, ImageRenderData, self->count + 1, capacity, 64, true);
         ImageRenderData *rd = self->render_data + self->count;
+        zero_at_ptr(rd);
         set_vertex_data(rd, ref, &r);
         self->count++;
         rd->z_index = ref->z_index; rd->image_id = img->internal_id;
@@ -565,11 +571,11 @@ grman_update_layers(GraphicsManager *self, unsigned int scrolled_by, float scree
     }}
     if (!self->count) return false;
     // Sort visible refs in draw order (z-index, img)
-    qsort(self->render_data, self->count, sizeof(ImageRenderData), cmp_by_zindex_and_image);
+    qsort(self->render_data, self->count, sizeof(self->render_data[0]), cmp_by_zindex_and_image);
     // Calculate the group counts
     i = 0;
     while (i < self->count) {
-        size_t image_id = self->render_data[i].image_id, start = i;
+        id_type image_id = self->render_data[i].image_id, start = i;
         if (start == self->count - 1) i = self->count;
         else {
             while (i < self->count - 1 && self->render_data[++i].image_id == image_id) {}
@@ -585,21 +591,16 @@ grman_update_layers(GraphicsManager *self, unsigned int scrolled_by, float scree
 
 static inline void
 filter_refs(GraphicsManager *self, const void* data, bool free_images, bool (*filter_func)(ImageRef*, Image*, const void*, CellPixelSize), CellPixelSize cell) {
-    Image *img; ImageRef *ref;
-    size_t i, j;
-
-    if (self->image_count) {
-        for (i = self->image_count; i-- > 0;) {
-            img = self->images + i;
-            for (j = img->refcnt; j-- > 0;) {
-                ref = img->refs + j;
-                if (filter_func(ref, img, data, cell)) {
-                    remove_i_from_array(img->refs, j, img->refcnt);
-                }
+    self->layers_dirty = self->image_count > 0;
+    for (size_t i = self->image_count; i-- > 0;) {
+        Image *img = self->images + i;
+        for (size_t j = img->refcnt; j-- > 0;) {
+            ImageRef *ref = img->refs + j;
+            if (filter_func(ref, img, data, cell)) {
+                remove_i_from_array(img->refs, j, img->refcnt);
             }
-            if (img->refcnt == 0 && (free_images || img->client_id == 0)) remove_image(self, i);
         }
-        self->layers_dirty = true;
+        if (img->refcnt == 0 && (free_images || img->client_id == 0)) remove_image(self, i);
     }
 }
 
@@ -759,23 +760,23 @@ grman_rescale(GraphicsManager *self, CellPixelSize cell) {
 
 const char*
 grman_handle_command(GraphicsManager *self, const GraphicsCommand *g, const uint8_t *payload, Cursor *c, bool *is_dirty, CellPixelSize cell) {
-    Image *image;
     const char *ret = NULL;
-    uint32_t iid, q_iid;
 
     switch(g->action) {
         case 0:
         case 't':
         case 'T':
-        case 'q':
-            iid = g->id; q_iid = iid;
+        case 'q': {
+            uint32_t iid = g->id, q_iid = iid;
             if (g->action == 'q') { iid = 0; if (!q_iid) { REPORT_ERROR("Query graphics command without image id"); break; } }
-            image = handle_add_command(self, g, payload, is_dirty, iid);
+            Image *image = handle_add_command(self, g, payload, is_dirty, iid);
             ret = create_add_response(self, image != NULL, g->action == 'q' ? q_iid: self->last_init_graphics_command.id);
             if (self->last_init_graphics_command.action == 'T' && image && image->data_loaded) handle_put_command(self, &self->last_init_graphics_command, c, is_dirty, image, cell);
-            if (g->action == 'q') remove_images(self, add_trim_predicate, NULL);
-            if (self->used_storage > STORAGE_LIMIT) apply_storage_quota(self, STORAGE_LIMIT, image);
+            id_type added_image_id = image ? image->internal_id : 0;
+            if (g->action == 'q') remove_images(self, add_trim_predicate, 0);
+            if (self->used_storage > STORAGE_LIMIT) apply_storage_quota(self, STORAGE_LIMIT, added_image_id);
             break;
+        }
         case 'p':
             if (!g->id) {
                 REPORT_ERROR("Put graphics command without image id");
@@ -806,7 +807,7 @@ new(PyTypeObject UNUSED *type, PyObject UNUSED *args, PyObject UNUSED *kwds) {
 static inline PyObject*
 image_as_dict(Image *img) {
 #define U(x) #x, img->x
-    return Py_BuildValue("{sI sI sI sI sI sI sO sO sN}",
+    return Py_BuildValue("{sI sI sI sI sK sI sO sO sN}",
         U(texture_id), U(client_id), U(width), U(height), U(internal_id), U(refcnt),
         "data_loaded", img->data_loaded ? Py_True : Py_False,
         "is_4byte_aligned", img->load_data.is_4byte_aligned ? Py_True : Py_False,
@@ -866,7 +867,7 @@ W(update_layers) {
         ImageRenderData *r = self->render_data + i;
 #define R(offset) Py_BuildValue("{sf sf sf sf}", "left", r->vertices[offset + 8], "top", r->vertices[offset + 1], "right", r->vertices[offset], "bottom", r->vertices[offset + 5])
         PyTuple_SET_ITEM(ans, i,
-            Py_BuildValue("{sN sN sI si sI}", "src_rect", R(0), "dest_rect", R(2), "group_count", r->group_count, "z_index", r->z_index, "image_id", r->image_id)
+            Py_BuildValue("{sN sN sI si sK}", "src_rect", R(0), "dest_rect", R(2), "group_count", r->group_count, "z_index", r->z_index, "image_id", r->image_id)
         );
 #undef R
     }
