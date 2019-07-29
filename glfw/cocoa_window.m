@@ -59,7 +59,7 @@ static NSUInteger getStyleMask(_GLFWwindow* window)
 CGDirectDisplayID displayIDForWindow(_GLFWwindow *w) {
     NSWindow *nw = w->ns.object;
     NSDictionary *dict = [nw.screen deviceDescription];
-    NSNumber *displayIDns = [dict objectForKey:@"NSScreenNumber"];
+    NSNumber *displayIDns = dict[@"NSScreenNumber"];
     if (displayIDns) return [displayIDns unsignedIntValue];
     return (CGDirectDisplayID)-1;
 }
@@ -715,11 +715,10 @@ static GLFWapplicationshouldhandlereopenfun handle_reopen_callback = NULL;
 - (void)mouseDown:(NSEvent *)event
 {
     if (!window) return;
-    _glfwInputMouseClick(
-            window,
-            GLFW_MOUSE_BUTTON_LEFT,
-            GLFW_PRESS,
-            translateFlags([event modifierFlags]));
+    _glfwInputMouseClick(window,
+                         GLFW_MOUSE_BUTTON_LEFT,
+                         GLFW_PRESS,
+                         translateFlags([event modifierFlags]));
 }
 
 - (void)mouseDragged:(NSEvent *)event
@@ -730,11 +729,10 @@ static GLFWapplicationshouldhandlereopenfun handle_reopen_callback = NULL;
 - (void)mouseUp:(NSEvent *)event
 {
     if (!window) return;
-    _glfwInputMouseClick(
-            window,
-            GLFW_MOUSE_BUTTON_LEFT,
-            GLFW_RELEASE,
-            translateFlags([event modifierFlags]));
+    _glfwInputMouseClick(window,
+                         GLFW_MOUSE_BUTTON_LEFT,
+                         GLFW_RELEASE,
+                         translateFlags([event modifierFlags]));
 }
 
 - (void)mouseMoved:(NSEvent *)event
@@ -1275,7 +1273,7 @@ static void createMenuBar(void)
 
     for (i = 0;  i < sizeof(nameKeys) / sizeof(nameKeys[0]);  i++)
     {
-        id name = [bundleInfo objectForKey:nameKeys[i]];
+        id name = bundleInfo[nameKeys[i]];
         if (name &&
             [name isKindOfClass:[NSString class]] &&
             ![name isEqualToString:@""])

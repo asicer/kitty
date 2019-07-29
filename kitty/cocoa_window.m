@@ -49,7 +49,7 @@ find_app_name(void) {
 
     for (i = 0;  i < sizeof(name_keys) / sizeof(name_keys[0]);  i++)
     {
-        id name = [infoDictionary objectForKey:name_keys[i]];
+        id name = infoDictionary[name_keys[i]];
         if (name &&
             [name isKindOfClass:[NSString class]] &&
             ![name isEqualToString:@""])
@@ -60,7 +60,7 @@ find_app_name(void) {
 
     char** progname = _NSGetProgname();
     if (progname && *progname)
-        return [NSString stringWithUTF8String:*progname];
+        return @(*progname);
 
     // Really shouldn't get here
     return @"kitty";
@@ -171,7 +171,7 @@ cocoa_send_notification(PyObject *self UNUSED, PyObject *args) {
     NSUserNotification *n = [NSUserNotification new];
     NSImage *img = nil;
     if (path_to_image) {
-        NSString *p = [NSString stringWithUTF8String:path_to_image];
+        NSString *p = @(path_to_image);
         NSURL *url = [NSURL fileURLWithPath:p];
         img = [[NSImage alloc] initWithContentsOfURL:url];
         [url release]; [p release];
@@ -183,14 +183,14 @@ cocoa_send_notification(PyObject *self UNUSED, PyObject *args) {
     }
 #define SET(x) { \
     if (x) { \
-        NSString *t = [NSString stringWithUTF8String:x]; \
+        NSString *t = @(x); \
         n.x = t; \
         [t release]; \
     }}
     SET(title); SET(subtitle); SET(informativeText);
 #undef SET
     if (identifier) {
-        n.userInfo = @{@"user_id": [NSString stringWithUTF8String:identifier]};
+        n.userInfo = @{@"user_id": @(identifier)};
     }
     [center deliverNotification:n];
     Py_RETURN_NONE;
@@ -232,6 +232,7 @@ cocoa_send_notification(PyObject *self UNUSED, PyObject *args) {
 void
 cocoa_create_global_menu(void) {
     @autoreleasepool {
+
     NSString* app_name = find_app_name();
     NSMenu* bar = [[NSMenu alloc] init];
     GlobalMenuTarget *global_menu_target = [GlobalMenuTarget shared_instance];
@@ -323,11 +324,12 @@ cocoa_create_global_menu(void) {
 
 
     [NSApp setServicesProvider:[[[ServiceProvider alloc] init] autorelease]];
-    }
+
+    } // autoreleasepool
 }
 
 void
-cocoa_update_title(PyObject *pytitle) {
+cocoa_update_menu_bar_title(PyObject *pytitle) {
     NSString *title = [[NSString alloc] initWithUTF8String:PyUnicode_AsUTF8(pytitle)];
     NSMenu *bar = [NSApp mainMenu];
     if (title_menu != NULL) {
@@ -394,6 +396,7 @@ cocoa_get_workspace_ids(void *w, size_t *workspace_ids, size_t array_sz) {
 static PyObject*
 cocoa_get_lang(PyObject UNUSED *self) {
     @autoreleasepool {
+
     NSString* locale = nil;
     NSString* lang_code = [[NSLocale currentLocale] objectForKey:NSLocaleLanguageCode];
     NSString* country_code = [[NSLocale currentLocale] objectForKey:NSLocaleCountryCode];
@@ -404,12 +407,14 @@ cocoa_get_lang(PyObject UNUSED *self) {
     }
     if (!locale) { Py_RETURN_NONE; }
     return Py_BuildValue("s", [locale UTF8String]);
-    }
+
+    } // autoreleasepool
 }
 
 double
 cocoa_cursor_blink_interval(void) {
     @autoreleasepool {
+
     NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
     double on_period_ms = [defaults doubleForKey:@"NSTextInsertionPointBlinkPeriodOn"];
     double off_period_ms = [defaults doubleForKey:@"NSTextInsertionPointBlinkPeriodOff"];
@@ -421,7 +426,8 @@ cocoa_cursor_blink_interval(void) {
         ans = period_ms;
     }
     return ans > max_value ? 0.0 : ans;
-    }
+
+    } // autoreleasepool
 }
 
 void
@@ -433,7 +439,8 @@ void
 cocoa_set_titlebar_color(void *w, color_type titlebar_color)
 {
     @autoreleasepool {
-    NSWindow *window = (NSWindow *)w;
+
+    NSWindow *window = (NSWindow*)w;
 
     double red = ((titlebar_color >> 16) & 0xFF) / 255.0;
     double green = ((titlebar_color >> 8) & 0xFF) / 255.0;
@@ -454,7 +461,8 @@ cocoa_set_titlebar_color(void *w, color_type titlebar_color)
     } else {
         [window setAppearance:[NSAppearance appearanceNamed:NSAppearanceNameVibrantLight]];
     }
-    }
+
+    } // autoreleasepool
 }
 
 void
@@ -469,11 +477,13 @@ cocoa_hide_window_title(void *w)
 static void
 cleanup() {
     @autoreleasepool {
+
     if (dockMenu) [dockMenu release];
     dockMenu = nil;
     if (notification_activated_callback) Py_DECREF(notification_activated_callback);
     notification_activated_callback = NULL;
-    }
+
+    } // autoreleasepool
 }
 
 static PyMethodDef module_methods[] = {

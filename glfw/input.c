@@ -256,7 +256,7 @@ static bool parseMapping(_GLFWmapping* mapping, const char* string)
 //////                         GLFW event API                       //////
 //////////////////////////////////////////////////////////////////////////
 
-// Notifies shared code of a key event
+// Notifies shared code of a physical key event
 //
 void _glfwInputKeyboard(_GLFWwindow* window, int key, int scancode, int action, int mods, const char* text, int state)
 {
@@ -588,7 +588,7 @@ const char* _glfwGetKeyName(int key)
     }
 }
 
-// Center the cursor in the middle of the content area of the specified window
+// Center the cursor in the content area of the specified window
 //
 void _glfwCenterCursorInContentArea(_GLFWwindow* window)
 {
@@ -1385,9 +1385,11 @@ GLFWAPI int glfwGetGamepadState(int jid, GLFWgamepadstate* state)
             const unsigned int bit = e->index & 0xf;
             if (js->hats[hat] & bit)
                 state->axes[i] = 1.f;
+            else
+                state->axes[i] = -1.f;
         }
         else if (e->type == _GLFW_JOYSTICK_BUTTON)
-            state->axes[i] = (float) js->buttons[e->index];
+            state->axes[i] = js->buttons[e->index] * 2.f - 1.f;
     }
 
     return true;
