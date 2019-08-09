@@ -915,6 +915,7 @@ incompatible with :opt:`background_opacity`. If you want to use both, you are
 probably better off just hiding the titlebar with :opt:`hide_window_decorations`.
 '''))
 
+
 def macos_option_as_alt(x):
     x = x.lower()
     if x == 'both':
