@@ -465,15 +465,6 @@ cocoa_set_titlebar_color(void *w, color_type titlebar_color)
     } // autoreleasepool
 }
 
-void
-cocoa_hide_window_title(void *w)
-{
-    @autoreleasepool {
-    NSWindow *window = (NSWindow *)w;
-    [window setTitleVisibility:NSWindowTitleHidden];
-    }
-}
-
 static void
 cleanup() {
     @autoreleasepool {

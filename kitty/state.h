@@ -222,7 +222,6 @@ void send_sprite_to_gpu(FONTS_DATA_HANDLE fg, unsigned int, unsigned int, unsign
 void blank_canvas(float, color_type);
 void blank_os_window(OSWindow *);
 void set_titlebar_color(OSWindow *w, color_type color);
-void hide_window_title(OSWindow *w);
 FONTS_DATA_HANDLE load_fonts_data(double, double, double);
 void send_prerendered_sprites_for_window(OSWindow *w);
 #ifdef __APPLE__

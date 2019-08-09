@@ -15,7 +15,6 @@ extern void cocoa_create_global_menu(void);
 extern void cocoa_hide_window_title(void *w);
 extern void cocoa_set_activation_policy(bool);
 extern void cocoa_set_titlebar_color(void *w, color_type color);
-extern void cocoa_hide_window_title(void *w);
 extern bool cocoa_alt_option_key_pressed(unsigned long);
 extern size_t cocoa_get_workspace_ids(void *w, size_t *workspace_ids, size_t array_sz);
 extern double cocoa_cursor_blink_interval(void);
@@ -473,15 +472,6 @@ set_titlebar_color(OSWindow *w, color_type color) {
         w->last_titlebar_color = (1 << 24) | (color & 0xffffff);
 #ifdef __APPLE__
         cocoa_set_titlebar_color(glfwGetCocoaWindow(w->handle), color);
-#endif
-    }
-}
-
-void
-hide_window_title(OSWindow *w) {
-    if (w->handle) {
-#ifdef __APPLE__
-        cocoa_hide_window_title(glfwGetCocoaWindow(w->handle));
 #endif
     }
 }

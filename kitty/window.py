@@ -20,7 +20,7 @@ from .fast_data_types import (
     GRAPHICS_ALPHA_MASK_PROGRAM, GRAPHICS_PREMULT_PROGRAM, GRAPHICS_PROGRAM,
     OSC, REVERSE, SCROLL_FULL, SCROLL_LINE, SCROLL_PAGE, STRIKETHROUGH, Screen,
     add_window, cell_size_for_window, compile_program, get_clipboard_string,
-    init_cell_program, set_clipboard_string, set_titlebar_color, hide_window_title,
+    init_cell_program, set_clipboard_string, set_titlebar_color,
     set_window_render_data, update_window_title, update_window_visibility,
     viewport_for_window
 )
@@ -323,9 +323,6 @@ class Window:
             else:
                 val = val >> 8
             set_titlebar_color(self.os_window_id, val)
-
-    def hide_window_title(self):
-        hide_window_title(self.os_window_id)
 
     def change_colors(self, changes):
         dirtied = default_bg_changed = False
