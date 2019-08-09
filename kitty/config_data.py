@@ -602,9 +602,6 @@ be placed centrally. A value of :code:`top-left` means the padding will be on on
 the bottom and right edges.
 '''))
 
-o('hide_title', False, long_text=_('''
-Hide the kitty window title.'''))
-
 o('active_border_color', '#00ff00', option_type=to_color_or_none, long_text=_('''
 The color for the border of the active window. Set this to none to not draw borders
 around the active window.'''))
