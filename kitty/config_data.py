@@ -966,9 +966,15 @@ o('macos_traditional_fullscreen', False, long_text=_('''
 Use the traditional full-screen transition, that is faster, but less pretty.
 '''))
 
-o('macos_show_window_title_in_menubar', True, long_text=_('''
-Show the title of the currently active window in the macOS
-menu-bar, making use of otherwise wasted space.'''))
+o('macos_show_window_title_in', 'all', option_type=choices('all', 'window', 'menubar', 'none'), long_text=_('''
+Show or hide the window title in the macOS window or menu-bar.
+A value of :code:`window` will show the title of the currently
+active window at the top of the macOS window. A value of
+:code:`menubar` will show the title of the currently active window
+in the macOS menu-bar, making use of otherwise wasted space.
+:code:`all` will show the title everywhere and :code:`none`
+hides the title in the window and the menu-bar.
+'''))
 
 # Disabled by default because of https://github.com/kovidgoyal/kitty/issues/794
 o('macos_custom_beam_cursor', False, long_text=_('''
@@ -993,6 +999,14 @@ shortcuts.'''))
 o('clear_all_shortcuts', False, long_text=_('''
 You can have kitty remove all shortcut definition seen up to this point. Useful, for
 instance, to remove the default shortcuts.'''))
+
+o('kitten_alias', 'hints hints --hints-offset=0', add_to_default=False, long_text=_('''
+You can create aliases for kitten names, this allows overriding the defaults
+for kitten options and can also be used to shorten repeated mappings of the same
+kitten with a specific group of options. For example, the above alias
+changes the default value of :option:`kitty +kitten hints --hints-offset`
+to zero for all mappings, including the builtin ones.
+'''))
 
 g('shortcuts.clipboard')  # {{{
 k('copy_to_clipboard', 'kitty_mod+c', 'copy_to_clipboard', _('Copy to clipboard'), long_text=_('''

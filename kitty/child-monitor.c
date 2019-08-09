@@ -521,7 +521,7 @@ update_window_title(Window *w, OSWindow *os_window) {
 #endif
         set_os_window_title(os_window, PyUnicode_AsUTF8(w->title));
 #ifdef __APPLE__
-        if (os_window->is_focused && OPT(macos_show_window_title_in_menubar)) cocoa_update_menu_bar_title(w->title);
+        if (os_window->is_focused && (OPT(macos_show_window_title_in) & MENUBAR)) cocoa_update_menu_bar_title(w->title);
 #endif
         return true;
     }

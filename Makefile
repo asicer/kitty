@@ -28,7 +28,7 @@ asan:
 profile:
 	python3 setup.py build $(VVAL) --profile
 
-app: 
+app:
 	python3 setup.py app $(VVAL)
 
 man:
