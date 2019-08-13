@@ -30,12 +30,7 @@ def init_env(env, pkg_config, at_least_version, test_compile, module='x11'):
     ans.cppflags.append('-D_GLFW_' + module.upper())
     ans.cppflags.append('-D_GLFW_BUILD_DLL')
 
-    if is_macos:
-        ans.ldpaths.extend(
-            "-framework Cocoa -framework IOKit -framework CoreFoundation -framework CoreVideo".
-            split()
-        )
-    else:
+    if not is_macos:
         ans.ldpaths.extend('-lrt -lm -ldl'.split())
     with open(os.path.join(base, 'source-info.json')) as f:
         sinfo = json.load(f)
