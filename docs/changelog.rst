@@ -4,7 +4,14 @@ Changelog
 |kitty| is a feature full, cross-platform, *fast*, GPU based terminal emulator.
 To update |kitty|, :doc:`follow the instructions <binary>`.
 
-0.14.4 [future]
+0.14.5 [future]
+---------------------
+
+- Implement a hack to (mostly) preserve tabs when cat a file with them and then
+  copying the text or passing screen contents to another program (:iss:`1829`)
+
+
+0.14.4 [2019-08-31]
 ---------------------
 
 - hints kitten: Add a :option:`kitty +kitten hints --alphabet` option to
@@ -19,10 +26,13 @@ To update |kitty|, :doc:`follow the instructions <binary>`.
 - macOS: Add an option :opt:`macos_show_window_title_in` to control
   showing the window title in the menubar/titlebar (:pull:`1837`)
 
+- macOS: Allow drag and drop of text from other applications into kitty
+  (:pull:`1921`)
+
 - When running kittens, use the colorscheme of the current window
   rather than the configured colorscheme (:iss:`1906`)
 
-- Dont fail to start if running the shell to read the EDITOR env var fails
+- Don't fail to start if running the shell to read the EDITOR env var fails
   (:iss:`1869`)
 
 - Disable the ``liga`` and ``dlig`` OpenType features for broken fonts
@@ -30,6 +40,14 @@ To update |kitty|, :doc:`follow the instructions <binary>`.
 
 - Fix a regression that broke setting background_opacity via remote control
   (:iss:`1895`)
+
+- Fix piping PNG images into the icat kitten not working (:iss:`1920`)
+
+- When the OS returns a fallback font that does not actually contain glyphs
+  for the text, do not exhaust the list of fallback fonts (:iss:`1918`)
+
+- Fix formatting attributes not reset across line boundaries when passing
+  buffer as ANSI (:iss:`1924`)
 
 
 0.14.3 [2019-07-29]

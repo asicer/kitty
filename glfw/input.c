@@ -569,7 +569,7 @@ const char* _glfwGetKeyName(int key)
         case GLFW_KEY_KP_8:         return "KEYPAD 8";
         case GLFW_KEY_KP_9:         return "KEYPAD 9";
         case GLFW_KEY_KP_DIVIDE:    return "KEYPAD DIVIDE";
-        case GLFW_KEY_KP_MULTIPLY:  return "KEYPAD MULTPLY";
+        case GLFW_KEY_KP_MULTIPLY:  return "KEYPAD MULTIPLY";
         case GLFW_KEY_KP_SUBTRACT:  return "KEYPAD SUBTRACT";
         case GLFW_KEY_KP_ADD:       return "KEYPAD ADD";
         case GLFW_KEY_KP_DECIMAL:   return "KEYPAD DECIMAL";
@@ -711,7 +711,7 @@ GLFWAPI const char* glfwGetKeyName(int key, int scancode)
     {
         if (key != GLFW_KEY_KP_EQUAL &&
             (key < GLFW_KEY_KP_0 || key > GLFW_KEY_KP_ADD) &&
-            (key < GLFW_KEY_APOSTROPHE || key > GLFW_KEY_WORLD_2))
+            (key < GLFW_KEY_APOSTROPHE || key > GLFW_KEY_LAST_PRINTABLE))
         {
             return NULL;
         }
