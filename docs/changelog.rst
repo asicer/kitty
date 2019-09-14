@@ -10,6 +10,18 @@ To update |kitty|, :doc:`follow the instructions <binary>`.
 - Implement a hack to (mostly) preserve tabs when cat a file with them and then
   copying the text or passing screen contents to another program (:iss:`1829`)
 
+- When all visible windows have the same background color, use that as the
+  color for the global padding, instead of the configured background color
+  (:iss:`1957`)
+
+- When resetting the terminal, also reset parser state, this allows easy
+  recovery from incomplete escape codes (:iss:`1961`)
+
+- Allow mapping keys commonly found on European keyboards (:pull:`1928`)
+
+- Fix incorrect rendering of some symbols when followed by a space while using
+  the PowerLine font which does not have a space glyph (:iss:`1225`)
+
 
 0.14.4 [2019-08-31]
 ---------------------
