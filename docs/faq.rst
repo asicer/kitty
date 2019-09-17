@@ -152,7 +152,27 @@ only monospace fonts, since every cell in the grid has to be the same size. If
 your font is not listed in ``kitty list-fonts`` it means that it is not
 monospace. On Linux you can list all monospace fonts with::
 
-    fc-list : family spacing | grep spacing=100
+    fc-list : family spacing | grep -e spacing=100 -e spacing=90
+
+Note that the spacing property is calculated by fontconfig based on actual
+glyph widths in the font. If for some reason fontconfig concludes your favorite
+monospace font does not have ``spacing=100`` you can override it by using the
+following :file:`~/.config/fontconfig/fonts.conf`::
+
+    <?xml version="1.0"?>
+    <!DOCTYPE fontconfig SYSTEM "fonts.dtd">
+    <fontconfig>
+    <match target="scan">
+        <test name="family">
+            <string>Your Font Family Name</string>
+        </test>
+        <edit name="spacing">
+            <int>100</int>
+        </edit>
+    </match>
+    </fontconfig>
+
+Then, the font will be available in ``kitty list-fonts``.
 
 
 How can I assign a single global shortcut to bring up the kitty terminal?
@@ -172,7 +192,7 @@ For example::
 
     map alt+s send_text all \x13
 
-This maps :kbd:`alt+s`` to :kbd:`ctrl+s`. To figure out what bytes to use for
+This maps :kbd:`alt+s` to :kbd:`ctrl+s`. To figure out what bytes to use for
 the :sc:`send_text <send_text>` you can use the ``showkey`` utility. Run::
 
     showkey -a
