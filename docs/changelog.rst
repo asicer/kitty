@@ -4,10 +4,10 @@ Changelog
 |kitty| is a feature full, cross-platform, *fast*, GPU based terminal emulator.
 To update |kitty|, :doc:`follow the instructions <binary>`.
 
-0.14.5 [future]
+0.14.5 [2019-09-23]
 ---------------------
 
-- Implement a hack to (mostly) preserve tabs when cat a file with them and then
+- Implement a hack to (mostly) preserve tabs when cat-ting a file with them and then
   copying the text or passing screen contents to another program (:iss:`1829`)
 
 - When all visible windows have the same background color, use that as the
@@ -25,6 +25,7 @@ To update |kitty|, :doc:`follow the instructions <binary>`.
 - Linux: Allow using fonts with spacing=90 in addition to fonts with
   spacing=100 (:iss:`1968`)
 
+- Use selection foreground color for underlines as well (:iss:`1982`)
 
 0.14.4 [2019-08-31]
 ---------------------
