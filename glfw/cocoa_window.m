@@ -27,6 +27,7 @@
 //========================================================================
 
 #include "internal.h"
+#include "../kitty/monotonic.h"
 
 #include <float.h>
 #include <string.h>
@@ -120,7 +121,7 @@ CGDirectDisplayID displayIDForWindow(_GLFWwindow *w) {
 }
 
 static unsigned long long display_link_shutdown_timer = 0;
-#define DISPLAY_LINK_SHUTDOWN_CHECK_INTERVAL 30
+#define DISPLAY_LINK_SHUTDOWN_CHECK_INTERVAL s_to_monotonic_t(30ll)
 
 void
 _glfwShutdownCVDisplayLink(unsigned long long timer_id UNUSED, void *user_data UNUSED) {
@@ -147,7 +148,7 @@ requestRenderFrame(_GLFWwindow *w, GLFWcocoarenderframefun callback) {
     } else {
         display_link_shutdown_timer = _glfwPlatformAddTimer(DISPLAY_LINK_SHUTDOWN_CHECK_INTERVAL, false, _glfwShutdownCVDisplayLink, NULL, NULL);
     }
-    double now = glfwGetTime();
+    monotonic_t now = glfwGetTime();
     for (size_t i = 0; i < _glfw.ns.displayLinks.count; i++) {
         _GLFWDisplayLinkNS *dl = &_glfw.ns.displayLinks.entries[i];
         if (dl->displayID == displayID) {
@@ -572,17 +573,17 @@ static const NSRange kEmptyRange = { NSNotFound, 0 };
     if (fbRect.size.width != window->ns.fbWidth ||
         fbRect.size.height != window->ns.fbHeight)
     {
-        window->ns.fbWidth  = fbRect.size.width;
-        window->ns.fbHeight = fbRect.size.height;
-        _glfwInputFramebufferSize(window, fbRect.size.width, fbRect.size.height);
+        window->ns.fbWidth  = (int)fbRect.size.width;
+        window->ns.fbHeight = (int)fbRect.size.height;
+        _glfwInputFramebufferSize(window, (int)fbRect.size.width, (int)fbRect.size.height);
     }
 
     if (contentRect.size.width != window->ns.width ||
         contentRect.size.height != window->ns.height)
     {
-        window->ns.width  = contentRect.size.width;
-        window->ns.height = contentRect.size.height;
-        _glfwInputWindowSize(window, contentRect.size.width, contentRect.size.height);
+        window->ns.width  = (int)contentRect.size.width;
+        window->ns.height = (int)contentRect.size.height;
+        _glfwInputWindowSize(window, (int)contentRect.size.width, (int)contentRect.size.height);
     }
 }
 
@@ -960,9 +961,9 @@ static GLFWapplicationshouldhandlereopenfun handle_reopen_callback = NULL;
     if (fbRect.size.width != window->ns.fbWidth ||
         fbRect.size.height != window->ns.fbHeight)
     {
-        window->ns.fbWidth  = fbRect.size.width;
-        window->ns.fbHeight = fbRect.size.height;
-        _glfwInputFramebufferSize(window, fbRect.size.width, fbRect.size.height);
+        window->ns.fbWidth  = (int)fbRect.size.width;
+        window->ns.fbHeight = (int)fbRect.size.height;
+        _glfwInputFramebufferSize(window, (int)fbRect.size.width, (int)fbRect.size.height);
     }
 
     const float xscale = fbRect.size.width / contentRect.size.width;
@@ -1747,9 +1748,9 @@ void _glfwPlatformGetWindowPos(_GLFWwindow* window, int* xpos, int* ypos)
         [window->ns.object contentRectForFrameRect:[window->ns.object frame]];
 
     if (xpos)
-        *xpos = contentRect.origin.x;
+        *xpos = (int)contentRect.origin.x;
     if (ypos)
-        *ypos = _glfwTransformYNS(contentRect.origin.y + contentRect.size.height - 1);
+        *ypos = (int)_glfwTransformYNS(contentRect.origin.y + contentRect.size.height - 1);
 }
 
 void _glfwPlatformSetWindowPos(_GLFWwindow* window, int x, int y)
@@ -1765,9 +1766,9 @@ void _glfwPlatformGetWindowSize(_GLFWwindow* window, int* width, int* height)
     const NSRect contentRect = [window->ns.view frame];
 
     if (width)
-        *width = contentRect.size.width;
+        *width = (int)contentRect.size.width;
     if (height)
-        *height = contentRect.size.height;
+        *height = (int)contentRect.size.height;
 }
 
 void _glfwPlatformSetWindowSize(_GLFWwindow* window, int width, int height)
@@ -1830,15 +1831,15 @@ void _glfwPlatformGetWindowFrameSize(_GLFWwindow* window,
     const NSRect frameRect = [window->ns.object frameRectForContentRect:contentRect];
 
     if (left)
-        *left = contentRect.origin.x - frameRect.origin.x;
+        *left = (int)(contentRect.origin.x - frameRect.origin.x);
     if (top)
-        *top = frameRect.origin.y + frameRect.size.height -
-               contentRect.origin.y - contentRect.size.height;
+        *top = (int)(frameRect.origin.y + frameRect.size.height -
+               contentRect.origin.y - contentRect.size.height);
     if (right)
-        *right = frameRect.origin.x + frameRect.size.width -
-                 contentRect.origin.x - contentRect.size.width;
+        *right = (int)(frameRect.origin.x + frameRect.size.width -
+                 contentRect.origin.x - contentRect.size.width);
     if (bottom)
-        *bottom = contentRect.origin.y - frameRect.origin.y;
+        *bottom = (int)(contentRect.origin.y - frameRect.origin.y);
 }
 
 void _glfwPlatformGetWindowContentScale(_GLFWwindow* window,
@@ -1853,9 +1854,9 @@ void _glfwPlatformGetWindowContentScale(_GLFWwindow* window,
         *yscale = (float) (pixels.size.height / points.size.height);
 }
 
-double _glfwPlatformGetDoubleClickInterval(_GLFWwindow* window UNUSED)
+monotonic_t _glfwPlatformGetDoubleClickInterval(_GLFWwindow* window UNUSED)
 {
-    return [NSEvent doubleClickInterval];
+    return s_double_to_monotonic_t([NSEvent doubleClickInterval]);
 }
 
 void _glfwPlatformIconifyWindow(_GLFWwindow* window)
