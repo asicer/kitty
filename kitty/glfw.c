@@ -41,7 +41,10 @@ update_os_window_viewport(OSWindow *window, bool notify_boss) {
     int w, h, fw, fh;
     glfwGetFramebufferSize(window->handle, &fw, &fh);
     glfwGetWindowSize(window->handle, &w, &h);
-    if (fw == window->viewport_width && fh == window->viewport_height && w == window->window_width && h == window->window_height) {
+    double xdpi = window->logical_dpi_x, ydpi = window->logical_dpi_y;
+    set_os_window_dpi(window);
+
+    if (fw == window->viewport_width && fh == window->viewport_height && w == window->window_width && h == window->window_height && xdpi == window->logical_dpi_x && ydpi == window->logical_dpi_y) {
         return; // no change, ignore
     }
     if (w <= 0 || h <= 0 || fw / w > 5 || fh / h > 5 || fw < min_width || fh < min_height || fw < w || fh < h) {
@@ -62,8 +65,6 @@ update_os_window_viewport(OSWindow *window, bool notify_boss) {
     double xr = window->viewport_x_ratio, yr = window->viewport_y_ratio;
     window->viewport_x_ratio = w > 0 ? (double)window->viewport_width / (double)w : xr;
     window->viewport_y_ratio = h > 0 ? (double)window->viewport_height / (double)h : yr;
-    double xdpi = window->logical_dpi_x, ydpi = window->logical_dpi_y;
-    set_os_window_dpi(window);
     bool dpi_changed = (xr != 0.0 && xr != window->viewport_x_ratio) || (yr != 0.0 && yr != window->viewport_y_ratio) || (xdpi != window->logical_dpi_x) || (ydpi != window->logical_dpi_y);
 
     window->viewport_size_dirty = true;
@@ -230,14 +231,14 @@ refresh_callback(GLFWwindow *w) {
 static int mods_at_last_key_or_button_event = 0;
 
 static void
-key_callback(GLFWwindow *w, int key, int scancode, int action, int mods, const char* text, int state) {
+key_callback(GLFWwindow *w, GLFWkeyevent *ev) {
     if (!set_callback_window(w)) return;
-    mods_at_last_key_or_button_event = mods;
+    mods_at_last_key_or_button_event = ev->mods;
     global_state.callback_os_window->cursor_blink_zero_time = monotonic();
-    if (key >= 0 && key <= GLFW_KEY_LAST) {
-        global_state.callback_os_window->is_key_pressed[key] = action == GLFW_RELEASE ? false : true;
+    if (ev->key >= 0 && ev->key <= GLFW_KEY_LAST) {
+        global_state.callback_os_window->is_key_pressed[ev->key] = ev->action == GLFW_RELEASE ? false : true;
     }
-    if (is_window_ready_for_callbacks()) on_key_input(key, scancode, action, mods, text, state);
+    if (is_window_ready_for_callbacks()) on_key_input(ev);
     global_state.callback_os_window = NULL;
     request_tick_callback();
 }
