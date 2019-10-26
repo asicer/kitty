@@ -121,7 +121,7 @@ class Boss:
         talk_fd = getattr(single_instance, 'socket', None)
         talk_fd = -1 if talk_fd is None else talk_fd.fileno()
         listen_fd = -1
-        if opts.allow_remote_control and args.listen_on:
+        if args.listen_on and (opts.allow_remote_control in ('y', 'socket-only')):
             listen_fd = listen_on(args.listen_on)
         self.child_monitor = ChildMonitor(
             self.on_child_death,
@@ -276,9 +276,9 @@ class Boss:
         self.child_monitor.add_child(window.id, window.child.pid, window.child.child_fd, window.screen)
         self.window_id_map[window.id] = window
 
-    def _handle_remote_command(self, cmd, window=None):
+    def _handle_remote_command(self, cmd, window=None, from_peer=False):
         response = None
-        if self.opts.allow_remote_control or getattr(window, 'allow_remote_control', False):
+        if self.opts.allow_remote_control == 'y' or from_peer or getattr(window, 'allow_remote_control', False):
             try:
                 response = handle_cmd(self, window, cmd)
             except Exception as err:
@@ -287,7 +287,7 @@ class Boss:
                 if not getattr(err, 'hide_traceback', False):
                     response['tb'] = traceback.format_exc()
         else:
-            response = {'ok': False, 'error': 'Remote control is disabled. Add allow_remote_control yes to your kitty.conf'}
+            response = {'ok': False, 'error': 'Remote control is disabled. Add allow_remote_control to your kitty.conf'}
         return response
 
     def peer_message_received(self, msg):
@@ -295,7 +295,7 @@ class Boss:
         cmd_prefix = '\x1bP@kitty-cmd'
         if msg.startswith(cmd_prefix):
             cmd = msg[len(cmd_prefix):-2]
-            response = self._handle_remote_command(cmd)
+            response = self._handle_remote_command(cmd, from_peer=True)
             if response is not None:
                 response = (cmd_prefix + json.dumps(response) + '\x1b\\').encode('utf-8')
             return response
@@ -512,27 +512,27 @@ class Boss:
         if t is not None:
             return t.active_window
 
-    def dispatch_special_key(self, key, scancode, action, mods):
+    def dispatch_special_key(self, key, native_key, action, mods):
         # Handles shortcuts, return True if the key was consumed
-        key_action = get_shortcut(self.keymap, mods, key, scancode)
+        key_action = get_shortcut(self.keymap, mods, key, native_key)
         if key_action is None:
-            sequences = get_shortcut(self.opts.sequence_map, mods, key, scancode)
+            sequences = get_shortcut(self.opts.sequence_map, mods, key, native_key)
             if sequences:
                 self.pending_sequences = sequences
                 set_in_sequence_mode(True)
                 return True
         else:
-            self.current_key_press_info = key, scancode, action, mods
+            self.current_key_press_info = key, native_key, action, mods
             return self.dispatch_action(key_action)
 
-    def process_sequence(self, key, scancode, action, mods):
+    def process_sequence(self, key, native_key, action, mods):
         if not self.pending_sequences:
             set_in_sequence_mode(False)
 
         remaining = {}
         matched_action = None
         for seq, key_action in self.pending_sequences.items():
-            if shortcut_matches(seq[0], mods, key, scancode):
+            if shortcut_matches(seq[0], mods, key, native_key):
                 seq = seq[1:]
                 if seq:
                     remaining[seq] = key_action
@@ -1096,3 +1096,9 @@ class Boss:
 
         msg = '\n'.join(map(format_bad_line, bad_lines)).rstrip()
         self.show_error(_('Errors in kitty.conf'), msg)
+
+    def set_colors(self, *args):
+        from .cmds import parse_subcommand_cli, cmd_set_colors, set_colors
+        opts, items = parse_subcommand_cli(cmd_set_colors, ['set-colors'] + list(args))
+        payload = cmd_set_colors(None, opts, items)
+        set_colors(self, self.active_window, payload)

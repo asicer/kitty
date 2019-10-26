@@ -622,7 +622,7 @@ scroll_event(double UNUSED xoffset, double yoffset, int flags) {
             yoffset *= -1;
         }
     }
-    double pixels = yoffset + global_state.callback_os_window->pending_scroll_pixels;
+    double pixels = yoffset + screen->pending_scroll_pixels;
     if (!is_high_resolution) {
         // Scroll at least one line, see https://github.com/kovidgoyal/kitty/issues/1238
         if (pixels != 0 && fabs(pixels) < cell_height) {
@@ -636,7 +636,7 @@ scroll_event(double UNUSED xoffset, double yoffset, int flags) {
     if (pixels < 0) test *= -1;
     assert(test == s);
 
-    global_state.callback_os_window->pending_scroll_pixels = pixels - s * cell_height;
+    screen->pending_scroll_pixels = pixels - s * cell_height;
 
     if (s == 0) return;
     bool upwards = s > 0;

@@ -7,6 +7,12 @@ To update |kitty|, :doc:`follow the instructions <binary>`.
 0.15.0 [future]
 --------------------
 
+- Add a new style ``powerline`` for tab bar rendering, see :opt:`tab_bar_style` (:pull:`2021`)
+
+- Allow changing colors by mapping a keyboard shortcut to read a kitty config
+  file with color definitions. See the :doc:`FAQ <faq>` for details
+  (:iss:`2083`)
+
 - Wayland: Fix key repeat not being stopped when focus leaves window. This is
   expected behavior on Wayland, apparently (:iss:`2014`)
 
@@ -14,6 +20,13 @@ To update |kitty|, :doc:`follow the instructions <binary>`.
   to avoid resized or cut-off glyphs (:iss:`1452`)
 
 - diff kitten: Allow diffing remote files easily via ssh (:iss:`727`)
+
+- Add specialised rendering for a few more box powerline and unicode symbols
+  (:pull:`2074` and :pull:`2021`)
+
+- Add a new socket only mode for :opt:`allow_remote_control`. This makes
+  it possible for programs running on the local machine to control kitty
+  but not programs running over ssh.
 
 
 0.14.6 [2019-09-25]

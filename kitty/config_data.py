@@ -679,10 +679,10 @@ Which edge to show the tab bar on, top or bottom'''))
 o('tab_bar_margin_width', 0.0, option_type=positive_float, long_text=_('''
 The margin to the left and right of the tab bar (in pts)'''))
 
-o('tab_bar_style', 'fade', option_type=choices('fade', 'separator', 'hidden'), long_text=_('''
-The tab bar style, can be one of: :code:`fade`, :code:`separator` or :code:`hidden`. In the fade style,
-each tab's edges fade into the background color, in the separator style, tabs are
-separated by a configurable separator.
+o('tab_bar_style', 'fade', option_type=choices('fade', 'separator', 'powerline', 'hidden'), long_text=_('''
+The tab bar style, can be one of: :code:`fade`, :code:`separator`, :code:`powerline`, or :code:`hidden`.
+In the fade style, each tab's edges fade into the background color, in the separator style, tabs are
+separated by a configurable separator, and the powerline shows the tabs as a continuous line.
 '''))
 
 o('tab_bar_min_tabs', 2, option_type=lambda x: max(1, positive_int(x)), long_text=_('''
@@ -812,9 +812,9 @@ ensure that the shell starts in interactive mode and reads its startup rc files.
 
 o('editor', '.', long_text=_('''
 The console editor to use when editing the kitty config file or similar tasks.
-A value of . means to use the environment variable EDITOR. Note that this
-environment variable has to be set not just in your shell startup scripts but
-system-wide, otherwise kitty will not see it.
+A value of . means to use the environment variables VISUAL and EDITOR in that
+order. Note that this environment variable has to be set not just in your shell
+startup scripts but system-wide, otherwise kitty will not see it.
 '''))
 
 o('close_on_child_death', False, long_text=_('''
@@ -826,11 +826,23 @@ Note that setting it to yes means that any background processes still using the
 terminal can fail silently because their stdout/stderr/stdin no longer work.
 '''))
 
-o('allow_remote_control', False, long_text=_('''
+
+def allow_remote_control(x):
+    if x != 'socket-only':
+        x = 'y' if to_bool(x) else 'n'
+    return x
+
+
+o('allow_remote_control', 'no', option_type=allow_remote_control, long_text=_('''
 Allow other programs to control kitty. If you turn this on other programs can
-control all aspects of kitty, including sending text to kitty windows,
-opening new windows, closing windows, reading the content of windows, etc.
-Note that this even works over ssh connections.
+control all aspects of kitty, including sending text to kitty windows, opening
+new windows, closing windows, reading the content of windows, etc.  Note that
+this even works over ssh connections. You can chose to either allow any program
+running within kitty to control it, with :code:`yes` or only programs that
+connect to the socket specified with the :option:`kitty --listen-on` command
+line option, if you use the value :code:`socket-only`. The latter is useful if
+you want to prevent programs running on a remote computer over ssh from
+controlling kitty.
 '''))
 
 o(
