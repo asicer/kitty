@@ -149,6 +149,49 @@ remove_window(id_type os_window_id, id_type tab_id, id_type id) {
     END_WITH_TAB;
 }
 
+typedef struct {
+    unsigned int num_windows, capacity;
+    Window *windows;
+} DetachedWindows;
+
+static DetachedWindows detached_windows = {0};
+
+
+static void
+add_detached_window(Window *w) {
+    ensure_space_for(&detached_windows, windows, Window, detached_windows.num_windows + 1, capacity, 8, true);
+    memcpy(detached_windows.windows + detached_windows.num_windows++, w, sizeof(Window));
+}
+
+static inline void
+detach_window(id_type os_window_id, id_type tab_id, id_type id) {
+    WITH_TAB(os_window_id, tab_id);
+        for (size_t i = 0; i < tab->num_windows; i++) {
+            if (tab->windows[i].id == id) {
+                add_detached_window(tab->windows + i);
+                zero_at_i(tab->windows, i);
+                remove_i_from_array(tab->windows, i, tab->num_windows);
+            }
+        }
+    END_WITH_TAB;
+}
+
+
+static inline void
+attach_window(id_type os_window_id, id_type tab_id, id_type id) {
+    WITH_TAB(os_window_id, tab_id);
+        for (size_t i = 0; i < detached_windows.num_windows; i++) {
+            if (detached_windows.windows[i].id == id) {
+                ensure_space_for(tab, windows, Window, tab->num_windows + 1, capacity, 1, true);
+                memcpy(tab->windows + tab->num_windows++, detached_windows.windows + i, sizeof(Window));
+                zero_at_i(detached_windows.windows, i);
+                remove_i_from_array(detached_windows.windows, i, detached_windows.num_windows);
+                break;
+            }
+        }
+    END_WITH_TAB;
+}
+
 static inline void
 destroy_tab(Tab *tab) {
     for (size_t i = tab->num_windows; i > 0; i--) remove_window_inner(tab, tab->windows[i - 1].id);
@@ -753,6 +796,8 @@ PYWRAP0(destroy_global_data) {
 
 THREE_ID_OBJ(update_window_title)
 THREE_ID(remove_window)
+THREE_ID(detach_window)
+THREE_ID(attach_window)
 PYWRAP1(resolve_key_mods) { int mods; PA("ii", &kitty_mod, &mods); return PyLong_FromLong(resolve_mods(mods)); }
 PYWRAP1(add_tab) { return PyLong_FromUnsignedLongLong(add_tab(PyLong_AsUnsignedLongLong(args))); }
 PYWRAP1(add_window) { PyObject *title; id_type a, b; PA("KKO", &a, &b, &title); return PyLong_FromUnsignedLongLong(add_window(a, b, title)); }
@@ -780,6 +825,8 @@ static PyMethodDef module_methods[] = {
     MW(update_window_title, METH_VARARGS),
     MW(remove_tab, METH_VARARGS),
     MW(remove_window, METH_VARARGS),
+    MW(detach_window, METH_VARARGS),
+    MW(attach_window, METH_VARARGS),
     MW(set_active_tab, METH_VARARGS),
     MW(set_active_window, METH_VARARGS),
     MW(swap_tabs, METH_VARARGS),
@@ -805,6 +852,15 @@ static PyMethodDef module_methods[] = {
     {NULL, NULL, 0, NULL}        /* Sentinel */
 };
 
+static void
+finalize(void) {
+    while(detached_windows.num_windows--) {
+        destroy_window(&detached_windows.windows[detached_windows.num_windows]);
+    }
+    if (detached_windows.windows) free(detached_windows.windows);
+    detached_windows.capacity = 0;
+}
+
 bool
 init_state(PyObject *module) {
     global_state.font_sz_in_pts = 11.0;
@@ -818,6 +874,10 @@ init_state(PyObject *module) {
     if (PyStructSequence_InitType2(&RegionType, &region_desc) != 0) return false;
     Py_INCREF((PyObject *) &RegionType);
     PyModule_AddObject(module, "Region", (PyObject *) &RegionType);
+    if (Py_AtExit(finalize) != 0) {
+        PyErr_SetString(PyExc_RuntimeError, "Failed to register the state at exit handler");
+        return false;
+    }
     return true;
 }
 // }}}
