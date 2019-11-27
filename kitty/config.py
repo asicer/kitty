@@ -50,7 +50,8 @@ func_with_args, args_funcs = key_func()
 
 @func_with_args(
     'pass_selection_to_program', 'new_window', 'new_tab', 'new_os_window',
-    'new_window_with_cwd', 'new_tab_with_cwd', 'new_os_window_with_cwd'
+    'new_window_with_cwd', 'new_tab_with_cwd', 'new_os_window_with_cwd',
+    'launch'
     )
 def shlex_parse(func, rest):
     return func, to_cmdline(rest)
@@ -90,6 +91,20 @@ def kitten_parse(func, rest):
 def goto_tab_parse(func, rest):
     args = (max(0, int(rest)), )
     return func, args
+
+
+@func_with_args('detach_window')
+def detach_window_parse(func, rest):
+    if rest not in ('new', 'new-tab', 'ask'):
+        rest = 'new'
+    return func, (rest,)
+
+
+@func_with_args('detach_tab')
+def detach_tab_parse(func, rest):
+    if rest not in ('new', 'ask'):
+        rest = 'new'
+    return func, (rest,)
 
 
 @func_with_args('set_background_opacity', 'goto_layout', 'kitty_shell')

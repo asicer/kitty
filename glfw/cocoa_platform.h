@@ -41,6 +41,9 @@ typedef void* id;
 typedef void* CVDisplayLinkRef;
 #endif
 
+// NOTE: Many Cocoa enum values have been renamed and we need to build across
+//       SDK versions where one is unavailable or the other deprecated
+//       We use the newer names in code and these macros to handle compatibility
 #if MAC_OS_X_VERSION_MAX_ALLOWED < 101200
  #define NSBitmapFormatAlphaNonpremultiplied NSAlphaNonpremultipliedBitmapFormat
  #define NSEventMaskAny NSAnyEventMask
@@ -69,8 +72,9 @@ typedef void* CVDisplayLinkRef;
 
 typedef VkFlags VkMacOSSurfaceCreateFlagsMVK;
 typedef int (* GLFWcocoatextinputfilterfun)(int,int,unsigned int, unsigned long);
-typedef int (* GLFWapplicationshouldhandlereopenfun)(int);
-typedef int (* GLFWcocoatogglefullscreenfun)(GLFWwindow*);
+typedef bool (* GLFWapplicationshouldhandlereopenfun)(int);
+typedef void (* GLFWapplicationwillfinishlaunchingfun)(void);
+typedef bool (* GLFWcocoatogglefullscreenfun)(GLFWwindow*);
 typedef void (* GLFWcocoarenderframefun)(GLFWwindow*);
 
 typedef struct VkMacOSSurfaceCreateInfoMVK

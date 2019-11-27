@@ -57,10 +57,10 @@ class Tab:  # {{{
         for i, which in enumerate('first second third fourth fifth sixth seventh eighth ninth tenth'.split()):
             setattr(self, which + '_window', partial(self.nth_window, num=i))
         self._last_used_layout = self._current_layout_name = None
+        self.cwd = self.args.directory
         if no_initial_window:
-            pass
+            self._set_current_layout(self.enabled_layouts[0])
         elif session_tab is None:
-            self.cwd = self.args.directory
             sl = self.enabled_layouts[0]
             self._set_current_layout(sl)
             if special_window is None:
@@ -68,10 +68,32 @@ class Tab:  # {{{
             else:
                 self.new_special_window(special_window)
         else:
-            self.cwd = session_tab.cwd or self.args.directory
+            if session_tab.cwd:
+                self.cwd = session_tab.cwd
             l0 = session_tab.layout
             self._set_current_layout(l0)
             self.startup(session_tab)
+
+    def take_over_from(self, other_tab):
+        self.name, self.cwd = other_tab.name, other_tab.cwd
+        self.enabled_layouts = list(other_tab.enabled_layouts)
+        self._set_current_layout(other_tab._current_layout_name)
+        self._last_used_layout = other_tab._last_used_layout
+
+        orig_windows = deque(other_tab.windows)
+        orig_history = deque(other_tab.active_window_history)
+        orig_active = other_tab._active_window_idx
+        for window in other_tab.windows:
+            detach_window(other_tab.os_window_id, other_tab.id, window.id)
+        other_tab.windows = deque()
+        other_tab._active_window_idx = 0
+        self.active_window_history = orig_history
+        self.windows = orig_windows
+        self._active_window_idx = orig_active
+        for window in self.windows:
+            window.change_tab(self)
+            attach_window(self.os_window_id, self.id, window.id)
+        self.relayout()
 
     def _set_current_layout(self, layout_name):
         self._last_used_layout = self._current_layout_name
@@ -214,7 +236,7 @@ class Tab:  # {{{
         if self.current_layout.remove_all_biases():
             self.relayout()
 
-    def launch_child(self, use_shell=False, cmd=None, stdin=None, cwd_from=None, cwd=None, env=None):
+    def launch_child(self, use_shell=False, cmd=None, stdin=None, cwd_from=None, cwd=None, env=None, allow_remote_control=False):
         if cmd is None:
             if use_shell:
                 cmd = resolved_shell(self.opts)
@@ -230,7 +252,7 @@ class Tab:  # {{{
             except Exception:
                 import traceback
                 traceback.print_exc()
-        ans = Child(cmd, cwd or self.cwd, self.opts, stdin, fenv, cwd_from)
+        ans = Child(cmd, cwd or self.cwd, self.opts, stdin, fenv, cwd_from, allow_remote_control=allow_remote_control)
         ans.fork()
         return ans
 
@@ -241,9 +263,10 @@ class Tab:  # {{{
     def new_window(
         self, use_shell=True, cmd=None, stdin=None, override_title=None,
         cwd_from=None, cwd=None, overlay_for=None, env=None, location=None,
-        copy_colors_from=None
+        copy_colors_from=None, allow_remote_control=False
     ):
-        child = self.launch_child(use_shell=use_shell, cmd=cmd, stdin=stdin, cwd_from=cwd_from, cwd=cwd, env=env)
+        child = self.launch_child(
+            use_shell=use_shell, cmd=cmd, stdin=stdin, cwd_from=cwd_from, cwd=cwd, env=env, allow_remote_control=allow_remote_control)
         window = Window(self, child, self.opts, self.args, override_title=override_title, copy_colors_from=copy_colors_from)
         if overlay_for is not None:
             overlaid = next(w for w in self.windows if w.id == overlay_for)
@@ -254,8 +277,8 @@ class Tab:  # {{{
         self._add_window(window, location=location)
         return window
 
-    def new_special_window(self, special_window, location=None, copy_colors_from=None):
-        return self.new_window(False, *special_window, location=location, copy_colors_from=copy_colors_from)
+    def new_special_window(self, special_window, location=None, copy_colors_from=None, allow_remote_control=False):
+        return self.new_window(False, *special_window, location=location, copy_colors_from=copy_colors_from, allow_remote_control=allow_remote_control)
 
     def close_window(self):
         if self.windows:
@@ -324,8 +347,7 @@ class Tab:  # {{{
         return underlaid_window, overlaid_window
 
     def attach_window(self, window):
-        window.tab_id = self.id
-        window.os_window_id = self.os_window_id
+        window.change_tab(self)
         attach_window(self.os_window_id, self.id, window.id)
         self._add_window(window)
 
@@ -417,6 +439,11 @@ class Tab:  # {{{
 
     def __repr__(self):
         return 'Tab(title={}, id={})'.format(self.name or self.title, hex(id(self)))
+
+    def make_active(self):
+        tm = self.tab_manager_ref()
+        if tm is not None:
+            tm.set_active_tab(self)
 # }}}
 
 

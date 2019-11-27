@@ -200,8 +200,10 @@ def init_env(
     if ccver < (5, 2) and cc == 'gcc':
         missing_braces = '-Wno-missing-braces'
     df = '-g3'
+    float_conversion = ''
     if ccver >= (5, 0):
         df += ' -Og'
+        float_conversion = '-Wfloat-conversion'
     optimize = df if debug or sanitize else '-O3'
     sanitize_args = get_sanitize_args(cc, ccver) if sanitize else set()
     cppflags = os.environ.get(
@@ -210,11 +212,13 @@ def init_env(
     cppflags = shlex.split(cppflags)
     for el in extra_logging:
         cppflags.append('-DDEBUG_{}'.format(el.upper().replace('-', '_')))
+    # _POSIX_C_SOURCE is needed for clock_gettime() in monotonic.h
     cflags = os.environ.get(
         'OVERRIDE_CFLAGS', (
-            '-Wextra -Wfloat-conversion -Wno-missing-field-initializers -Wall -Wstrict-prototypes -std=c11'
+            '-Wextra {} -Wno-missing-field-initializers -Wall -Wstrict-prototypes -D_POSIX_C_SOURCE=200809L -std=c11'
             ' -pedantic-errors -Werror {} {} -fwrapv {} {} -pipe {} -fvisibility=hidden'
         ).format(
+            float_conversion,
             optimize,
             ' '.join(sanitize_args),
             stack_protector,
@@ -760,7 +764,7 @@ def macos_info_plist():
         NSRequiresAquaSystemAppearance='NO',
         NSHumanReadableCopyright=time.strftime(
             'Copyright %Y, Kovid Goyal'),
-        CFBundleGetInfoString='kitty, an OpenGL based terminal emulator https://sw.kovidgoyal.net/kitty',
+        CFBundleGetInfoString='kitty, an OpenGL based terminal emulator https://sw.kovidgoyal.net/kitty/',
         CFBundleIconFile=appname + '.icns',
         NSHighResolutionCapable=True,
         NSSupportsAutomaticGraphicsSwitching=True,

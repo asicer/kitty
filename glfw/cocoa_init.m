@@ -456,6 +456,8 @@ static GLFWapplicationshouldhandlereopenfun handle_reopen_callback = NULL;
     _glfwPollMonitorsNS();
 }
 
+static GLFWapplicationwillfinishlaunchingfun finish_launching_callback = NULL;
+
 - (void)applicationWillFinishLaunching:(NSNotification *)notification
 {
     (void)notification;
@@ -468,16 +470,17 @@ static GLFWapplicationshouldhandlereopenfun handle_reopen_callback = NULL;
         // finishLaunching below, in order to properly emulate the behavior
         // of NSApplicationMain
 
-        // disabled by Kovid
-        /* if ([[NSBundle mainBundle] pathForResource:@"MainMenu" ofType:@"nib"])
+        if ([[NSBundle mainBundle] pathForResource:@"MainMenu" ofType:@"nib"])
         {
             [[NSBundle mainBundle] loadNibNamed:@"MainMenu"
                                           owner:NSApp
                                 topLevelObjects:&_glfw.ns.nibObjects];
         }
-        else */
+        else
             createMenuBar();
     }
+    if (finish_launching_callback)
+        finish_launching_callback();
 }
 
 - (void)applicationDidFinishLaunching:(NSNotification *)notification
@@ -552,6 +555,12 @@ is_cmd_period(NSEvent *event, NSEventModifierFlags modifierFlags) {
 GLFWAPI GLFWapplicationshouldhandlereopenfun glfwSetApplicationShouldHandleReopen(GLFWapplicationshouldhandlereopenfun callback) {
     GLFWapplicationshouldhandlereopenfun previous = handle_reopen_callback;
     handle_reopen_callback = callback;
+    return previous;
+}
+
+GLFWAPI GLFWapplicationwillfinishlaunchingfun glfwSetApplicationWillFinishLaunching(GLFWapplicationwillfinishlaunchingfun callback) {
+    GLFWapplicationwillfinishlaunchingfun previous = finish_launching_callback;
+    finish_launching_callback = callback;
     return previous;
 }
 

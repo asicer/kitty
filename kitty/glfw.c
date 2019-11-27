@@ -461,20 +461,19 @@ filter_option(int key UNUSED, int mods, unsigned int native_key UNUSED, unsigned
 
 static GLFWwindow *application_quit_canary = NULL;
 
-static int
+static bool
 on_application_reopen(int has_visible_windows) {
     if (has_visible_windows) return true;
     set_cocoa_pending_action(NEW_OS_WINDOW, NULL);
-    // Without unjam wait_for_events() blocks until the next event
     return false;
 }
 
-static int
+static bool
 intercept_cocoa_fullscreen(GLFWwindow *w) {
-    if (!OPT(macos_traditional_fullscreen) || !set_callback_window(w)) return 0;
+    if (!OPT(macos_traditional_fullscreen) || !set_callback_window(w)) return false;
     toggle_fullscreen_for_os_window(global_state.callback_os_window);
     global_state.callback_os_window = NULL;
-    return 1;
+    return true;
 }
 #endif
 
@@ -518,6 +517,7 @@ create_os_window(PyObject UNUSED *self, PyObject *args) {
         cocoa_set_activation_policy(OPT(macos_hide_from_tasks));
         glfwWindowHint(GLFW_COCOA_GRAPHICS_SWITCHING, true);
         glfwSetApplicationShouldHandleReopen(on_application_reopen);
+        glfwSetApplicationWillFinishLaunching(cocoa_create_global_menu);
         if (OPT(hide_window_decorations)) glfwWindowHint(GLFW_DECORATED, false);
 #endif
 
@@ -549,8 +549,13 @@ create_os_window(PyObject UNUSED *self, PyObject *args) {
     if (!common_context) common_context = application_quit_canary;
 #endif
 
-    GLFWwindow *temp_window = glfwCreateWindow(640, 480, "temp", NULL, common_context);
-    if (temp_window == NULL) { fatal("Failed to create GLFW temp window! This usually happens because of old/broken OpenGL drivers. kitty requires working OpenGL 3.3 drivers."); }
+    GLFWwindow *temp_window = NULL;
+    if (!global_state.is_wayland) {
+        // On Wayland windows dont get a content scale until they receive an enterEvent anyway
+        // which wont happen until the event loop ticks, so using a temp window is useless.
+        temp_window = glfwCreateWindow(640, 480, "temp", NULL, common_context);
+        if (temp_window == NULL) { fatal("Failed to create GLFW temp window! This usually happens because of old/broken OpenGL drivers. kitty requires working OpenGL 3.3 drivers."); }
+    }
     float xscale, yscale;
     double xdpi, ydpi;
     get_window_content_scale(temp_window, &xscale, &yscale, &xdpi, &ydpi);
@@ -565,8 +570,8 @@ create_os_window(PyObject UNUSED *self, PyObject *args) {
     // is no startup notification in Wayland anyway. It amazes me that anyone
     // uses Wayland as anything other than a butt for jokes.
     if (global_state.is_wayland) glfwWindowHint(GLFW_VISIBLE, true);
-    GLFWwindow *glfw_window = glfwCreateWindow(width, height, title, NULL, temp_window);
-    glfwDestroyWindow(temp_window); temp_window = NULL;
+    GLFWwindow *glfw_window = glfwCreateWindow(width, height, title, NULL, temp_window ? temp_window : common_context);
+    if (temp_window) { glfwDestroyWindow(temp_window); temp_window = NULL; }
     if (glfw_window == NULL) { PyErr_SetString(PyExc_ValueError, "Failed to create GLFWwindow"); return NULL; }
     glfwMakeContextCurrent(glfw_window);
     if (is_first_window) {
@@ -591,9 +596,6 @@ create_os_window(PyObject UNUSED *self, PyObject *args) {
         PyObject *ret = PyObject_CallFunction(load_programs, "O", is_semi_transparent ? Py_True : Py_False);
         if (ret == NULL) return NULL;
         Py_DECREF(ret);
-#ifdef __APPLE__
-        cocoa_create_global_menu();
-#endif
 #define CC(dest, shape) {\
     if (!dest##_cursor) { \
         dest##_cursor = glfwCreateStandardCursor(GLFW_##shape##_CURSOR); \

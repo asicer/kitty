@@ -91,15 +91,14 @@
 //
 static NSUInteger getStyleMask(_GLFWwindow* window)
 {
-    NSUInteger styleMask = 0;
+    NSUInteger styleMask = NSWindowStyleMaskMiniaturizable;
 
     if (window->monitor || !window->decorated)
         styleMask |= NSWindowStyleMaskBorderless;
     else
     {
         styleMask |= NSWindowStyleMaskTitled |
-                     NSWindowStyleMaskClosable |
-                     NSWindowStyleMaskMiniaturizable;
+                     NSWindowStyleMaskClosable;
 
         if (window->resizable)
             styleMask |= NSWindowStyleMaskResizable;
@@ -648,8 +647,8 @@ static const NSRange kEmptyRange = { NSNotFound, 0 };
     }
 }
 
-
 @end // }}}
+
 
 // Content view class for the GLFW window {{{
 
@@ -1272,7 +1271,7 @@ void _glfwPlatformUpdateIMEState(_GLFWwindow *w, int which, int a, int b, int c,
 @end
 // }}}
 
-// GLFW Window class {{{
+// GLFW window class {{{
 
 @interface GLFWWindow : NSWindow {
     _GLFWwindow* glfw_window;
@@ -1372,7 +1371,7 @@ static bool createNativeWindow(_GLFWwindow* window,
         [window->ns.object setLevel:NSMainMenuWindowLevel + 1];
     else
     {
-        [(NSWindow*)window->ns.object center];
+        [(NSWindow*) window->ns.object center];
         _glfw.ns.cascadePoint =
             NSPointToCGPoint([window->ns.object cascadeTopLeftFromPoint:
                               NSPointFromCGPoint(_glfw.ns.cascadePoint)]);

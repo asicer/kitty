@@ -128,14 +128,22 @@ layout, by simply adding the line::
     boss.toggle_fullscreen()
 
 
-to the ``handle_result()`` function, above.
+To the ``handle_result()`` function, above.
 
 
 Debugging kittens
 --------------------
 
-The part of the kitten that runs in ``main()`` is just a normal programs and
-the output of print statements will be visible in the kitten window.
+The part of the kitten that runs in ``main()`` is just a normal program and
+the output of print statements will be visible in the kitten window. Or
+alternately, you can use::
+
+    from kittens.tui.loop import debug
+    debug('whatever')
+
+The ``debug()`` function is just like ``print()`` except that the output
+will appear in the ``STDOUT`` of the kitty process inside which the kitten is
+running.
 
 The ``handle_result()`` part of the kitten runs inside the kitty process.
 The output of print statements will go to the ``STDOUT`` of the kitty process.
