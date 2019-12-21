@@ -212,10 +212,9 @@ def init_env(
     cppflags = shlex.split(cppflags)
     for el in extra_logging:
         cppflags.append('-DDEBUG_{}'.format(el.upper().replace('-', '_')))
-    # _POSIX_C_SOURCE is needed for clock_gettime() in monotonic.h
     cflags = os.environ.get(
         'OVERRIDE_CFLAGS', (
-            '-Wextra {} -Wno-missing-field-initializers -Wall -Wstrict-prototypes -D_POSIX_C_SOURCE=200809L -std=c11'
+            '-Wextra {} -Wno-missing-field-initializers -Wall -Wstrict-prototypes -std=c11'
             ' -pedantic-errors -Werror {} {} -fwrapv {} {} -pipe {} -fvisibility=hidden'
         ).format(
             float_conversion,
@@ -337,8 +336,11 @@ def newer(dest, *sources):
     except EnvironmentError:
         return True
     for s in sources:
-        if os.path.getmtime(s) >= dtime:
-            return True
+        try:
+            if os.path.getmtime(s) >= dtime:
+                return True
+        except FileNotFoundError:
+            pass
     return False
 
 

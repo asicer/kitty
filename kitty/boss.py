@@ -1191,23 +1191,26 @@ class Boss:
             'Choose a tab to move the window to',
             ''
         ]
+        fmt = ': {1}'
         tab_id_map = {}
         current_tab = self.active_tab
         for i, tab in enumerate(self.all_tabs):
             if tab is not current_tab:
-                tab_id_map[i + 1] = tab.id
-                lines.append('{} {}'.format(i + 1, tab.title))
+                tab_id_map[len(tab_id_map)] = tab.id
+                lines.append(fmt.format(i + 1, tab.title))
         new_idx = len(tab_id_map) + 1
-        tab_id_map[new_idx] = 'new'
-        lines.append('{} {}'.format(new_idx, 'New tab'))
+        tab_id_map[new_idx - 1] = 'new'
+        lines.append(fmt.format(new_idx, 'New tab'))
         new_idx = len(tab_id_map) + 1
-        tab_id_map[new_idx] = None
-        lines.append('{} {}'.format(new_idx, 'New OS Window'))
+        tab_id_map[new_idx - 1] = None
+        lines.append(fmt.format(new_idx, 'New OS Window'))
 
         def done(data, target_window_id, self):
-            done.tab_id = tab_id_map[int(data['match'][0].partition(' ')[0])]
+            done.tab_id = tab_id_map[int(data['groupdicts'][0]['index'])]
 
         def done2(target_window_id, self):
+            if not hasattr(done, 'tab_id'):
+                return
             tab_id = done.tab_id
             target_window = None
             for w in self.all_windows:
@@ -1220,8 +1223,11 @@ class Boss:
                 self._move_window_to(window=target_window, target_tab_id=tab_id)
 
         self._run_kitten(
-                'hints', args=('--type=regex', r'--regex=(?m)^\d+ .+$',),
-                input_data='\r\n'.join(lines).encode('utf-8'), custom_callback=done, action_on_removal=done2)
+            'hints', args=(
+                '--ascending', '--customize-processing=::import::kitty.choose_entry',
+                r'--regex=(?m)^:\s+.+$',
+            ), input_data='\r\n'.join(lines).encode('utf-8'), custom_callback=done, action_on_removal=done2
+        )
 
     def detach_tab(self, *args):
         if not args or args[0] == 'new':
@@ -1231,21 +1237,24 @@ class Boss:
             'Choose an OS window to move the tab to',
             ''
         ]
+        fmt = ': {1}'
         os_window_id_map = {}
         current_os_window = getattr(self.active_tab, 'os_window_id', 0)
         for i, osw in enumerate(self.os_window_map):
             tm = self.os_window_map[osw]
             if current_os_window != osw and tm.active_tab and tm.active_tab:
-                os_window_id_map[i + 1] = osw
-                lines.append('{} {}'.format(i + 1, tm.active_tab.title))
+                os_window_id_map[len(os_window_id_map)] = osw
+                lines.append(fmt.format(i + 1, tm.active_tab.title))
         new_idx = len(os_window_id_map) + 1
-        os_window_id_map[new_idx] = None
-        lines.append('{} {}'.format(new_idx, 'New OS Window'))
+        os_window_id_map[new_idx - 1] = None
+        lines.append(fmt.format(new_idx, 'New OS Window'))
 
         def done(data, target_window_id, self):
-            done.os_window_id = os_window_id_map[int(data['match'][0].partition(' ')[0])]
+            done.os_window_id = os_window_id_map[int(data['groupdicts'][0]['index'])]
 
         def done2(target_window_id, self):
+            if not hasattr(done, 'os_window_id'):
+                return
             os_window_id = done.os_window_id
             target_tab = self.active_tab
             for w in self.all_windows:
@@ -1257,5 +1266,8 @@ class Boss:
             self._move_tab_to(tab=target_tab, target_os_window_id=os_window_id)
 
         self._run_kitten(
-                'hints', args=('--type=regex', r'--regex=(?m)^\d+ .+$',),
-                input_data='\r\n'.join(lines).encode('utf-8'), custom_callback=done, action_on_removal=done2)
+            'hints', args=(
+                '--ascending', '--customize-processing=::import::kitty.choose_entry',
+                r'--regex=(?m)^:\s+.+$',
+            ), input_data='\r\n'.join(lines).encode('utf-8'), custom_callback=done, action_on_removal=done2
+        )

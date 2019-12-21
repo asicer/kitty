@@ -479,6 +479,7 @@ moving the mouse around'''))
 
 o('pointer_shape_when_grabbed', 'arrow', option_type=choices('arrow', 'beam', 'hand'), long_text=('''
 The shape of the mouse pointer when the program running in the terminal grabs the mouse.
+Valid values are: :code:`arrow`, :code:`beam` and :code:`hand`
 '''))
 
 # }}}
@@ -715,12 +716,20 @@ entries to this list.
 o('tab_separator', '"{}"'.format(default_tab_separator), option_type=tab_separator, long_text=_('''
 The separator between tabs in the tab bar when using :code:`separator` as the :opt:`tab_bar_style`.'''))
 
+
+def active_tab_title_template(x):
+    return None if x == 'none' else x
+
+
 o('tab_title_template', '{title}', long_text=_('''
 A template to render the tab title. The default just renders
 the title. If you wish to include the tab-index as well,
 use something like: :code:`{index}: {title}`. Useful
 if you have shortcuts mapped for :code:`goto_tab N`.
 '''))
+o('active_tab_title_template', 'none', option_type=active_tab_title_template, long_text=_('''
+Template to use for active tabs, if not specified falls back
+to :opt:`tab_title_template`.'''))
 
 o('active_tab_foreground', '#000', option_type=to_color, long_text=_('''
 Tab bar colors and styles'''))
@@ -729,6 +738,8 @@ o('active_tab_font_style', 'bold-italic', option_type=tab_font_style)
 o('inactive_tab_foreground', '#444', option_type=to_color)
 o('inactive_tab_background', '#999', option_type=to_color)
 o('inactive_tab_font_style', 'normal', option_type=tab_font_style)
+o('tab_bar_background', 'none', option_type=to_color_or_none, long_text=_('''
+Background color for the tab bar. Defaults to using the terminal background color.'''))
 
 # }}}
 
