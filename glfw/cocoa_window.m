@@ -2339,14 +2339,11 @@ END_ALLOW_CASE_RANGE
         // 5 chars for one UTF-8 character plus a null byte should be enough
         // Use 4 * 4 + 1 chars to allow returning at least four unicode characters in the future, should the need arise
         char tmp_cocoa_key[4 * 4 + 1];
-        int str_pos = 0;
-        for (int i = 0; i < 4; i++) {
+        unsigned str_pos = 0;
+        for (unsigned i = 0; i < 4; i++) {
             uint8_t byte = (utf_8_key >> 24) & 0xff;
             utf_8_key <<= 8;
-            if (byte != 0) {
-                tmp_cocoa_key[str_pos] = byte;
-                str_pos++;
-            }
+            if (byte != 0) tmp_cocoa_key[str_pos++] = byte;
         }
         tmp_cocoa_key[str_pos] = 0;
         *cocoa_key = _glfw_strdup(tmp_cocoa_key);
