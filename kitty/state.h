@@ -214,7 +214,7 @@ ssize_t create_graphics_vao(void);
 ssize_t create_border_vao(void);
 bool send_cell_data_to_gpu(ssize_t, ssize_t, float, float, float, float, Screen *, OSWindow *);
 void draw_cells(ssize_t, ssize_t, float, float, float, float, Screen *, OSWindow *, bool, bool);
-void draw_centered_alpha_mask(ssize_t gvao_idx, size_t screen_width, size_t screen_height, size_t width, size_t height, uint8_t *canvas);
+void draw_centered_alpha_mask(OSWindow *w, size_t screen_width, size_t screen_height, size_t width, size_t height, uint8_t *canvas);
 void update_surface_size(int, int, uint32_t);
 void free_texture(uint32_t*);
 void send_image_to_gpu(uint32_t*, const void*, int32_t, int32_t, bool, bool);
@@ -225,7 +225,7 @@ void set_titlebar_color(OSWindow *w, color_type color);
 FONTS_DATA_HANDLE load_fonts_data(double, double, double);
 void send_prerendered_sprites_for_window(OSWindow *w);
 #ifdef __APPLE__
-void get_cocoa_key_equivalent(int, int, unsigned short*, int*);
+void get_cocoa_key_equivalent(int, int, char**, int*);
 typedef enum {
     PREFERENCES_WINDOW = 1,
     NEW_OS_WINDOW = 2,

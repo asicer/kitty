@@ -165,6 +165,7 @@
 #define GLFW_KEY_LEFT_BRACKET       91  /* [ */
 #define GLFW_KEY_BACKSLASH          92  /* \ */
 #define GLFW_KEY_RIGHT_BRACKET      93  /* ] */
+#define GLFW_KEY_CIRCUMFLEX         94  /* ^ */
 #define GLFW_KEY_UNDERSCORE         95  /* _ */
 #define GLFW_KEY_GRAVE_ACCENT       96  /* ` */
 #define GLFW_KEY_WORLD_1            161 /* non-US #1 */
@@ -2082,7 +2083,7 @@ typedef GLFWapplicationwillfinishlaunchingfun (*glfwSetApplicationWillFinishLaun
 glfwSetApplicationWillFinishLaunching_func glfwSetApplicationWillFinishLaunching_impl;
 #define glfwSetApplicationWillFinishLaunching glfwSetApplicationWillFinishLaunching_impl
 
-typedef void (*glfwGetCocoaKeyEquivalent_func)(int, int, void*, void*);
+typedef void (*glfwGetCocoaKeyEquivalent_func)(int, int, char**, int*);
 glfwGetCocoaKeyEquivalent_func glfwGetCocoaKeyEquivalent_impl;
 #define glfwGetCocoaKeyEquivalent glfwGetCocoaKeyEquivalent_impl
 

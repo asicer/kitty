@@ -1079,7 +1079,7 @@ set_custom_cursor(PyObject *self UNUSED, PyObject *args) {
 
 #ifdef __APPLE__
 void
-get_cocoa_key_equivalent(int key, int mods, unsigned short *cocoa_key, int *cocoa_mods) {
+get_cocoa_key_equivalent(int key, int mods, char **cocoa_key, int *cocoa_mods) {
     glfwGetCocoaKeyEquivalent(key, mods, cocoa_key, cocoa_mods);
 }
 
@@ -1296,6 +1296,7 @@ init_glfw(PyObject *m) {
     ADDC(GLFW_KEY_LEFT_BRACKET);
     ADDC(GLFW_KEY_BACKSLASH);
     ADDC(GLFW_KEY_RIGHT_BRACKET);
+    ADDC(GLFW_KEY_CIRCUMFLEX);
     ADDC(GLFW_KEY_UNDERSCORE);
     ADDC(GLFW_KEY_GRAVE_ACCENT);
     ADDC(GLFW_KEY_WORLD_1);
