@@ -83,6 +83,11 @@ find_app_name(void) {
     set_cocoa_pending_action(NEW_OS_WINDOW, NULL);
 }
 
+- (void)open_kitty_website_url:(id)sender {
+    (void)sender;
+    [[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:@"https://sw.kovidgoyal.net/kitty/"]];
+}
+
 
 + (GlobalMenuTarget *) shared_instance
 {
@@ -118,11 +123,10 @@ get_dock_menu(id self UNUSED, SEL _cmd UNUSED, NSApplication *sender UNUSED) {
     if (!dockMenu) {
         GlobalMenuTarget *global_menu_target = [GlobalMenuTarget shared_instance];
         dockMenu = [[NSMenu alloc] init];
-        NSMenuItem *newWindowItem =
-            [dockMenu addItemWithTitle:@"New window"
-                                action:@selector(new_os_window:)
-                         keyEquivalent:@""];
-        [newWindowItem setTarget:global_menu_target];
+        [[dockMenu addItemWithTitle:@"New window"
+                             action:@selector(new_os_window:)
+                      keyEquivalent:@""]
+                          setTarget:global_menu_target];
     }
     return dockMenu;
 }
@@ -249,16 +253,17 @@ cocoa_create_global_menu(void) {
                        action:@selector(orderFrontStandardAboutPanel:)
                 keyEquivalent:@""];
     [appMenu addItem:[NSMenuItem separatorItem]];
-    NSMenuItem* preferences_menu_item = [[NSMenuItem alloc] initWithTitle:@"Preferences..." action:@selector(show_preferences:) keyEquivalent:@","], *new_os_window_menu_item = NULL;
-    [preferences_menu_item setTarget:global_menu_target];
-    [appMenu addItem:preferences_menu_item];
-    if (new_window_key) {
-        NSString *s = @(new_window_key);
-        new_os_window_menu_item = [[NSMenuItem alloc] initWithTitle:@"New window" action:@selector(new_os_window:) keyEquivalent:s];
-        [new_os_window_menu_item setKeyEquivalentModifierMask:new_window_mods];
-        [new_os_window_menu_item setTarget:global_menu_target];
-        [appMenu addItem:new_os_window_menu_item];
-    }
+    [[appMenu addItemWithTitle:@"Preferences..."
+                       action:@selector(show_preferences:)
+                keyEquivalent:@","]
+                    setTarget:global_menu_target];
+
+    NSMenuItem* new_os_window_menu_item =
+        [appMenu addItemWithTitle:@"New OS window"
+                           action:@selector(new_os_window:)
+                    keyEquivalent:new_window_key ? @(new_window_key) : @""];
+    [new_os_window_menu_item setKeyEquivalentModifierMask:new_window_mods];
+    [new_os_window_menu_item setTarget:global_menu_target];
 
 
     [appMenu addItemWithTitle:[NSString stringWithFormat:@"Hide %@", app_name]
@@ -312,10 +317,18 @@ cocoa_create_global_menu(void) {
      setKeyEquivalentModifierMask:NSEventModifierFlagControl | NSEventModifierFlagCommand];
     [NSApp setWindowsMenu:windowMenu];
     [windowMenu release];
-    [preferences_menu_item release];
-    if (new_os_window_menu_item) {
-        [new_os_window_menu_item release];
-    }
+
+    NSMenuItem* helpMenuItem =
+        [bar addItemWithTitle:@"Help"
+                       action:NULL
+                keyEquivalent:@""];
+    NSMenu* helpMenu = [[NSMenu alloc] initWithTitle:@"Help"];
+    [helpMenuItem setSubmenu:helpMenu];
+    [[helpMenu addItemWithTitle:[NSString stringWithFormat:@"Visit %@ website", app_name]
+                         action:@selector(open_kitty_website_url:)
+                  keyEquivalent:@"?"]
+                      setTarget:global_menu_target];
+    [helpMenu release];
 
     [bar release];
 
