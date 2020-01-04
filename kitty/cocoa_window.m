@@ -276,13 +276,16 @@ cocoa_create_global_menu(void) {
                 keyEquivalent:@","]
                     setTarget:global_menu_target];
 
-    NSMenuItem* new_os_window_menu_item =
-        [appMenu addItemWithTitle:@"New window"
-                           action:@selector(new_os_window:)
-                    keyEquivalent:new_window_key ? @(new_window_key) : @""];
-    [new_os_window_menu_item setKeyEquivalentModifierMask:new_window_mods];
-    [new_os_window_menu_item setTarget:global_menu_target];
+    [appMenu addItem:[NSMenuItem separatorItem]];
+    NSMenu* servicesMenu = [[NSMenu alloc] init];
+    [NSApp setServicesMenu:servicesMenu];
+    [[appMenu addItemWithTitle:@"Services"
+                        action:NULL
+                 keyEquivalent:@""]
+                    setSubmenu:servicesMenu];
+    [servicesMenu release];
 
+    [appMenu addItem:[NSMenuItem separatorItem]];
 
     [appMenu addItemWithTitle:[NSString stringWithFormat:@"Hide %@", app_name]
                        action:@selector(hide:)
@@ -296,19 +299,26 @@ cocoa_create_global_menu(void) {
                 keyEquivalent:@""];
     [appMenu addItem:[NSMenuItem separatorItem]];
 
-    NSMenu* servicesMenu = [[NSMenu alloc] init];
-    [NSApp setServicesMenu:servicesMenu];
-    [[appMenu addItemWithTitle:@"Services"
-                        action:NULL
-                 keyEquivalent:@""] setSubmenu:servicesMenu];
-    [servicesMenu release];
-
-    [appMenu addItem:[NSMenuItem separatorItem]];
-
     [appMenu addItemWithTitle:[NSString stringWithFormat:@"Quit %@", app_name]
                        action:@selector(terminate:)
                 keyEquivalent:@"q"];
     [appMenu release];
+
+    NSMenuItem* fileMenuItem =
+        [bar addItemWithTitle:@"File"
+                       action:NULL
+                keyEquivalent:@""];
+    NSMenu* fileMenu = [[NSMenu alloc] initWithTitle:@"File"];
+    [fileMenuItem setSubmenu:fileMenu];
+
+    NSMenuItem* new_os_window_menu_item =
+        [fileMenu addItemWithTitle:@"New window"
+                           action:@selector(new_os_window:)
+                    keyEquivalent:new_window_key ? @(new_window_key) : @""];
+    [new_os_window_menu_item setKeyEquivalentModifierMask:new_window_mods];
+    [new_os_window_menu_item setTarget:global_menu_target];
+
+    [fileMenu release];
 
     NSMenuItem* editMenuItem =
         [bar addItemWithTitle:@"Edit"
@@ -325,6 +335,18 @@ cocoa_create_global_menu(void) {
     [paste_menu_item setTarget:global_menu_target];
 
     [editMenu release];
+
+    NSMenuItem* viewMenuItem =
+        [bar addItemWithTitle:@"View"
+                       action:NULL
+                keyEquivalent:@""];
+    NSMenu* viewMenu = [[NSMenu alloc] initWithTitle:@"View"];
+    [viewMenuItem setSubmenu:viewMenu];
+    [[viewMenu addItemWithTitle:@"Enter Full Screen"
+                         action:@selector(toggleFullScreen:)
+                  keyEquivalent:@"f"]
+        setKeyEquivalentModifierMask:NSEventModifierFlagControl | NSEventModifierFlagCommand];
+    [viewMenu release];
 
     NSMenuItem* windowMenuItem =
         [bar addItemWithTitle:@""
@@ -343,12 +365,6 @@ cocoa_create_global_menu(void) {
     [windowMenu addItemWithTitle:@"Bring All to Front"
                           action:@selector(arrangeInFront:)
                    keyEquivalent:@""];
-
-    [windowMenu addItem:[NSMenuItem separatorItem]];
-    [[windowMenu addItemWithTitle:@"Enter Full Screen"
-                           action:@selector(toggleFullScreen:)
-                    keyEquivalent:@"f"]
-     setKeyEquivalentModifierMask:NSEventModifierFlagControl | NSEventModifierFlagCommand];
     [NSApp setWindowsMenu:windowMenu];
     [windowMenu release];
 
