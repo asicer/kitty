@@ -83,6 +83,11 @@ find_app_name(void) {
     set_cocoa_pending_action(NEW_OS_WINDOW, NULL);
 }
 
+- (void)paste:(id)sender {
+    (void)sender;
+    set_cocoa_pending_action(PASTE, NULL);
+}
+
 - (void)open_kitty_website_url:(id)sender {
     (void)sender;
     [[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:@"https://sw.kovidgoyal.net/kitty/"]];
@@ -104,6 +109,8 @@ find_app_name(void) {
 
 static char* new_window_key = NULL;
 static NSEventModifierFlags new_window_mods = 0;
+static char* paste_key = NULL;
+static NSEventModifierFlags paste_mods = 0;
 
 static PyObject*
 cocoa_set_new_window_trigger(PyObject *self UNUSED, PyObject *args) {
@@ -113,6 +120,17 @@ cocoa_set_new_window_trigger(PyObject *self UNUSED, PyObject *args) {
     get_cocoa_key_equivalent(key, mods, &new_window_key, &nwm);
     new_window_mods = nwm;
     if (new_window_key) Py_RETURN_TRUE;
+    Py_RETURN_FALSE;
+}
+
+static PyObject*
+cocoa_set_paste_from_clipboard_trigger(PyObject *self UNUSED, PyObject *args) {
+    int mods, key;
+    if (!PyArg_ParseTuple(args, "ii", &mods, &key)) return NULL;
+    int m;
+    get_cocoa_key_equivalent(key, mods, &paste_key, &m);
+    paste_mods = m;
+    if (paste_key) Py_RETURN_TRUE;
     Py_RETURN_FALSE;
 }
 
@@ -291,6 +309,22 @@ cocoa_create_global_menu(void) {
                        action:@selector(terminate:)
                 keyEquivalent:@"q"];
     [appMenu release];
+
+    NSMenuItem* editMenuItem =
+        [bar addItemWithTitle:@"Edit"
+                       action:NULL
+                keyEquivalent:@""];
+    NSMenu* editMenu = [[NSMenu alloc] initWithTitle:@"Edit"];
+    [editMenuItem setSubmenu:editMenu];
+
+    NSMenuItem* paste_menu_item =
+        [editMenu addItemWithTitle:@"Paste"
+                            action:@selector(paste:)
+                     keyEquivalent:paste_key ? @(paste_key) : @""];
+    [paste_menu_item setKeyEquivalentModifierMask:paste_mods];
+    [paste_menu_item setTarget:global_menu_target];
+
+    [editMenu release];
 
     NSMenuItem* windowMenuItem =
         [bar addItemWithTitle:@""
@@ -488,6 +522,8 @@ cleanup() {
     notification_activated_callback = NULL;
     free(new_window_key);
     new_window_key = NULL;
+    free(paste_key);
+    paste_key = NULL;
 
     } // autoreleasepool
 }
@@ -506,6 +542,7 @@ cocoa_hide_window_title(void *w)
 static PyMethodDef module_methods[] = {
     {"cocoa_get_lang", (PyCFunction)cocoa_get_lang, METH_NOARGS, ""},
     {"cocoa_set_new_window_trigger", (PyCFunction)cocoa_set_new_window_trigger, METH_VARARGS, ""},
+    {"cocoa_set_paste_from_clipboard_trigger", (PyCFunction)cocoa_set_paste_from_clipboard_trigger, METH_VARARGS, ""},
     {"cocoa_send_notification", (PyCFunction)cocoa_send_notification, METH_VARARGS, ""},
     {"cocoa_set_notification_activated_callback", (PyCFunction)set_notification_activated_callback, METH_O, ""},
     {NULL, NULL, 0, NULL}        /* Sentinel */

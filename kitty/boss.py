@@ -105,7 +105,7 @@ class DumpCommands:  # {{{
 
 class Boss:
 
-    def __init__(self, os_window_id, opts, args, cached_values, new_os_window_trigger):
+    def __init__(self, os_window_id, opts, args, cached_values, new_os_window_trigger, paste_trigger):
         set_layout_options(opts)
         self.clipboard_buffers = {}
         self.update_check_process = None
@@ -134,6 +134,8 @@ class Boss:
         self.keymap = self.opts.keymap.copy()
         if new_os_window_trigger is not None:
             self.keymap.pop(new_os_window_trigger, None)
+        if paste_trigger is not None:
+            self.keymap.pop(paste_trigger, None)
         for startup_session in startup_sessions:
             self.add_os_window(startup_session, os_window_id=os_window_id)
             os_window_id = None

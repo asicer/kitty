@@ -112,8 +112,26 @@ def get_new_os_window_trigger(opts):
     return new_os_window_trigger
 
 
+def get_paste_from_clipboard_trigger(opts):
+    paste_from_clipboard_trigger = None
+    if is_macos:
+        paste_from_clipboard_shortcuts = []
+        for k, v in opts.keymap.items():
+            if v.func == 'paste_from_clipboard':
+                paste_from_clipboard_shortcuts.append(k)
+        if paste_from_clipboard_shortcuts:
+            from .fast_data_types import cocoa_set_paste_from_clipboard_trigger
+            # Reverse list so that later defined keyboard shortcuts take priority over earlier defined ones
+            for candidate in reversed(paste_from_clipboard_shortcuts):
+                if cocoa_set_paste_from_clipboard_trigger(candidate[0], candidate[2]):
+                    paste_from_clipboard_trigger = candidate
+                    break
+    return paste_from_clipboard_trigger
+
+
 def _run_app(opts, args, bad_lines=()):
     new_os_window_trigger = get_new_os_window_trigger(opts)
+    paste_from_clipboard_trigger = get_paste_from_clipboard_trigger(opts)
     if is_macos and opts.macos_custom_beam_cursor:
         set_custom_ibeam_cursor()
     if not is_wayland() and not is_macos:  # no window icons on wayland
@@ -127,7 +145,7 @@ def _run_app(opts, args, bad_lines=()):
                     pre_show_callback,
                     appname, args.name or args.cls or appname,
                     args.cls or appname, load_all_shaders)
-        boss = Boss(window_id, opts, args, cached_values, new_os_window_trigger)
+        boss = Boss(window_id, opts, args, cached_values, new_os_window_trigger, paste_from_clipboard_trigger)
         boss.start()
         if bad_lines:
             boss.show_bad_config_lines(bad_lines)
