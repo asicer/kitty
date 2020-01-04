@@ -259,7 +259,7 @@ cocoa_create_global_menu(void) {
                     setTarget:global_menu_target];
 
     NSMenuItem* new_os_window_menu_item =
-        [appMenu addItemWithTitle:@"New OS window"
+        [appMenu addItemWithTitle:@"New window"
                            action:@selector(new_os_window:)
                     keyEquivalent:new_window_key ? @(new_window_key) : @""];
     [new_os_window_menu_item setKeyEquivalentModifierMask:new_window_mods];
