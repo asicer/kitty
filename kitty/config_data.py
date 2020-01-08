@@ -276,6 +276,45 @@ or by defining shortcuts for it in kitty.conf, for example::
     map alt+1 disable_ligatures_in active always
     map alt+2 disable_ligatures_in all never
     map alt+3 disable_ligatures_in tab cursor
+
+'''))
+
+o('font_features', 'none', long_text=_('''
+Choose exactly which OpenType features to enable or disable. This is useful as
+some fonts might have features worthwhile in a terminal. For example, Fira
+Code Retina includes a discretionary feature, :code:`zero`, which in that font
+changes the appearance of the zero (0), to make it more easily distinguishable
+from Ø. Fira Code Retina also includes other discretionary features known as
+Stylistic Sets which have the tags :code:`ss01` through :code:`ss20`.
+
+Note that this code is indexed by PostScript name, and not the font
+family. This allows you to define very precise feature settings; e.g. you can
+disable a feature in the italic font but not in the regular font.
+
+To get the PostScript name for a font, use :code:`kitty + list-fonts --psnames`::
+
+    $ kitty + list-fonts --psnames | grep Fira
+    Fira Code
+    Fira Code Bold (FiraCode-Bold)
+    Fira Code Light (FiraCode-Light)
+    Fira Code Medium (FiraCode-Medium)
+    Fira Code Regular (FiraCode-Regular)
+    Fira Code Retina (FiraCode-Retina)
+
+The part in brackets is the PostScript name.
+
+Enable alternate zero and oldstyle numerals::
+
+    font_features FiraCode-Retina +zero +onum
+
+Enable only alternate zero::
+
+    font_features FiraCode-Retina +zero
+
+Disable the normal ligatures, but keep the :code:`calt` feature which (in this
+font) breaks up monotony::
+
+    font_features TT2020StyleB-Regular -liga +calt
 '''))
 
 
@@ -647,6 +686,13 @@ A value of :code:`static` means draw the current window contents, mostly unchang
 A value of :code:`scale` means draw the current window contents scaled.
 A value of :code:`blank` means draw a blank window.
 A value of :code:`size` means show the window size in cells.
+'''))
+
+o('resize_in_steps', False, long_text=_('''
+Resize the OS window in steps as large as the cells, instead of with the usual pixel accuracy.
+Combined with an :opt:`initial_window_width` and :opt:`initial_window_height` in number of cells,
+this option can be used to keep the margins as small as possible when resizing the OS window.
+Note that this does not currently work on Wayland.
 '''))
 
 # }}}
