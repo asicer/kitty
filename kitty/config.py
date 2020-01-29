@@ -241,6 +241,58 @@ def disable_ligatures_in(func, rest):
     return func, [where, strategy]
 
 
+def parse_marker_spec(ftype, parts):
+    flags = re.UNICODE
+    if ftype in ('text', 'itext', 'regex', 'iregex'):
+        if ftype.startswith('i'):
+            flags |= re.IGNORECASE
+        if not parts or len(parts) % 2 != 0:
+            raise ValueError('No color specified in marker: {}'.format(' '.join(parts)))
+        ans = []
+        for i in range(0, len(parts), 2):
+            try:
+                color = max(1, min(int(parts[i]), 3))
+            except Exception:
+                raise ValueError('color {} in marker specification is not an integer'.format(parts[i]))
+            spec = parts[i + 1]
+            if 'regex' not in ftype:
+                spec = re.escape(spec)
+            ans.append((color, spec))
+        ftype = 'regex'
+        spec = tuple(ans)
+    elif ftype == 'function':
+        spec = ' '.join(parts)
+    else:
+        raise ValueError('Unknown marker type: {}'.format(ftype))
+    return ftype, spec, flags
+
+
+@func_with_args('toggle_marker')
+def toggle_marker(func, rest):
+    parts = rest.split(maxsplit=1)
+    if len(parts) != 2:
+        raise ValueError('{} if not a valid marker specification'.format(rest))
+    ftype, spec = parts
+    parts = spec.split()
+    return func, list(parse_marker_spec(ftype, parts))
+
+
+@func_with_args('scroll_to_mark')
+def scroll_to_mark(func, rest):
+    parts = rest.split()
+    if not parts or not rest:
+        return func, [True, 0]
+    if len(parts) == 1:
+        q = parts[0].lower()
+        if q in ('prev', 'previous', 'next'):
+            return func, [q != 'next', 0]
+        try:
+            return func, [True, max(0, min(int(q), 3))]
+        except Exception:
+            raise ValueError('{} is not a valid scroll_to_mark destination'.format(rest))
+    return func, [parts[0] != 'next', max(0, min(int(parts[1]), 3))]
+
+
 def parse_key_action(action):
     parts = action.strip().split(maxsplit=1)
     func = parts[0]
@@ -251,8 +303,8 @@ def parse_key_action(action):
     if parser is not None:
         try:
             func, args = parser(func, rest)
-        except Exception:
-            log_error('Ignoring invalid key action: {}'.format(action))
+        except Exception as err:
+            log_error('Ignoring invalid key action: {} with err: {}'.format(action, err))
         else:
             return KeyAction(func, args)
 

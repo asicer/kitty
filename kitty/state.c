@@ -255,6 +255,7 @@ destroy_os_window_item(OSWindow *w) {
     }
     Py_CLEAR(w->window_title); Py_CLEAR(w->tab_bar_render_data.screen);
     if (w->offscreen_texture_id) free_texture(&w->offscreen_texture_id);
+    if (w->offscreen_framebuffer) free_framebuffer(&w->offscreen_framebuffer);
     remove_vao(w->tab_bar_render_data.vao_idx);
     remove_vao(w->gvao_idx);
     free(w->tabs); w->tabs = NULL;
@@ -476,7 +477,7 @@ PYWRAP1(set_options) {
 #define SS(name, dest, convert) { GA(name); dest = convert(ret); Py_DECREF(ret); if (PyErr_Occurred()) return NULL; }
 #define S(name, convert) SS(name, OPT(name), convert)
     SS(kitty_mod, kitty_mod, PyLong_AsLong);
-    S(hide_window_decorations, PyObject_IsTrue);
+    S(hide_window_decorations, PyLong_AsUnsignedLong);
     S(visual_bell_duration, parse_s_double_to_monotonic_t);
     S(enable_audio_bell, PyObject_IsTrue);
     S(focus_follows_mouse, PyObject_IsTrue);
@@ -499,6 +500,12 @@ PYWRAP1(set_options) {
     S(terminal_select_modifiers, convert_mods);
     S(click_interval, parse_s_double_to_monotonic_t);
     S(resize_debounce_time, parse_s_double_to_monotonic_t);
+    S(mark1_foreground, color_as_int);
+    S(mark1_background, color_as_int);
+    S(mark2_foreground, color_as_int);
+    S(mark2_background, color_as_int);
+    S(mark3_foreground, color_as_int);
+    S(mark3_background, color_as_int);
     S(url_color, color_as_int);
     S(background, color_as_int);
     S(foreground, color_as_int);
@@ -521,6 +528,7 @@ PYWRAP1(set_options) {
     S(macos_thicken_font, PyFloat_AsFloat);
     S(tab_bar_min_tabs, PyLong_AsUnsignedLong);
     S(disable_ligatures, PyLong_AsLong);
+    S(force_ltr, PyObject_IsTrue);
     S(resize_draw_strategy, PyLong_AsLong);
     S(resize_in_steps, PyObject_IsTrue);
     S(pointer_shape_when_grabbed, pointer_shape);
@@ -809,6 +817,8 @@ PYWRAP1(patch_global_colors) {
     P(active_border_color); P(inactive_border_color); P(bell_border_color);
     if (configured) {
         P(background); P(url_color);
+        P(mark1_background); P(mark1_foreground); P(mark2_background); P(mark2_foreground);
+        P(mark3_background); P(mark3_foreground);
     }
     if (PyErr_Occurred()) return NULL;
     Py_RETURN_NONE;

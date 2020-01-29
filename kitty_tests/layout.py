@@ -2,10 +2,12 @@
 # vim:fileencoding=utf-8
 # License: GPL v3 Copyright: 2018, Kovid Goyal <kovid at kovidgoyal.net>
 
-from . import BaseTest
 from kitty.config import defaults
-from kitty.layout import Stack, Horizontal, idx_for_id
 from kitty.fast_data_types import pt_to_px
+from kitty.layout import Horizontal, Stack, Tall, Grid, idx_for_id
+from kitty.constants import WindowGeometry
+
+from . import BaseTest
 
 
 class Window:
@@ -15,6 +17,7 @@ class Window:
         self.overlay_for = overlay_for
         self.overlay_window_id = overlay_window_id
         self.is_visible_in_layout = True
+        self.geometry = WindowGeometry(0, 0, 0, 0, 0, 0)
 
     def set_visible_in_layout(self, idx, val):
         self.is_visible_in_layout = bool(val)
@@ -172,11 +175,11 @@ class TestLayout(BaseTest):
         check_visible()
 
     def test_layout_operations(self):
-        for layout_class in Stack, Horizontal:
+        for layout_class in (Stack, Horizontal, Tall, Grid):
             q = create_layout(layout_class)
             self.do_ops_test(q)
 
     def test_overlay_layout_operations(self):
-        for layout_class in Stack, Horizontal:
+        for layout_class in (Stack, Horizontal, Tall, Grid):
             q = create_layout(layout_class)
             self.do_overlay_test(q)

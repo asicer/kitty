@@ -263,7 +263,7 @@ class Tab:  # {{{
     def new_window(
         self, use_shell=True, cmd=None, stdin=None, override_title=None,
         cwd_from=None, cwd=None, overlay_for=None, env=None, location=None,
-        copy_colors_from=None, allow_remote_control=False
+        copy_colors_from=None, allow_remote_control=False, marker=None
     ):
         child = self.launch_child(
             use_shell=use_shell, cmd=cmd, stdin=stdin, cwd_from=cwd_from, cwd=cwd, env=env, allow_remote_control=allow_remote_control)
@@ -275,6 +275,12 @@ class Tab:  # {{{
         # Must add child before laying out so that resize_pty succeeds
         get_boss().add_child(window)
         self._add_window(window, location=location)
+        if marker:
+            try:
+                window.set_marker(marker)
+            except Exception:
+                import traceback
+                traceback.print_exc()
         return window
 
     def new_special_window(self, special_window, location=None, copy_colors_from=None, allow_remote_control=False):
@@ -554,9 +560,11 @@ class TabManager:  # {{{
             self.set_active_tab_idx((self.active_tab_idx + len(self.tabs) + delta) % len(self.tabs))
 
     def goto_tab(self, tab_num):
-        if 0 <= tab_num < len(self.tabs):
+        if tab_num >= len(self.tabs):
+            tab_num = max(0, len(self.tabs) - 1)
+        if tab_num >= 0:
             self.set_active_tab_idx(tab_num)
-        elif tab_num < 0:
+        else:
             try:
                 old_active_tab_id = self.active_tab_history[tab_num]
             except IndexError:
@@ -609,17 +617,26 @@ class TabManager:  # {{{
             self._set_active_tab(nidx)
             self.mark_tab_bar_dirty()
 
-    def new_tab(self, special_window=None, cwd_from=None, as_neighbor=False, empty_tab=False):
-        nidx = self.active_tab_idx + 1
+    def new_tab(self, special_window=None, cwd_from=None, as_neighbor=False, empty_tab=False, location='last'):
         idx = len(self.tabs)
+        orig_active_tab_idx = self.active_tab_idx
         self._add_tab(Tab(self, no_initial_window=True) if empty_tab else Tab(self, special_window=special_window, cwd_from=cwd_from))
         self._set_active_tab(idx)
-        if len(self.tabs) > 2 and as_neighbor and idx != nidx:
-            for i in range(idx, nidx, -1):
-                self.tabs[i], self.tabs[i-1] = self.tabs[i-1], self.tabs[i]
-                swap_tabs(self.os_window_id, i, i-1)
-            self._set_active_tab(nidx)
-            idx = nidx
+        if as_neighbor:
+            location = 'after'
+        if location == 'neighbor':
+            location = 'after'
+        if len(self.tabs) > 1 and location != 'last':
+            if location == 'first':
+                desired_idx = 0
+            else:
+                desired_idx = orig_active_tab_idx + (0 if location == 'before' else 1)
+            if idx != desired_idx:
+                for i in range(idx, desired_idx, -1):
+                    self.tabs[i], self.tabs[i-1] = self.tabs[i-1], self.tabs[i]
+                    swap_tabs(self.os_window_id, i, i-1)
+                self._set_active_tab(desired_idx)
+                idx = desired_idx
         self.mark_tab_bar_dirty()
         return self.tabs[idx]
 

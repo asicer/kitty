@@ -144,7 +144,8 @@ For example::
             _('Tab management'), '',
             _('''\
 You can also create shortcuts to go to specific tabs, with 1 being the first
-tab, 2 the second tab and -1 being the previously active tab::
+tab, 2 the second tab and -1 being the previously active tab, and any number
+larger than the last tab being the last tab::
 
     map ctrl+alt+1 goto_tab 1
     map ctrl+alt+2 goto_tab 2
@@ -222,6 +223,23 @@ def to_font_size(x):
 
 
 o('font_size', 11.0, long_text=_('Font size (in pts)'), option_type=to_font_size)
+
+o('force_ltr', False, long_text=_("""
+kitty does not support BIDI (bidirectional text), however, for RTL scripts,
+words are automatically displayed in RTL. That is
+to say, in an RTL script, the words "HELLO WORLD" display in kitty as "WORLD
+HELLO", and if you try to select a substring of an RTL-shaped string, you will
+get the character that would be there had the the string been LTR. For example,
+assuming the Hebrew word ירושלים, selecting the character that on the screen
+appears to be ם actually writes into the selection buffer the character י.
+
+kitty's default behavior is useful in conjunction with a filter to reverse the
+word order, however, if you wish to manipulate RTL glyphs, it can be very
+challenging to work with, so this option is provided to turn it off.
+Furthermore, this option can be used with the command line program
+:link:`GNU FriBidi <https://github.com/fribidi/fribidi#executable>` to get BIDI
+support, because it will force kitty to always treat the text as LTR, which
+FriBidi expects for terminals."""))
 
 
 def adjust_line_height(x):
@@ -315,6 +333,12 @@ Disable the normal ligatures, but keep the :code:`calt` feature which (in this
 font) breaks up monotony::
 
     font_features TT2020StyleB-Regular -liga +calt
+
+In conjunction with :opt:`force_ltr`, you may want to disable Arabic shaping
+entirely, and only look at their isolated forms if they show up in a document.
+You can do this with e.g.::
+
+    font_features UnifontMedium +isol -medi -fina -init
 '''))
 
 
@@ -608,7 +632,8 @@ def to_layout_names(raw):
 o('enabled_layouts', '*', option_type=to_layout_names, long_text=_('''
 The enabled window layouts. A comma separated list of layout names. The special
 value :code:`all` means all layouts. The first listed layout will be used as the
-startup layout. For a list of available layouts, see the :ref:`layouts`.
+startup layout. Default configuration is all layouts in alphabetical order.
+For a list of available layouts, see the :ref:`layouts`.
 '''))
 
 o('window_resize_step_cells', 2, option_type=positive_int, long_text=_('''
@@ -662,8 +687,18 @@ Fade the text in inactive windows by the specified amount (a number between
 zero and one, with zero being fully faded).
 '''))
 
-o('hide_window_decorations', False, long_text=_('''
-Hide the window decorations (title-bar and window borders).
+
+def hide_window_decorations(x):
+    if x == 'titlebar-only':
+        return 0b10
+    if to_bool(x):
+        return 0b01
+    return 0b00
+
+
+o('hide_window_decorations', 'no', option_type=hide_window_decorations, long_text=_('''
+Hide the window decorations (title-bar and window borders) with :code:`yes`.
+On macOS, :code:`titlebar-only` can be used to only hide the titlebar.
 Whether this works and exactly what effect it has depends on the
 window manager/operating system.
 '''))
@@ -857,6 +892,12 @@ o('color14', '#14ffff', option_type=to_color)
 o('color7', '#dddddd', long_text=_('white'), option_type=to_color)
 o('color15', '#ffffff', option_type=to_color)
 
+o('mark1_foreground', 'black', long_text=_('Color for marks of type 1'), option_type=to_color)
+o('mark1_background', '#98d3cb', long_text=_('Color for marks of type 1 (light steel blue)'), option_type=to_color)
+o('mark2_foreground', 'black', long_text=_('Color for marks of type 2'), option_type=to_color)
+o('mark2_background', '#f2dcd3', long_text=_('Color for marks of type 1 (beige)'), option_type=to_color)
+o('mark3_foreground', 'black', long_text=_('Color for marks of type 3'), option_type=to_color)
+o('mark3_background', '#f274bc', long_text=_('Color for marks of type 1 (violet)'), option_type=to_color)
 dfctl = defines.default_color_table()
 for i in range(16, 256):
     o('color{}'.format(i), color_as_sharp(color_from_int(dfctl[i])), option_type=to_color, add_to_docs=False)
@@ -1273,6 +1314,11 @@ Select words and insert into terminal.'''))
 k('insert_selected_hash', 'kitty_mod+p>h', 'kitten hints --type hash --program -', _('Insert selected hash'), long_text=_('''
 Select something that looks like a hash and insert it into the terminal.
 Useful with git, which uses sha1 hashes to identify commits'''))
+
+k('goto_file_line', 'kitty_mod+p>n', 'kitten hints --type linenum', _('Open the selected file at the selected line'), long_text=_('''
+Select something that looks like :code:`filename:linenum` and open it in vim at
+the specified line number.'''))
+
 
 # }}}
 

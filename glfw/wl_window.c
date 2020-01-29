@@ -755,6 +755,13 @@ abortOnFatalError(int last_error) {
 }
 
 static void
+wayland_read_events(int poll_result, int events, void *data UNUSED) {
+    EVDBG("wayland_read_events poll_result: %d events: %d", poll_result, events);
+    if (poll_result > 0 && events) wl_display_read_events(_glfw.wl.display);
+    else wl_display_cancel_read(_glfw.wl.display);
+}
+
+static void
 handleEvents(monotonic_t timeout)
 {
     struct wl_display* display = _glfw.wl.display;
@@ -762,17 +769,9 @@ handleEvents(monotonic_t timeout)
     EVDBG("starting handleEvents(%.2f)", monotonic_t_to_s_double(timeout));
 
     while (wl_display_prepare_read(display) != 0) {
-        while(1) {
-            errno = 0;
-            int num_dispatched = wl_display_dispatch_pending(display);
-            if (num_dispatched < 0) {
-                if (errno == EAGAIN) continue;
-                int last_error = wl_display_get_error(display);
-                if (last_error) abortOnFatalError(last_error);
-                wl_display_cancel_read(display);
-                return;
-            }
-            break;
+        if (wl_display_dispatch_pending(display) == -1) {
+            abortOnFatalError(errno);
+            return;
         }
     }
 
@@ -782,22 +781,21 @@ handleEvents(monotonic_t timeout)
     errno = 0;
     if (wl_display_flush(display) < 0 && errno != EAGAIN)
     {
-        abortOnFatalError(errno);
         wl_display_cancel_read(display);
+        abortOnFatalError(errno);
         return;
     }
 
-    bool display_read_ok = pollForEvents(&_glfw.wl.eventLoopData, timeout);
+    // we pass in wayland_read_events to ensure that the above wl_display_prepare_read call
+    // is followed by either wl_display_cancel_read or wl_display_read_events
+    // before any events/timers are dispatched. This allows other wayland functions
+    // to be called in the event/timer handlers without causing a deadlock
+    bool display_read_ok = pollForEvents(&_glfw.wl.eventLoopData, timeout, wayland_read_events);
     EVDBG("display_read_ok: %d", display_read_ok);
     if (display_read_ok) {
-        wl_display_read_events(display);
         int num = wl_display_dispatch_pending(display);
         (void)num;
         EVDBG("dispatched %d Wayland events", num);
-    }
-    else
-    {
-        wl_display_cancel_read(display);
     }
     glfw_ibus_dispatch(&_glfw.wl.xkb.ibus);
     glfw_dbus_session_bus_dispatch();
@@ -960,8 +958,13 @@ void _glfwPlatformSetWindowTitle(_GLFWwindow* window, const char* title)
     if (window->wl.title)
         free(window->wl.title);
     window->wl.title = _glfw_strdup(title);
+    // Wayland cannot handle requests larger than ~8200 bytes. Sending
+    // on causes an abort(). Since titles this large are meaningless anyway
+    // ensure they do not happen. One should really truncate ensuring valid UTF-8
+    // but I cant be bothered.
+    if (title && strnlen(title, 2048) >= 2048) window->wl.title[2048] = 0;
     if (window->wl.xdg.toplevel)
-        xdg_toplevel_set_title(window->wl.xdg.toplevel, title);
+        xdg_toplevel_set_title(window->wl.xdg.toplevel, window->wl.title);
 }
 
 void _glfwPlatformSetWindowIcon(_GLFWwindow* window UNUSED,

@@ -150,10 +150,10 @@ send_image_to_gpu(GLuint *tex_id, const void* data, GLsizei width, GLsizei heigh
 typedef struct {
     UniformBlock render_data;
     ArrayInformation color_table;
+    GLint draw_bg_bitfield_location;
 } CellProgramLayout;
 
 static CellProgramLayout cell_program_layouts[NUM_PROGRAMS];
-static GLuint offscreen_framebuffer = 0;
 static ssize_t blit_vertex_array;
 
 static void
@@ -165,13 +165,13 @@ init_cell_program(void) {
         cell_program_layouts[i].color_table.offset = get_uniform_information(i, "color_table[0]", GL_UNIFORM_OFFSET);
         cell_program_layouts[i].color_table.stride = get_uniform_information(i, "color_table[0]", GL_UNIFORM_ARRAY_STRIDE);
     }
+    cell_program_layouts[CELL_BG_PROGRAM].draw_bg_bitfield_location = get_uniform_location(CELL_BG_PROGRAM, "draw_bg_bitfield");
     // Sanity check to ensure the attribute location binding worked
 #define C(p, name, expected) { int aloc = attrib_location(p, #name); if (aloc != expected && aloc != -1) fatal("The attribute location for %s is %d != %d in program: %d", #name, aloc, expected, p); }
     for (int p = CELL_PROGRAM; p < BORDERS_PROGRAM; p++) {
         C(p, colors, 0); C(p, sprite_coords, 1); C(p, is_selected, 2);
     }
 #undef C
-    glGenFramebuffers(1, &offscreen_framebuffer);
     blit_vertex_array = create_vao();
 }
 
@@ -390,12 +390,23 @@ draw_cells_simple(ssize_t vao_idx, ssize_t gvao_idx, Screen *screen) {
 
 static void
 draw_cells_interleaved(ssize_t vao_idx, ssize_t gvao_idx, Screen *screen) {
-    bind_program(CELL_BG_PROGRAM);
-    glDrawArraysInstanced(GL_TRIANGLE_FAN, 0, 4, screen->lines * screen->columns);
     glEnable(GL_BLEND);
     BLEND_ONTO_OPAQUE;
 
-    if (screen->grman->num_of_negative_refs) draw_graphics(GRAPHICS_PROGRAM, vao_idx, gvao_idx, screen->grman->render_data, 0, screen->grman->num_of_negative_refs);
+    bind_program(CELL_BG_PROGRAM);
+    // draw background for all cells
+    glUniform1ui(cell_program_layouts[CELL_BG_PROGRAM].draw_bg_bitfield_location, 3);
+    glDrawArraysInstanced(GL_TRIANGLE_FAN, 0, 4, screen->lines * screen->columns);
+
+    if (screen->grman->num_of_below_refs) {
+        draw_graphics(GRAPHICS_PROGRAM, vao_idx, gvao_idx, screen->grman->render_data, 0, screen->grman->num_of_below_refs);
+        bind_program(CELL_BG_PROGRAM);
+        // draw background for non-default bg cells
+        glUniform1ui(cell_program_layouts[CELL_BG_PROGRAM].draw_bg_bitfield_location, 2);
+        glDrawArraysInstanced(GL_TRIANGLE_FAN, 0, 4, screen->lines * screen->columns);
+    }
+
+    if (screen->grman->num_of_negative_refs) draw_graphics(GRAPHICS_PROGRAM, vao_idx, gvao_idx, screen->grman->render_data, screen->grman->num_of_below_refs, screen->grman->num_of_negative_refs);
 
     bind_program(CELL_SPECIAL_PROGRAM);
     glDrawArraysInstanced(GL_TRIANGLE_FAN, 0, 4, screen->lines * screen->columns);
@@ -403,7 +414,7 @@ draw_cells_interleaved(ssize_t vao_idx, ssize_t gvao_idx, Screen *screen) {
     bind_program(CELL_FG_PROGRAM);
     glDrawArraysInstanced(GL_TRIANGLE_FAN, 0, 4, screen->lines * screen->columns);
 
-    if (screen->grman->num_of_positive_refs) draw_graphics(GRAPHICS_PROGRAM, vao_idx, gvao_idx, screen->grman->render_data, screen->grman->num_of_negative_refs, screen->grman->num_of_positive_refs);
+    if (screen->grman->num_of_positive_refs) draw_graphics(GRAPHICS_PROGRAM, vao_idx, gvao_idx, screen->grman->render_data, screen->grman->num_of_negative_refs + screen->grman->num_of_below_refs, screen->grman->num_of_positive_refs);
 
     glDisable(GL_BLEND);
 }
@@ -411,6 +422,7 @@ draw_cells_interleaved(ssize_t vao_idx, ssize_t gvao_idx, Screen *screen) {
 static void
 draw_cells_interleaved_premult(ssize_t vao_idx, ssize_t gvao_idx, Screen *screen, OSWindow *os_window) {
     if (!os_window->offscreen_texture_id) {
+        glGenFramebuffers(1, &os_window->offscreen_framebuffer);
         glGenTextures(1, &os_window->offscreen_texture_id);
         glBindTexture(GL_TEXTURE_2D, os_window->offscreen_texture_id);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, os_window->viewport_width, os_window->viewport_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
@@ -420,16 +432,34 @@ draw_cells_interleaved_premult(ssize_t vao_idx, ssize_t gvao_idx, Screen *screen
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     }
     glBindTexture(GL_TEXTURE_2D, 0);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, offscreen_framebuffer);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, os_window->offscreen_framebuffer);
     glFramebufferTexture(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, os_window->offscreen_texture_id, 0);
     /* if (glCheckFramebufferStatus(GL_DRAW_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) fatal("Offscreen framebuffer not complete"); */
-
     bind_program(CELL_BG_PROGRAM);
+    // draw background for all cells
+    glUniform1ui(cell_program_layouts[CELL_BG_PROGRAM].draw_bg_bitfield_location, 3);
     glDrawArraysInstanced(GL_TRIANGLE_FAN, 0, 4, screen->lines * screen->columns);
     glEnable(GL_BLEND);
     BLEND_PREMULT;
 
-    if (screen->grman->num_of_negative_refs) draw_graphics(GRAPHICS_PREMULT_PROGRAM, vao_idx, gvao_idx, screen->grman->render_data, 0, screen->grman->num_of_negative_refs);
+    if (screen->grman->num_of_below_refs) {
+        draw_graphics(GRAPHICS_PREMULT_PROGRAM, vao_idx, gvao_idx, screen->grman->render_data, 0, screen->grman->num_of_below_refs);
+        bind_program(CELL_BG_PROGRAM);
+        // Draw background for non-default bg cells
+        glUniform1ui(cell_program_layouts[CELL_BG_PROGRAM].draw_bg_bitfield_location, 2);
+        glDrawArraysInstanced(GL_TRIANGLE_FAN, 0, 4, screen->lines * screen->columns);
+    } else {
+        // Apply background_opacity
+        glUniform1ui(cell_program_layouts[CELL_BG_PROGRAM].draw_bg_bitfield_location, 0);
+        glDrawArraysInstanced(GL_TRIANGLE_FAN, 0, 4, screen->lines * screen->columns);
+    }
+
+    bind_program(CELL_BG_PROGRAM);
+    glDrawArraysInstanced(GL_TRIANGLE_FAN, 0, 4, screen->lines * screen->columns);
+
+    if (screen->grman->num_of_negative_refs) {
+        draw_graphics(GRAPHICS_PREMULT_PROGRAM, vao_idx, gvao_idx, screen->grman->render_data, screen->grman->num_of_below_refs, screen->grman->num_of_negative_refs);
+    }
 
     bind_program(CELL_SPECIAL_PROGRAM);
     glDrawArraysInstanced(GL_TRIANGLE_FAN, 0, 4, screen->lines * screen->columns);
@@ -437,7 +467,7 @@ draw_cells_interleaved_premult(ssize_t vao_idx, ssize_t gvao_idx, Screen *screen
     bind_program(CELL_FG_PROGRAM);
     glDrawArraysInstanced(GL_TRIANGLE_FAN, 0, 4, screen->lines * screen->columns);
 
-    if (screen->grman->num_of_positive_refs) draw_graphics(GRAPHICS_PREMULT_PROGRAM, vao_idx, gvao_idx, screen->grman->render_data, screen->grman->num_of_negative_refs, screen->grman->num_of_positive_refs);
+    if (screen->grman->num_of_positive_refs) draw_graphics(GRAPHICS_PREMULT_PROGRAM, vao_idx, gvao_idx, screen->grman->render_data, screen->grman->num_of_negative_refs + screen->grman->num_of_below_refs, screen->grman->num_of_positive_refs);
 
     glDisable(GL_BLEND);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
@@ -469,6 +499,7 @@ set_cell_uniforms(float current_inactive_text_alpha, bool force) {
         S(GRAPHICS_PREMULT_PROGRAM, image, GRAPHICS_UNIT, 1i);
         S(CELL_PROGRAM, sprites, SPRITE_MAP_UNIT, 1i); S(CELL_FG_PROGRAM, sprites, SPRITE_MAP_UNIT, 1i);
         S(CELL_PROGRAM, dim_opacity, OPT(dim_opacity), 1f); S(CELL_FG_PROGRAM, dim_opacity, OPT(dim_opacity), 1f);
+        S(CELL_BG_PROGRAM, defaultbg, OPT(background), 1f);
 #undef S
         cell_uniform_data.constants_set = true;
     }
@@ -530,7 +561,7 @@ draw_cells(ssize_t vao_idx, ssize_t gvao_idx, GLfloat xstart, GLfloat ystart, GL
         if (screen->grman->count) draw_cells_interleaved_premult(vao_idx, gvao_idx, screen, os_window);
         else draw_cells_simple(vao_idx, gvao_idx, screen);
     } else {
-        if (screen->grman->num_of_negative_refs) draw_cells_interleaved(vao_idx, gvao_idx, screen);
+        if (screen->grman->num_of_negative_refs || screen->grman->num_of_below_refs) draw_cells_interleaved(vao_idx, gvao_idx, screen);
         else draw_cells_simple(vao_idx, gvao_idx, screen);
     }
 }

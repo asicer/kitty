@@ -58,9 +58,9 @@ static PyObject*
 redirect_std_streams(PyObject UNUSED *self, PyObject *args) {
     char *devnull = NULL;
     if (!PyArg_ParseTuple(args, "s", &devnull)) return NULL;
-    if (freopen(devnull, "r", stdin) == NULL) return PyErr_SetFromErrno(PyExc_EnvironmentError);
-    if (freopen(devnull, "w", stdout) == NULL) return PyErr_SetFromErrno(PyExc_EnvironmentError);
-    if (freopen(devnull, "w", stderr) == NULL)  return PyErr_SetFromErrno(PyExc_EnvironmentError);
+    if (freopen(devnull, "r", stdin) == NULL) return PyErr_SetFromErrno(PyExc_OSError);
+    if (freopen(devnull, "w", stdout) == NULL) return PyErr_SetFromErrno(PyExc_OSError);
+    if (freopen(devnull, "w", stderr) == NULL)  return PyErr_SetFromErrno(PyExc_OSError);
     Py_RETURN_NONE;
 }
 
@@ -251,6 +251,8 @@ PyInit_fast_data_types(void) {
         PyModule_AddIntConstant(m, "STRIKETHROUGH", STRIKE_SHIFT);
         PyModule_AddIntConstant(m, "DIM", DIM_SHIFT);
         PyModule_AddIntConstant(m, "DECORATION", DECORATION_SHIFT);
+        PyModule_AddIntConstant(m, "MARK", MARK_SHIFT);
+        PyModule_AddIntConstant(m, "MARK_MASK", MARK_MASK);
         PyModule_AddStringMacro(m, ERROR_PREFIX);
 #ifdef KITTY_VCS_REV
         PyModule_AddStringMacro(m, KITTY_VCS_REV);

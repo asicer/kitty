@@ -18,11 +18,11 @@ from .fast_data_types import (
     BLIT_PROGRAM, CELL_BG_PROGRAM, CELL_FG_PROGRAM, CELL_PROGRAM,
     CELL_SPECIAL_PROGRAM, CSI, DCS, DECORATION, DIM,
     GRAPHICS_ALPHA_MASK_PROGRAM, GRAPHICS_PREMULT_PROGRAM, GRAPHICS_PROGRAM,
-    OSC, REVERSE, SCROLL_FULL, SCROLL_LINE, SCROLL_PAGE, STRIKETHROUGH, Screen,
-    add_window, cell_size_for_window, compile_program, get_clipboard_string,
-    init_cell_program, set_clipboard_string, set_titlebar_color,
-    set_window_render_data, update_window_title, update_window_visibility,
-    viewport_for_window
+    MARK, MARK_MASK, OSC, REVERSE, SCROLL_FULL, SCROLL_LINE, SCROLL_PAGE,
+    STRIKETHROUGH, Screen, add_window, cell_size_for_window, compile_program,
+    get_clipboard_string, init_cell_program, set_clipboard_string,
+    set_titlebar_color, set_window_render_data, update_window_title,
+    update_window_visibility, viewport_for_window
 )
 from .keys import defines, extended_key_event, keyboard_mode_name
 from .rgb import to_color
@@ -72,6 +72,8 @@ def load_shader_programs(semi_transparent=False):
                 'STRIKE_SHIFT': STRIKETHROUGH,
                 'DIM_SHIFT': DIM,
                 'DECORATION_SHIFT': DECORATION,
+                'MARK_SHIFT': MARK,
+                'MARK_MASK': MARK_MASK,
         }.items():
             vv = vv.replace('{{{}}}'.format(gln), str(pyn), 1)
         if semi_transparent:
@@ -133,7 +135,7 @@ class Window:
 
     def __init__(self, tab, child, opts, args, override_title=None, copy_colors_from=None):
         self.action_on_close = self.action_on_removal = None
-        self.layout_data = None
+        self.current_marker_spec = None
         self.pty_resized_once = False
         self.needs_attention = False
         self.override_title = override_title
@@ -535,6 +537,12 @@ class Window:
         cmd = [x.replace('INPUT_LINE_NUMBER', str(data['input_line_number'])) for x in self.opts.scrollback_pager]
         get_boss().display_scrollback(self, data['text'], cmd)
 
+    def paste_bytes(self, text):
+        # paste raw bytes without any processing
+        if isinstance(text, str):
+            text = text.encode('utf-8')
+        self.screen.paste_bytes(text)
+
     def paste(self, text):
         if text and not self.destroyed:
             if isinstance(text, str):
@@ -597,4 +605,32 @@ class Window:
     def scroll_end(self):
         if self.screen.is_main_linebuf():
             self.screen.scroll(SCROLL_FULL, False)
+
+    def toggle_marker(self, ftype, spec, flags):
+        from .marks import marker_from_spec
+        key = ftype, spec
+        if key == self.current_marker_spec:
+            self.remove_marker()
+            return
+        self.screen.set_marker(marker_from_spec(ftype, spec, flags))
+        self.current_marker_spec = key
+
+    def set_marker(self, spec):
+        from .config import toggle_marker, parse_marker_spec
+        from .marks import marker_from_spec
+        if isinstance(spec, str):
+            func, (ftype, spec, flags) = toggle_marker('toggle_marker', spec)
+        else:
+            ftype, spec, flags = parse_marker_spec(spec[0], spec[1:])
+        key = ftype, spec
+        self.screen.set_marker(marker_from_spec(ftype, spec, flags))
+        self.current_marker_spec = key
+
+    def remove_marker(self):
+        if self.current_marker_spec is not None:
+            self.screen.set_marker()
+            self.current_marker_spec = None
+
+    def scroll_to_mark(self, prev=True, mark=0):
+        self.screen.scroll_to_next_mark(mark, prev)
     # }}}

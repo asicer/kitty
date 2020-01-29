@@ -61,7 +61,6 @@ typedef struct {
     index_type xstart, ynum, xnum;
 } OverlayLine;
 
-
 typedef struct {
     PyObject_HEAD
 
@@ -108,7 +107,7 @@ typedef struct {
         uint8_t stop_buf[32];
     } pending_mode;
     DisableLigature disable_ligatures;
-
+    PyObject *marker;
 } Screen;
 
 

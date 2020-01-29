@@ -333,14 +333,12 @@ SPECIAL_SOURCES = {
 def newer(dest, *sources):
     try:
         dtime = os.path.getmtime(dest)
-    except EnvironmentError:
+    except OSError:
         return True
     for s in sources:
-        try:
+        with suppress(FileNotFoundError):
             if os.path.getmtime(s) >= dtime:
                 return True
-        except FileNotFoundError:
-            pass
     return False
 
 

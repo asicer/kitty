@@ -115,7 +115,11 @@ new(PyTypeObject *type, PyObject *args, PyObject UNUSED *kwds) {
         self->pending_mode.wait_time = 2.0;
         self->disable_ligatures = OPT(disable_ligatures);
         self->main_tabstops = PyMem_Calloc(2 * self->columns, sizeof(bool));
-        if (self->cursor == NULL || self->main_linebuf == NULL || self->alt_linebuf == NULL || self->main_tabstops == NULL || self->historybuf == NULL || self->main_grman == NULL || self->alt_grman == NULL || self->color_profile == NULL) {
+        if (
+            self->cursor == NULL || self->main_linebuf == NULL || self->alt_linebuf == NULL ||
+            self->main_tabstops == NULL || self->historybuf == NULL || self->main_grman == NULL ||
+            self->alt_grman == NULL || self->color_profile == NULL
+        ) {
             Py_CLEAR(self); return NULL;
         }
         self->alt_tabstops = self->main_tabstops + self->columns * sizeof(bool);
@@ -278,6 +282,7 @@ dealloc(Screen* self) {
     Py_CLEAR(self->alt_linebuf);
     Py_CLEAR(self->historybuf);
     Py_CLEAR(self->color_profile);
+    Py_CLEAR(self->marker);
     PyMem_Free(self->overlay_line.cpu_cells);
     PyMem_Free(self->overlay_line.gpu_cells);
     PyMem_Free(self->main_tabstops);
@@ -1503,6 +1508,12 @@ screen_reset_dirty(Screen *self) {
     self->history_line_added_count = 0;
 }
 
+static inline bool
+screen_has_marker(Screen *self) {
+    return self->marker != NULL;
+}
+
+
 void
 screen_update_cell_data(Screen *self, void *address, FONTS_DATA_HANDLE fonts_data, bool cursor_has_moved) {
     unsigned int history_line_added_count = self->history_line_added_count;
@@ -1516,6 +1527,7 @@ screen_update_cell_data(Screen *self, void *address, FONTS_DATA_HANDLE fonts_dat
         historybuf_init_line(self->historybuf, lnum, self->historybuf->line);
         if (self->historybuf->line->has_dirty_text) {
             render_line(fonts_data, self->historybuf->line, lnum, self->cursor, self->disable_ligatures);
+            if (screen_has_marker(self)) mark_text_in_line(self->marker, self->historybuf->line);
             historybuf_mark_line_clean(self->historybuf, lnum);
         }
         update_line_data(self->historybuf->line, y, address);
@@ -1526,6 +1538,8 @@ screen_update_cell_data(Screen *self, void *address, FONTS_DATA_HANDLE fonts_dat
         if (self->linebuf->line->has_dirty_text ||
             (cursor_has_moved && (self->cursor->y == lnum || self->last_rendered_cursor_y == lnum))) {
             render_line(fonts_data, self->linebuf->line, lnum, self->cursor, self->disable_ligatures);
+            if (self->linebuf->line->has_dirty_text && screen_has_marker(self)) mark_text_in_line(self->marker, self->linebuf->line);
+
             linebuf_mark_line_clean(self->linebuf, lnum);
         }
         update_line_data(self->linebuf->line, y, address);
@@ -2183,12 +2197,13 @@ screen_update_selection(Screen *self, index_type x, index_type y, bool ended) {
             index_type bottom_line = extending_leftwards ? self->selection.start_y : self->selection.end_y;
             while(top_line > 0 && visual_line_(self, top_line)->continued) top_line--;
             while(bottom_line < self->lines - 1 && visual_line_(self, bottom_line + 1)->continued) bottom_line++;
+            bool multiline = self->selection.end_y != self->selection.start_y;
             found = screen_selection_range_for_line(self, top_line, &start, &end);
             if (found) {
                 if (extending_leftwards) {
-                    self->selection.end_x = start; self->selection.end_y = top_line;
+                    self->selection.end_x = multiline ? 0 : start; self->selection.end_y = top_line;
                 } else {
-                    self->selection.start_x = start; self->selection.start_y = top_line;
+                    self->selection.start_x = multiline ? 0 : start; self->selection.start_y = top_line;
                 }
             }
             found = screen_selection_range_for_line(self, bottom_line, &start, &end);
@@ -2241,13 +2256,114 @@ send_escape_code_to_child(Screen *self, PyObject *args) {
     Py_RETURN_NONE;
 }
 
+static inline void
+screen_mark_all(Screen *self) {
+    for (index_type y = 0; y < self->main_linebuf->ynum; y++) {
+        linebuf_init_line(self->main_linebuf, y);
+        mark_text_in_line(self->marker, self->main_linebuf->line);
+    }
+    for (index_type y = 0; y < self->alt_linebuf->ynum; y++) {
+        linebuf_init_line(self->alt_linebuf, y);
+        mark_text_in_line(self->marker, self->alt_linebuf->line);
+    }
+    for (index_type y = 0; y < self->historybuf->count; y++) {
+        historybuf_init_line(self->historybuf, y, self->historybuf->line);
+        mark_text_in_line(self->marker, self->historybuf->line);
+    }
+    self->is_dirty = true;
+}
+
+static PyObject*
+set_marker(Screen *self, PyObject *args) {
+    PyObject *marker = NULL;
+    if (!PyArg_ParseTuple(args, "|O", &marker)) return NULL;
+    if (!marker) {
+        if (self->marker) {
+            Py_CLEAR(self->marker);
+            screen_mark_all(self);
+        }
+        Py_RETURN_NONE;
+    }
+    if (!PyCallable_Check(marker)) {
+        PyErr_SetString(PyExc_TypeError, "marker must be a callable");
+        return NULL;
+    }
+    self->marker = marker;
+    Py_INCREF(marker);
+    screen_mark_all(self);
+    Py_RETURN_NONE;
+}
+
+
+static PyObject*
+scroll_to_next_mark(Screen *self, PyObject *args) {
+    int backwards = 1;
+    unsigned int mark = 0;
+    if (!PyArg_ParseTuple(args, "|Ip", &mark, &backwards)) return NULL;
+    if (!screen_has_marker(self) || self->linebuf == self->alt_linebuf) Py_RETURN_FALSE;
+    if (backwards) {
+        for (unsigned int y = self->scrolled_by; y < self->historybuf->count; y++) {
+            historybuf_init_line(self->historybuf, y, self->historybuf->line);
+            if (line_has_mark(self->historybuf->line, mark)) {
+                screen_history_scroll(self, y - self->scrolled_by + 1, true);
+                Py_RETURN_TRUE;
+            }
+        }
+    } else {
+        Line *line;
+        for (unsigned int y = self->scrolled_by; y > 0; y--) {
+            if (y > self->lines) {
+                historybuf_init_line(self->historybuf, y - self->lines, self->historybuf->line);
+                line = self->historybuf->line;
+            } else {
+                linebuf_init_line(self->linebuf, self->lines - y);
+                line = self->linebuf->line;
+            }
+            if (line_has_mark(line, mark)) {
+                screen_history_scroll(self, self->scrolled_by - y + 1, false);
+                Py_RETURN_TRUE;
+            }
+        }
+    }
+    Py_RETURN_FALSE;
+}
+
+static PyObject*
+marked_cells(Screen *self, PyObject *o UNUSED) {
+    PyObject *ans = PyList_New(0);
+    if (!ans) return ans;
+    for (index_type y = 0; y < self->lines; y++) {
+        linebuf_init_line(self->linebuf, y);
+        for (index_type x = 0; x < self->columns; x++) {
+            GPUCell *gpu_cell = self->linebuf->line->gpu_cells + x;
+            unsigned int mark = (gpu_cell->attrs >> MARK_SHIFT) & MARK_MASK;
+            if (mark) {
+                PyObject *t = Py_BuildValue("III", x, y, mark);
+                if (!t) { Py_DECREF(ans); return NULL; }
+                if (PyList_Append(ans, t) != 0) { Py_DECREF(t); Py_DECREF(ans); return NULL; }
+                Py_DECREF(t);
+            }
+        }
+    }
+    return ans;
+}
+
 static PyObject*
 paste(Screen *self, PyObject *bytes) {
+    if (!PyBytes_Check(bytes)) { PyErr_SetString(PyExc_TypeError, "Must paste() bytes"); return NULL; }
     if (self->modes.mBRACKETED_PASTE) write_escape_code_to_child(self, CSI, BRACKETED_PASTE_START);
     write_to_child(self, PyBytes_AS_STRING(bytes), PyBytes_GET_SIZE(bytes));
     if (self->modes.mBRACKETED_PASTE) write_escape_code_to_child(self, CSI, BRACKETED_PASTE_END);
     Py_RETURN_NONE;
 }
+
+static PyObject*
+paste_bytes(Screen *self, PyObject *bytes) {
+    if (!PyBytes_Check(bytes)) { PyErr_SetString(PyExc_TypeError, "Must paste() bytes"); return NULL; }
+    write_to_child(self, PyBytes_AS_STRING(bytes), PyBytes_GET_SIZE(bytes));
+    Py_RETURN_NONE;
+}
+
 
 WRAP2(cursor_position, 1, 1)
 
@@ -2329,7 +2445,11 @@ static PyMethodDef methods[] = {
     MND(toggle_alt_screen, METH_NOARGS)
     MND(reset_callbacks, METH_NOARGS)
     MND(paste, METH_O)
+    MND(paste_bytes, METH_O)
     MND(copy_colors_from, METH_O)
+    MND(set_marker, METH_VARARGS)
+    MND(marked_cells, METH_NOARGS)
+    MND(scroll_to_next_mark, METH_VARARGS)
     {"select_graphic_rendition", (PyCFunction)_select_graphic_rendition, METH_VARARGS, ""},
 
     {NULL}  /* Sentinel */

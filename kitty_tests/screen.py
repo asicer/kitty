@@ -4,6 +4,7 @@
 
 from . import BaseTest
 from kitty.fast_data_types import DECAWM, IRM, Cursor, DECCOLM, DECOM
+from kitty.marks import marker_from_regex, marker_from_function
 
 
 class TestScreen(BaseTest):
@@ -453,3 +454,37 @@ class TestScreen(BaseTest):
 
         self.ae(as_text(), 'ababababab\nc\n\n')
         self.ae(as_text(True), 'ababababab\nc\n\n')
+
+    def test_user_marking(self):
+        s = self.create_screen()
+        s.draw('abaa')
+        s.carriage_return(), s.linefeed()
+        s.draw('xyxyx')
+        s.set_marker(marker_from_regex('a', 3))
+        self.ae(s.marked_cells(), [(0, 0, 3), (2, 0, 3), (3, 0, 3)])
+        s.set_marker()
+        self.ae(s.marked_cells(), [])
+
+        def mark_x(text):
+            col = 0
+            for i, c in enumerate(text):
+                if c == 'x':
+                    col += 1
+                    yield i, i, col
+
+        s.set_marker(marker_from_function(mark_x))
+        self.ae(s.marked_cells(), [(0, 1, 1), (2, 1, 2), (4, 1, 3)])
+        s = self.create_screen(lines=5, scrollback=10)
+        for i in range(15):
+            s.draw(str(i))
+            if i != 14:
+                s.carriage_return(), s.linefeed()
+        s.set_marker(marker_from_regex(r'\d+', 3))
+        for i in range(10):
+            self.assertTrue(s.scroll_to_next_mark())
+            self.ae(s.scrolled_by, i + 1)
+        self.ae(s.scrolled_by, 10)
+        for i in range(10):
+            self.assertTrue(s.scroll_to_next_mark(0, False))
+            self.ae(s.scrolled_by, 10 - i - 1)
+        self.ae(s.scrolled_by, 0)

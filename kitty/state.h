@@ -26,8 +26,10 @@ typedef struct {
     unsigned int scrollback_pager_history_size;
     char_type select_by_word_characters[256]; size_t select_by_word_characters_count;
     color_type url_color, background, foreground, active_border_color, inactive_border_color, bell_border_color;
+    color_type mark1_foreground, mark1_background, mark2_foreground, mark2_background, mark3_foreground, mark3_background;
     monotonic_t repaint_delay, input_delay;
-    bool focus_follows_mouse, hide_window_decorations;
+    bool focus_follows_mouse;
+    unsigned int hide_window_decorations;
     bool macos_hide_from_tasks, macos_quit_when_last_window_closed, macos_window_resizable, macos_traditional_fullscreen;
     unsigned int macos_option_as_alt;
     float macos_thicken_font;
@@ -41,6 +43,7 @@ typedef struct {
     Edge tab_bar_edge;
     unsigned long tab_bar_min_tabs;
     DisableLigature disable_ligatures;
+    bool force_ltr;
     ResizeDrawStrategy resize_draw_strategy;
     bool resize_in_steps;
     bool sync_to_monitor;
@@ -128,6 +131,7 @@ typedef struct {
 typedef struct {
     void *handle;
     id_type id;
+    uint32_t offscreen_framebuffer;
     OSWindowGeometry before_fullscreen;
     int viewport_width, viewport_height, window_width, window_height;
     double viewport_x_ratio, viewport_y_ratio;
@@ -218,6 +222,7 @@ void draw_cells(ssize_t, ssize_t, float, float, float, float, Screen *, OSWindow
 void draw_centered_alpha_mask(OSWindow *w, size_t screen_width, size_t screen_height, size_t width, size_t height, uint8_t *canvas);
 void update_surface_size(int, int, uint32_t);
 void free_texture(uint32_t*);
+void free_framebuffer(uint32_t*);
 void send_image_to_gpu(uint32_t*, const void*, int32_t, int32_t, bool, bool);
 void send_sprite_to_gpu(FONTS_DATA_HANDLE fg, unsigned int, unsigned int, unsigned int, pixel*);
 void blank_canvas(float, color_type);
