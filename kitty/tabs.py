@@ -16,9 +16,8 @@ from .fast_data_types import (
     x11_window_id
 )
 from .layout import create_layout_object_for, evict_cached_layouts
-from .session import resolved_shell
 from .tab_bar import TabBar, TabBarData
-from .utils import log_error
+from .utils import log_error, resolved_shell
 from .window import Window
 
 SpecialWindowInstance = namedtuple('SpecialWindow', 'cmd stdin override_title cwd_from cwd overlay_for env')
@@ -47,12 +46,10 @@ class Tab:  # {{{
         if not self.id:
             raise Exception('No OS window with id {} found, or tab counter has wrapped'.format(self.os_window_id))
         self.opts, self.args = tab_manager.opts, tab_manager.args
-        self.margin_width, self.padding_width, self.single_window_margin_width = map(
-            lambda x: pt_to_px(getattr(self.opts, x), self.os_window_id), (
-                'window_margin_width', 'window_padding_width', 'single_window_margin_width'))
+        self.recalculate_sizes(update_layout=False)
         self.name = getattr(session_tab, 'name', '')
         self.enabled_layouts = [x.lower() for x in getattr(session_tab, 'enabled_layouts', None) or self.opts.enabled_layouts]
-        self.borders = Borders(self.os_window_id, self.id, self.opts, pt_to_px(self.opts.window_border_width, self.os_window_id), self.padding_width)
+        self.borders = Borders(self.os_window_id, self.id, self.opts)
         self.windows = deque()
         for i, which in enumerate('first second third fourth fifth sixth seventh eighth ninth tenth'.split()):
             setattr(self, which + '_window', partial(self.nth_window, num=i))
@@ -73,6 +70,15 @@ class Tab:  # {{{
             l0 = session_tab.layout
             self._set_current_layout(l0)
             self.startup(session_tab)
+
+    def recalculate_sizes(self, update_layout=True):
+        self.margin_width, self.padding_width, self.single_window_margin_width = map(
+            lambda x: pt_to_px(getattr(self.opts, x), self.os_window_id), (
+                'window_margin_width', 'window_padding_width', 'single_window_margin_width'))
+        self.border_width = pt_to_px(self.opts.window_border_width, self.os_window_id)
+        if update_layout and self.current_layout:
+            self.current_layout.update_sizes(
+                self.margin_width, self.single_window_margin_width, self.padding_width, self.border_width)
 
     def take_over_from(self, other_tab):
         self.name, self.cwd = other_tab.name, other_tab.cwd
@@ -177,8 +183,12 @@ class Tab:  # {{{
         if tm is not None:
             visible_windows = [w for w in self.windows if w.is_visible_in_layout]
             w = self.active_window
-            self.borders(visible_windows, w, self.current_layout,
-                         tm.blank_rects, self.current_layout.needs_window_borders and len(visible_windows) > 1)
+            self.borders(
+                windows=visible_windows, active_window=w,
+                current_layout=self.current_layout, extra_blank_rects=tm.blank_rects,
+                padding_width=self.padding_width, border_width=self.border_width,
+                draw_window_borders=self.current_layout.needs_window_borders and len(visible_windows) > 1
+            )
             if w is not None:
                 w.change_titlebar_color()
 
@@ -186,7 +196,7 @@ class Tab:  # {{{
         return create_layout_object_for(
             name, self.os_window_id, self.id, self.margin_width,
             self.single_window_margin_width, self.padding_width,
-            self.borders.border_width)
+            self.border_width)
 
     def next_layout(self):
         if len(self.enabled_layouts) > 1:
@@ -235,6 +245,15 @@ class Tab:  # {{{
     def reset_window_sizes(self):
         if self.current_layout.remove_all_biases():
             self.relayout()
+
+    def layout_action(self, action_name, args):
+        ret = self.current_layout.layout_action(action_name, args, self.windows, self.active_window_idx)
+        if ret is None:
+            ring_bell()
+            return
+        if isinstance(ret, int) and not isinstance(ret, bool):
+            self.active_window_idx = ret
+        self.relayout()
 
     def launch_child(self, use_shell=False, cmd=None, stdin=None, cwd_from=None, cwd=None, env=None, allow_remote_control=False):
         if cmd is None:
@@ -533,6 +552,10 @@ class TabManager:  # {{{
 
     def update_tab_bar_data(self):
         self.tab_bar.update(self.tab_bar_data)
+
+    def update_dpi_based_sizes(self):
+        for tab in self.tabs:
+            tab.recalculate_sizes()
 
     def resize(self, only_tabs=False):
         if not only_tabs:

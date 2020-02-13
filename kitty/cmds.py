@@ -21,6 +21,9 @@ from .tabs import SpecialWindow
 from .utils import natsort_ints
 
 
+no_response = object()
+
+
 class MatchError(ValueError):
 
     hide_traceback = True
@@ -50,6 +53,7 @@ def cmd(
     argspec='...',
     string_return_is_error=False,
     args_count=None,
+    args_completion=None
 ):
 
     if options_spec:
@@ -83,6 +87,7 @@ def cmd(
         func.args_count = 0 if not argspec else args_count
         func.get_default = get_defaut_value
         func.payload_get = payload_get
+        func.args_completion = args_completion
         cmap[func.name] = func
         return func
     return w
@@ -1249,6 +1254,107 @@ def set_background_opacity(boss, window, payload):
     windows = windows_for_payload(boss, window, payload)
     for os_window_id in {w.os_window_id for w in windows}:
         boss._set_os_window_background_opacity(os_window_id, payload['opacity'])
+# }}}
+
+
+# set_background_image {{{
+@cmd(
+    'Set the background_image',
+    'Set the background image for the specified OS windows. You must specify the path to a PNG image that'
+    ' will be used as the background. If you specify the special value "none" then any existing image will'
+    ' be removed.',
+    options_spec='''\
+--all -a
+type=bool-set
+By default, background image is only changed for the currently active OS window. This option will
+cause the image to be changed in all windows.
+
+
+--configured -c
+type=bool-set
+Change the configured background image which is used for new OS windows.
+
+
+--layout
+type=choices
+choices=tiled,scaled,mirror-tiled,configured
+How the image should be displayed. The value of configured will use the configured value.
+
+
+''' + '\n\n' + MATCH_WINDOW_OPTION,
+    argspec='PATH_TO_PNG_IMAGE',
+    args_count=1,
+    args_completion={'files': ('PNG Images', ('*.png',))}
+)
+def cmd_set_background_image(global_opts, opts, args):
+    '''
+    data+: Chunk of at most 512 bytes of PNG data, base64 encoded. Must send an empty chunk to indicate end of image. \
+    Or the special value - to indicate image must be removed.
+    img_id+: Unique uuid (as string) used for chunking
+    match: Window to change opacity in
+    layout: The image layout
+    all: Boolean indicating operate on all windows
+    configured: Boolean indicating if the configured value should be changed
+    '''
+    import imghdr
+    from uuid import uuid4
+    from base64 import standard_b64encode
+    if not args:
+        raise SystemExit('Must specify path to PNG image')
+    path = args[0]
+    ret = {'match': opts.match, 'configured': opts.configured, 'layout': opts.layout, 'all': opts.all, 'img_id': str(uuid4())}
+    if path.lower() == 'none':
+        ret['data'] = '-'
+        return ret
+    if imghdr.what(path) != 'png':
+        raise SystemExit('{} is not a PNG image'.format(path))
+
+    def file_pipe(path):
+        with open(path, 'rb') as f:
+            while True:
+                data = f.read(512)
+                if not data:
+                    break
+                ret['data'] = standard_b64encode(data).decode('ascii')
+                yield ret
+        ret['data'] = ''
+        yield ret
+    return file_pipe(path)
+
+
+def set_background_image(boss, window, payload):
+    from base64 import standard_b64decode
+    import tempfile
+    pg = cmd_set_background_image.payload_get
+    data = pg(payload, 'data')
+    if data != '-':
+        img_id = pg(payload, 'img_id')
+        if img_id != set_background_image.current_img_id:
+            set_background_image.current_img_id = img_id
+            set_background_image.current_file_obj = tempfile.NamedTemporaryFile()
+        if data:
+            set_background_image.current_file_obj.write(standard_b64decode(data))
+            return no_response
+
+    windows = windows_for_payload(boss, window, payload)
+    os_windows = tuple({w.os_window_id for w in windows})
+    layout = pg(payload, 'layout')
+    if data == '-':
+        path = None
+    else:
+        f = set_background_image.current_file_obj
+        path = f.name
+        set_background_image.current_file_obj = None
+        f.flush()
+
+    try:
+        boss.set_background_image(path, os_windows, pg(payload, 'configured'), layout)
+    except ValueError as err:
+        err.hide_traceback = True
+        raise
+
+
+set_background_image.current_img_id = set_background_image.current_file_obj = None
 # }}}
 
 

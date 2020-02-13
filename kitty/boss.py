@@ -22,11 +22,12 @@ from .constants import (
 )
 from .fast_data_types import (
     ChildMonitor, background_opacity_of, change_background_opacity,
-    change_os_window_state, create_os_window, current_os_window,
-    destroy_global_data, focus_os_window, get_clipboard_string,
-    global_font_size, mark_os_window_for_close, os_window_font_size,
-    patch_global_colors, safe_pipe, set_clipboard_string, set_in_sequence_mode,
-    thread_write, toggle_fullscreen, toggle_maximized
+    change_os_window_state, cocoa_set_menubar_title, create_os_window,
+    current_os_window, destroy_global_data, focus_os_window,
+    get_clipboard_string, global_font_size, mark_os_window_for_close,
+    os_window_font_size, patch_global_colors, safe_pipe, set_background_image,
+    set_clipboard_string, set_in_sequence_mode, thread_write,
+    toggle_fullscreen, toggle_maximized
 )
 from .keys import get_shortcut, shortcut_matches
 from .layout import set_layout_options
@@ -486,6 +487,7 @@ class Boss:
             sz = os_window_font_size(os_window_id)
             if sz:
                 os_window_font_size(os_window_id, sz, True)
+                tm.update_dpi_based_sizes()
                 tm.resize()
 
     def _set_os_window_background_opacity(self, os_window_id, opacity):
@@ -628,6 +630,8 @@ class Boss:
             w = tm.active_window
             if w is not None:
                 w.focus_changed(focused)
+                if is_macos and focused:
+                    cocoa_set_menubar_title(w.title or '')
             tm.mark_tab_bar_dirty()
 
     def update_tab_bar_data(self, os_window_id):
@@ -649,6 +653,8 @@ class Boss:
             tm.destroy()
         for window_id in tuple(w.id for w in self.window_id_map.values() if getattr(w, 'os_window_id', None) == os_window_id):
             self.window_id_map.pop(window_id, None)
+        if not self.os_window_map and is_macos:
+            cocoa_set_menubar_title('')
         action = self.os_window_death_actions.pop(os_window_id, None)
         if action is not None:
             action()
@@ -1296,3 +1302,11 @@ class Boss:
                 r'--regex=(?m)^:\s+.+$',
             ), input_data='\r\n'.join(lines).encode('utf-8'), custom_callback=done, action_on_removal=done2
         )
+
+    def set_background_image(self, path, os_windows, configured, layout):
+        if layout:
+            set_background_image(path, os_windows, configured, layout)
+        else:
+            set_background_image(path, os_windows, configured)
+        for os_window_id in os_windows:
+            self.default_bg_changed_for(os_window_id)

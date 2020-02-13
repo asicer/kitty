@@ -56,6 +56,13 @@ typedef struct {
 } Image;
 
 typedef struct {
+    uint32_t texture_id;
+    unsigned int height, width;
+    uint8_t* bitmap;
+    uint32_t refcnt;
+} BackgroundImage;
+
+typedef struct {
     float vertices[16];
     uint32_t texture_id, group_count;
     int z_index;
@@ -93,3 +100,4 @@ void grman_scroll_images(GraphicsManager *self, const ScrollData*, CellPixelSize
 void grman_resize(GraphicsManager*, index_type, index_type, index_type, index_type);
 void grman_rescale(GraphicsManager *self, CellPixelSize fg);
 void gpu_data_for_centered_image(ImageRenderData *ans, unsigned int screen_width_px, unsigned int screen_height_px, unsigned int width, unsigned int height);
+bool png_path_to_bitmap(const char *path, uint8_t** data, unsigned int* width, unsigned int* height, size_t* sz);

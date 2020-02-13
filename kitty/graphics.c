@@ -29,9 +29,8 @@ static bool send_to_gpu = true;
 GraphicsManager*
 grman_alloc() {
     GraphicsManager *self = (GraphicsManager *)GraphicsManager_Type.tp_alloc(&GraphicsManager_Type, 0);
-    self->images_capacity = 64;
+    self->images_capacity = self->capacity = 64;
     self->images = calloc(self->images_capacity, sizeof(Image));
-    self->capacity = 64;
     self->render_data = calloc(self->capacity, sizeof(ImageRenderData));
     if (self->images == NULL || self->render_data == NULL) {
         PyErr_NoMemory();
@@ -248,6 +247,48 @@ add_trim_predicate(Image *img) {
     return !img->data_loaded || (!img->client_id && !img->refcnt);
 }
 
+bool
+png_path_to_bitmap(const char* path, uint8_t** data, unsigned int* width, unsigned int* height, size_t* sz) {
+    FILE* fp = fopen(path, "r");
+    if (fp == NULL) {
+        log_error("The PNG image: %s could not be opened with error: %s", path, strerror(errno));
+        return false;
+    }
+    size_t capacity = 16*1024, pos = 0;
+    unsigned char *buf = malloc(capacity);
+    if (!buf) { log_error("Out of memory reading PNG file at: %s", path); fclose(fp); return false; }
+    while (!feof(fp)) {
+        if (pos - capacity < 1024) {
+            capacity *= 2;
+            buf = realloc(buf, capacity);
+            if (!buf) {
+                log_error("Out of memory reading PNG file at: %s", path); fclose(fp); return false;
+            }
+        }
+        pos += fread(buf + pos, sizeof(char), capacity - pos, fp);
+        int saved_errno = errno;
+        if (ferror(fp) && saved_errno != EINTR) {
+            log_error("Failed while reading from file: %s with error: %s", path, strerror(saved_errno));
+            fclose(fp);
+            free(buf);
+            return false;
+        }
+    }
+    fclose(fp); fp = NULL;
+    png_read_data d = {0};
+    inflate_png_inner(&d, buf, pos);
+    free(buf);
+    if (!d.ok) {
+        log_error("Failed to decode PNG image at: %s", path);
+        return false;
+    }
+    *data = d.decompressed;
+    *sz = d.sz;
+    *height = d.height; *width = d.width;
+    return true;
+}
+
+
 static inline Image*
 find_or_create_image(GraphicsManager *self, uint32_t id, bool *existing) {
     if (id) {
@@ -416,7 +457,7 @@ handle_add_command(GraphicsManager *self, const GraphicsCommand *g, const uint8_
     size_t required_sz = (img->load_data.is_opaque ? 3 : 4) * img->width * img->height;
     if (img->load_data.data_sz != required_sz) ABRT(EINVAL, "Image dimensions: %ux%u do not match data size: %zu, expected size: %zu", img->width, img->height, img->load_data.data_sz, required_sz);
     if (LIKELY(img->data_loaded && send_to_gpu)) {
-        send_image_to_gpu(&img->texture_id, img->load_data.data, img->width, img->height, img->load_data.is_opaque, img->load_data.is_4byte_aligned);
+        send_image_to_gpu(&img->texture_id, img->load_data.data, img->width, img->height, img->load_data.is_opaque, img->load_data.is_4byte_aligned, false, REPEAT_CLAMP);
         free_load_data(&img->load_data);
         self->used_storage += required_sz;
         img->used_storage = required_sz;

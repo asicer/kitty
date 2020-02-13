@@ -4,6 +4,36 @@ Changelog
 |kitty| is a feature full, cross-platform, *fast*, GPU based terminal emulator.
 To update |kitty|, :doc:`follow the instructions <binary>`.
 
+0.17.0 [future]
+--------------------
+
+- A new :ref:`splits_layout` to arrange windows in arbitrary splits
+  (:iss:`2308`)
+
+- Add support for specifying a background image, see :opt:`background_image`
+  (:iss:`163` and :pull:`2326`; thanks to Fredrick Brennan.)
+
+- A new :opt:`background_tint` option to darken the background under the text
+  area when using background images and/or transparent windows.
+
+- New options :opt:`cursor_beam_thickness` and :opt:`cursor_underline_thickness` to control the thickness of the
+  beam and underline cursors (:iss:`2337` and :pull:`2342`)
+
+- X11: Fix arrow mouse cursor using right pointing instead of the default left
+  pointing arrow (:iss:`2341`)
+
+- unicode input kitten: Allow pressing :kbd:`ctrl+tab` to change the input mode
+  (:iss:`2343`)
+
+- Fix a bug that prevented using custom functions with the new marks feature
+  (:iss:`2344`)
+
+- Fix border/margin/padding sizes not being recalculated on DPI change
+  (:iss:`2346`)
+
+- macOS: Fix menubar title not updating on OS Window focus change (:iss:`2350`)
+
+
 0.16.0 [2020-01-28]
 --------------------
 

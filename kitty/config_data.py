@@ -394,6 +394,10 @@ Choose the color of text under the cursor. If you want it rendered with the
 background color of the cell underneath instead, use the special keyword: background'''))
 o('cursor_shape', 'block', option_type=to_cursor_shape, long_text=_(
     'The cursor shape can be one of (block, beam, underline)'))
+o('cursor_beam_thickness', 1.5, option_type=positive_float, long_text=_(
+    'Defines the thickness of the beam cursor (in pts)'))
+o('cursor_underline_thickness', 2.0, option_type=positive_float, long_text=_(
+    'Defines the thickness of the underline cursor (in pts)'))
 o('cursor_blink_interval', -1, option_type=float, long_text=_('''
 The interval (in seconds) at which to blink the cursor. Set to zero to disable
 blinking. Negative values mean use system default. Note that numbers smaller
@@ -798,11 +802,21 @@ o('tab_separator', '"{}"'.format(default_tab_separator), option_type=tab_separat
 The separator between tabs in the tab bar when using :code:`separator` as the :opt:`tab_bar_style`.'''))
 
 
+def tab_title_template(x):
+    if x:
+        for q in '\'"':
+            if x.startswith(q) and x.endswith(q):
+                x = x[1:-1]
+                break
+    return x
+
+
 def active_tab_title_template(x):
+    x = tab_title_template(x)
     return None if x == 'none' else x
 
 
-o('tab_title_template', '{title}', long_text=_('''
+o('tab_title_template', '"{title}"', option_type=tab_title_template, long_text=_('''
 A template to render the tab title. The default just renders
 the title. If you wish to include the tab-index as well,
 use something like: :code:`{index}: {title}`. Useful
@@ -834,7 +848,8 @@ o('background_opacity', 1.0, option_type=unit_float, long_text=_('''
 The opacity of the background. A number between 0 and 1, where 1 is opaque and
 0 is fully transparent.  This will only work if supported by the OS (for
 instance, when using a compositor under X11). Note that it only sets the
-default background color's opacity. This is so that things like the status bar
+background color's opacity in cells that have the same background color as
+the default terminal background. This is so that things like the status bar
 in vim, powerline prompts, etc. still look good.  But it means that if you use
 a color theme with a background color in your editor, it will not be rendered
 as transparent.  Instead you should change the default background color in your
@@ -846,10 +861,38 @@ of windows set :opt:`dynamic_background_opacity` to :code:`yes` (this is off by
 default as it has a performance cost)
 '''))
 
+
+def config_or_absolute_path(x):
+    if x.lower() == 'none':
+        return
+    x = os.path.expanduser(x)
+    x = os.path.expandvars(x)
+    if not os.path.isabs(x):
+        x = os.path.join(config_dir, x)
+    return x
+
+
+o('background_image', 'none', option_type=config_or_absolute_path, long_text=_('''
+Path to a background image. Must be in PNG format.'''))
+
+o('background_image_layout', 'tiled', option_type=choices('tiled', 'scaled', 'mirror-tiled'), long_text=_('''
+Whether to tile or scale the background image.'''))
+
+o('background_image_linear', False, long_text=_('''
+When background image is scaled, whether linear interpolation should be used.'''))
+
 o('dynamic_background_opacity', False, long_text=_('''
 Allow changing of the :opt:`background_opacity` dynamically, using either keyboard
 shortcuts (:sc:`increase_background_opacity` and :sc:`decrease_background_opacity`)
 or the remote control facility.
+'''))
+
+o('background_tint', 0.0, option_type=unit_float, long_text=_('''
+How much to tint the background image by the background color. The tint is applied
+only under the text area, not margin/borders. Makes it easier to read the text.
+Tinting is done using the current background color for each window. This setting
+applies only if :opt:`background_opacity` is set and transparent windows are supported
+or :opt:`background_image` is set.
 '''))
 
 o('dim_opacity', 0.75, option_type=unit_float, long_text=_('''
@@ -966,17 +1009,7 @@ The default is to check every 24 hrs, set to zero to disable.
 '''))
 
 
-def startup_session(x):
-    if x.lower() == 'none':
-        return
-    x = os.path.expanduser(x)
-    x = os.path.expandvars(x)
-    if not os.path.isabs(x):
-        x = os.path.join(config_dir, x)
-    return x
-
-
-o('startup_session', 'none', option_type=startup_session, long_text=_('''
+o('startup_session', 'none', option_type=config_or_absolute_path, long_text=_('''
 Path to a session file to use for all kitty instances. Can be overridden
 by using the :option:`kitty --session` command line option for individual
 instances. See :ref:`sessions` in the kitty documentation for details. Note

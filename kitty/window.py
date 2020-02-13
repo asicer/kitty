@@ -15,21 +15,22 @@ from .constants import (
     ScreenGeometry, WindowGeometry, appname, get_boss, wakeup
 )
 from .fast_data_types import (
-    BLIT_PROGRAM, CELL_BG_PROGRAM, CELL_FG_PROGRAM, CELL_PROGRAM,
-    CELL_SPECIAL_PROGRAM, CSI, DCS, DECORATION, DIM,
+    BGIMAGE_PROGRAM, BLIT_PROGRAM, CELL_BG_PROGRAM, CELL_FG_PROGRAM,
+    CELL_PROGRAM, CELL_SPECIAL_PROGRAM, CSI, DCS, DECORATION, DIM,
     GRAPHICS_ALPHA_MASK_PROGRAM, GRAPHICS_PREMULT_PROGRAM, GRAPHICS_PROGRAM,
     MARK, MARK_MASK, OSC, REVERSE, SCROLL_FULL, SCROLL_LINE, SCROLL_PAGE,
-    STRIKETHROUGH, Screen, add_window, cell_size_for_window, compile_program,
-    get_clipboard_string, init_cell_program, set_clipboard_string,
-    set_titlebar_color, set_window_render_data, update_window_title,
-    update_window_visibility, viewport_for_window
+    STRIKETHROUGH, TINT_PROGRAM, Screen, add_window, cell_size_for_window,
+    compile_program, get_clipboard_string, init_cell_program,
+    set_clipboard_string, set_titlebar_color, set_window_render_data,
+    update_window_title, update_window_visibility, viewport_for_window
 )
 from .keys import defines, extended_key_event, keyboard_mode_name
 from .rgb import to_color
 from .terminfo import get_capabilities
 from .utils import (
     color_as_int, get_primary_selection, load_shaders, open_cmd, open_url,
-    parse_color_set, sanitize_title, set_primary_selection
+    parse_color_set, read_shell_environment, sanitize_title,
+    set_primary_selection
 )
 
 
@@ -83,6 +84,7 @@ def load_shader_programs(semi_transparent=False):
             vv = vv.replace('#define USE_SELECTION_FG', '#define DONT_USE_SELECTION_FG')
             ff = ff.replace('#define USE_SELECTION_FG', '#define DONT_USE_SELECTION_FG')
         compile_program(p, vv, ff)
+
     v, f = load_shaders('graphics')
     for which, p in {
             'SIMPLE': GRAPHICS_PROGRAM,
@@ -91,6 +93,11 @@ def load_shader_programs(semi_transparent=False):
     }.items():
         ff = f.replace('ALPHA_TYPE', which)
         compile_program(p, v, ff)
+
+    v, f = load_shaders('bgimage')
+    compile_program(BGIMAGE_PROGRAM, v, f)
+    v, f = load_shaders('tint')
+    compile_program(TINT_PROGRAM, v, f)
     init_cell_program()
 
 
@@ -153,7 +160,6 @@ class Window:
         self.tabref = weakref.ref(tab)
         self.clipboard_control_buffers = {'p': '', 'c': ''}
         self.destroyed = False
-        self.click_queue = deque(maxlen=3)
         self.geometry = WindowGeometry(0, 0, 0, 0, 0, 0)
         self.needs_layout = True
         self.is_visible_in_layout = True
@@ -535,6 +541,15 @@ class Window:
         text = self.as_text(as_ansi=True, add_history=True, add_wrap_markers=True)
         data = self.pipe_data(text, has_wrap_markers=True)
         cmd = [x.replace('INPUT_LINE_NUMBER', str(data['input_line_number'])) for x in self.opts.scrollback_pager]
+        if not os.path.isabs(cmd[0]):
+            import shutil
+            exe = shutil.which(cmd[0])
+            if not exe:
+                env = read_shell_environment(self.opts)
+                if env and 'PATH' in env:
+                    exe = shutil.which(cmd[0], path=env['PATH'])
+                    if exe:
+                        cmd[0] = exe
         get_boss().display_scrollback(self, data['text'], cmd)
 
     def paste_bytes(self, text):
@@ -556,7 +571,7 @@ class Window:
             else:
                 # Workaround for broken editors like nano that cannot handle
                 # newlines in pasted text see https://github.com/kovidgoyal/kitty/issues/994
-                text = b'\r'.join(text.splitlines())
+                text = text.replace(b'\r\n', b'\n').replace(b'\n', b'\r')
             self.screen.paste(text)
 
     def copy_to_clipboard(self):

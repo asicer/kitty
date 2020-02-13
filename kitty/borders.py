@@ -5,7 +5,8 @@
 from itertools import chain
 
 from .fast_data_types import (
-    BORDERS_PROGRAM, add_borders_rect, compile_program, init_borders_program
+    BORDERS_PROGRAM, add_borders_rect, compile_program, init_borders_program,
+    os_window_has_background_image
 )
 from .utils import load_shaders
 
@@ -47,11 +48,9 @@ def load_borders_program():
 
 class Borders:
 
-    def __init__(self, os_window_id, tab_id, opts, border_width, padding_width):
+    def __init__(self, os_window_id, tab_id, opts):
         self.os_window_id = os_window_id
         self.tab_id = tab_id
-        self.border_width = border_width
-        self.padding_width = padding_width
         self.draw_active_borders = opts.active_border_color is not None
 
     def __call__(
@@ -60,12 +59,16 @@ class Borders:
         active_window,
         current_layout,
         extra_blank_rects,
-        draw_window_borders=True
+        padding_width,
+        border_width,
+        draw_window_borders=True,
     ):
         add_borders_rect(self.os_window_id, self.tab_id, 0, 0, 0, 0, BorderColor.default_bg)
-        for br in chain(current_layout.blank_rects, extra_blank_rects):
-            add_borders_rect(self.os_window_id, self.tab_id, *br, BorderColor.default_bg)
-        bw, pw = self.border_width, self.padding_width
+        has_background_image = os_window_has_background_image(self.os_window_id)
+        if not has_background_image:
+            for br in chain(current_layout.blank_rects, extra_blank_rects):
+                add_borders_rect(self.os_window_id, self.tab_id, *br, BorderColor.default_bg)
+        bw, pw = border_width, padding_width
         if bw + pw <= 0:
             return
         draw_borders = bw > 0 and draw_window_borders
@@ -85,8 +88,12 @@ class Borders:
                 colors = tuple(color if needed else window_bg for needed in next(border_data))
                 draw_edges(
                     self.os_window_id, self.tab_id, colors, bw, g, base_width=pw)
-            if pw > 0:
+            if pw > 0 and not has_background_image:
                 # Draw the background rectangles over the padding region
                 colors = (window_bg, window_bg, window_bg, window_bg)
                 draw_edges(
                     self.os_window_id, self.tab_id, colors, pw, g)
+
+        color = BorderColor.inactive
+        for (left, top, right, bottom) in current_layout.window_independent_borders(windows, active_window):
+            add_borders_rect(self.os_window_id, self.tab_id, left, top, right, bottom, color)
