@@ -953,16 +953,32 @@ void _glfwPlatformDestroyWindow(_GLFWwindow* window)
         wl_callback_destroy(window->wl.frameCallbackData.current_wl_callback);
 }
 
+// Duplicate a UTF-8 encoded string
+// but cut it so that it has at most max_length bytes plus the null byte.
+// This does not take combining characters into account.
+char* utf_8_strndup(const char* source, size_t max_length) {
+    if (!source) return NULL;
+    size_t length = strnlen(source, max_length);
+    if (length >= max_length) {
+        for (length = max_length; length > 0; length--) {
+            if ((source[length] & 0xC0) != 0x80) break;
+        }
+    }
+
+    char* result = malloc(length + 1);
+    memcpy(result, source, length);
+    result[length] = 0;
+    return result;
+}
+
 void _glfwPlatformSetWindowTitle(_GLFWwindow* window, const char* title)
 {
     if (window->wl.title)
         free(window->wl.title);
-    window->wl.title = _glfw_strdup(title);
     // Wayland cannot handle requests larger than ~8200 bytes. Sending
     // one causes an abort(). Since titles this large are meaningless anyway
-    // ensure they do not happen. One should really truncate ensuring valid UTF-8
-    // but I cant be bothered.
-    if (title && strnlen(title, 2048) >= 2048) window->wl.title[2048] = 0;
+    // ensure they do not happen.
+    window->wl.title = utf_8_strndup(title, 2084);
     if (window->wl.xdg.toplevel)
         xdg_toplevel_set_title(window->wl.xdg.toplevel, window->wl.title);
 }
