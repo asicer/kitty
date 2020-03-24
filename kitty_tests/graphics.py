@@ -166,17 +166,13 @@ class TestGraphics(BaseTest):
         self.assertTrue(os.path.exists(f.name))
         f.seek(0), f.truncate(), f.write(compressed_random_data), f.flush()
         sl(f.name, s=24, v=32, t='t', o='z', expecting_data=random_data)
-        self.assertRaises(
-            FileNotFoundError, f.close
-        )  # check that file was deleted
+        f.close  # check that file was not deleted
 
         # Test loading from POSIX SHM
         name = '/kitty-test-shm'
         shm_write(name, random_data)
         sl(name, s=24, v=32, t='s', expecting_data=random_data)
-        self.assertRaises(
-            FileNotFoundError, shm_unlink, name
-        )  # check that file was deleted
+        shm_unlink(name)  # check that file was not deleted
 
     @unittest.skipIf(Image is None, 'PIL not available, skipping PNG tests')
     def test_load_png(self):
