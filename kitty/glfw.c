@@ -35,7 +35,7 @@ request_tick_callback(void) {
     glfwPostEmptyEvent();
 }
 
-static int min_width = 100, min_height = 100;
+static int min_width = 10, min_height = 10;
 
 void
 update_os_window_viewport(OSWindow *window, bool notify_boss) {
