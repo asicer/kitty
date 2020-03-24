@@ -2,18 +2,18 @@
 # vim:fileencoding=utf-8
 # License: GPL v3 Copyright: 2016, Kovid Goyal <kovid at kovidgoyal.net>
 
+from enum import IntFlag
 from itertools import chain
+from typing import List, Optional, Sequence, Tuple
 
+from .constants import WindowGeometry
 from .fast_data_types import (
     BORDERS_PROGRAM, add_borders_rect, compile_program, init_borders_program,
     os_window_has_background_image
 )
+from .options_stub import Options
 from .utils import load_shaders
-
-try:
-    from enum import IntFlag
-except ImportError:
-    from enum import IntEnum as IntFlag
+from .typing import WindowType, LayoutType
 
 
 class BorderColor(IntFlag):
@@ -21,15 +21,15 @@ class BorderColor(IntFlag):
     default_bg, active, inactive, window_bg, bell = ((1 << i) for i in range(5))
 
 
-def vertical_edge(os_window_id, tab_id, color, width, top, bottom, left):
+def vertical_edge(os_window_id: int, tab_id: int, color: int, width: int, top: int, bottom: int, left: int) -> None:
     add_borders_rect(os_window_id, tab_id, left, top, left + width, bottom, color)
 
 
-def horizontal_edge(os_window_id, tab_id, color, height, left, right, top):
+def horizontal_edge(os_window_id: int, tab_id: int, color: int, height: int, left: int, right: int, top: int) -> None:
     add_borders_rect(os_window_id, tab_id, left, top, right, top + height, color)
 
 
-def draw_edges(os_window_id, tab_id, colors, width, geometry, base_width=0):
+def draw_edges(os_window_id: int, tab_id: int, colors: Sequence[int], width: int, geometry: 'WindowGeometry', base_width: int = 0) -> None:
     left = geometry.left - (width + base_width)
     top = geometry.top - (width + base_width)
     right = geometry.right + (width + base_width)
@@ -40,34 +40,34 @@ def draw_edges(os_window_id, tab_id, colors, width, geometry, base_width=0):
     vertical_edge(os_window_id, tab_id, colors[2], width, top, bottom, geometry.right + base_width)
 
 
-def load_borders_program():
+def load_borders_program() -> None:
     compile_program(BORDERS_PROGRAM, *load_shaders('border'))
     init_borders_program()
-    Borders.program_initialized = True
 
 
 class Borders:
 
-    def __init__(self, os_window_id, tab_id, opts):
+    def __init__(self, os_window_id: int, tab_id: int, opts: Options):
         self.os_window_id = os_window_id
         self.tab_id = tab_id
         self.draw_active_borders = opts.active_border_color is not None
 
     def __call__(
         self,
-        windows,
-        active_window,
-        current_layout,
-        extra_blank_rects,
-        padding_width,
-        border_width,
-        draw_window_borders=True,
-    ):
+        windows: List[WindowType],
+        active_window: Optional[WindowType],
+        current_layout: LayoutType,
+        extra_blank_rects: Sequence[Tuple[int, int, int, int]],
+        padding_width: int,
+        border_width: int,
+        draw_window_borders: bool = True,
+    ) -> None:
         add_borders_rect(self.os_window_id, self.tab_id, 0, 0, 0, 0, BorderColor.default_bg)
         has_background_image = os_window_has_background_image(self.os_window_id)
         if not has_background_image:
             for br in chain(current_layout.blank_rects, extra_blank_rects):
-                add_borders_rect(self.os_window_id, self.tab_id, *br, BorderColor.default_bg)
+                left, top, right, bottom = br
+                add_borders_rect(self.os_window_id, self.tab_id, left, top, right, bottom, BorderColor.default_bg)
         bw, pw = border_width, padding_width
         if bw + pw <= 0:
             return

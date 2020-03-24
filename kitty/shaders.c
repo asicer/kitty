@@ -315,8 +315,8 @@ cell_prepare_to_render(ssize_t vao_idx, ssize_t gvao_idx, Screen *screen, GLfloa
 
     ensure_sprite_map(fonts_data);
 
-    bool cursor_pos_changed = screen->cursor->x != screen->last_rendered_cursor_x
-                           || screen->cursor->y != screen->last_rendered_cursor_y;
+    bool cursor_pos_changed = screen->cursor->x != screen->last_rendered.cursor_x
+                           || screen->cursor->y != screen->last_rendered.cursor_y;
     bool disable_ligatures = screen->disable_ligatures == DISABLE_LIGATURES_CURSOR;
 
     if (screen->reload_all_gpu_data || screen->scroll_changed || screen->is_dirty || (disable_ligatures && cursor_pos_changed)) {
@@ -328,8 +328,8 @@ cell_prepare_to_render(ssize_t vao_idx, ssize_t gvao_idx, Screen *screen, GLfloa
     }
 
     if (cursor_pos_changed) {
-        screen->last_rendered_cursor_x = screen->cursor->x;
-        screen->last_rendered_cursor_y = screen->cursor->y;
+        screen->last_rendered.cursor_x = screen->cursor->x;
+        screen->last_rendered.cursor_y = screen->cursor->y;
     }
 
     if (screen->reload_all_gpu_data || screen_is_selection_dirty(screen)) {
@@ -344,6 +344,7 @@ cell_prepare_to_render(ssize_t vao_idx, ssize_t gvao_idx, Screen *screen, GLfloa
         send_graphics_data_to_gpu(screen->grman->count, gvao_idx, screen->grman->render_data);
         changed = true;
     }
+    screen->last_rendered.scrolled_by = screen->scrolled_by;
     return changed;
 }
 
@@ -749,7 +750,6 @@ end:
     if (fragment_shader_id != 0) glDeleteShader(fragment_shader_id);
     if (PyErr_Occurred()) { glDeleteProgram(program->id); program->id = 0; return NULL;}
     return Py_BuildValue("I", program->id);
-    Py_RETURN_NONE;
 }
 
 #define PYWRAP0(name) static PyObject* py##name(PYNOARG)

@@ -5,9 +5,13 @@
 # Utils  {{{
 import os
 from gettext import gettext as _
+from typing import (
+    Any, Dict, FrozenSet, Iterable, List, Optional, Sequence, Set, Tuple,
+    TypeVar, Union
+)
 
 from . import fast_data_types as defines
-from .conf.definition import option_func
+from .conf.definition import Option, Shortcut, option_func
 from .conf.utils import (
     choices, positive_float, positive_int, to_bool, to_cmdline, to_color,
     to_color_or_none, unit_float
@@ -15,7 +19,7 @@ from .conf.utils import (
 from .constants import config_dir, is_macos
 from .fast_data_types import CURSOR_BEAM, CURSOR_BLOCK, CURSOR_UNDERLINE
 from .layout import all_layouts
-from .rgb import color_as_int, color_as_sharp, color_from_int
+from .rgb import Color, color_as_int, color_as_sharp, color_from_int
 from .utils import log_error
 
 MINIMUM_FONT_SIZE = 4
@@ -25,9 +29,9 @@ mod_map = {'CTRL': 'CONTROL', 'CMD': 'SUPER', '⌘': 'SUPER',
            '⌥': 'ALT', 'OPTION': 'ALT', 'KITTY_MOD': 'KITTY'}
 
 
-def parse_mods(parts, sc):
+def parse_mods(parts: Iterable[str], sc: str) -> Optional[int]:
 
-    def map_mod(m):
+    def map_mod(m: str) -> str:
         return mod_map.get(m, m)
 
     mods = 0
@@ -36,25 +40,28 @@ def parse_mods(parts, sc):
             mods |= getattr(defines, 'GLFW_MOD_' + map_mod(m.upper()))
         except AttributeError:
             log_error('Shortcut: {} has unknown modifier, ignoring'.format(sc))
-            return
+            return None
 
     return mods
 
 
-def to_modifiers(val):
+def to_modifiers(val: str) -> int:
     return parse_mods(val.split('+'), val) or 0
 
 
-def uniq(vals, result_type=list):
-    seen = set()
+T = TypeVar('T')
+
+
+def uniq(vals: Iterable[T]) -> List[T]:
+    seen: Set[T] = set()
     seen_add = seen.add
-    return result_type(x for x in vals if x not in seen and not seen_add(x))
+    return [x for x in vals if x not in seen and not seen_add(x)]
 # }}}
 
 # Groups {{{
 
 
-all_options = {}
+all_options: Dict[str, Union[Option, Sequence[Shortcut]]] = {}
 
 
 o, k, g, all_groups = option_func(all_options, {
@@ -84,19 +91,21 @@ as color16 to color255.''')
     'shortcuts': [
         _('Keyboard shortcuts'),
         _('''\
-For a list of key names, see: :link:`GLFW keys
-<https://www.glfw.org/docs/latest/group__keys.html>`. The name to use is the part
-after the :code:`GLFW_KEY_` prefix. For a list of modifier names, see:
+For a list of key names, see: :link:`the GLFW key macros
+<https://github.com/kovidgoyal/kitty/blob/master/glfw/glfw3.h#L349>`.
+The name to use is the part after the :code:`GLFW_KEY_` prefix.
+For a list of modifier names, see:
 :link:`GLFW mods <https://www.glfw.org/docs/latest/group__mods.html>`
 
 On Linux you can also use XKB key names to bind keys that are not supported by
 GLFW. See :link:`XKB keys
 <https://github.com/xkbcommon/libxkbcommon/blob/master/xkbcommon/xkbcommon-keysyms.h>`
 for a list of key names. The name to use is the part after the :code:`XKB_KEY_`
-prefix. Note that you should only use an XKB key name for keys that are not present
-in the list of GLFW keys.
+prefix. Note that you can only use an XKB key name for keys that are not known
+as GLFW keys.
 
-Finally, you can use raw system key codes to map keys. To see the system key code
+Finally, you can use raw system key codes to map keys, again only for keys that are not
+known as GLFW keys. To see the system key code
 for a key, start kitty with the :option:`kitty --debug-keyboard` option. Then kitty will
 output some debug text for every key event. In that text look for ``native_code``
 the value of that becomes the key name in the shortcut. For example:
@@ -218,7 +227,7 @@ o('italic_font', 'auto')
 o('bold_italic_font', 'auto')
 
 
-def to_font_size(x):
+def to_font_size(x: str) -> float:
     return max(MINIMUM_FONT_SIZE, float(x))
 
 
@@ -242,7 +251,7 @@ support, because it will force kitty to always treat the text as LTR, which
 FriBidi expects for terminals."""))
 
 
-def adjust_line_height(x):
+def adjust_line_height(x: str) -> Union[int, float]:
     if x.endswith('%'):
         ans = float(x[:-1].strip()) / 100.0
         if ans < 0:
@@ -263,7 +272,7 @@ o('adjust_column_width', 0, option_type=adjust_line_height)
 
 o(
     '+symbol_map',
-    'U+E0A0-U+E0A2,U+E0B0-U+E0B3 PowerlineSymbols',
+    'U+E0A0-U+E0A3,U+E0C0-U+E0C7 PowerlineSymbols',
     add_to_default=False,
     long_text=_('''
 Map the specified unicode codepoints to a particular font. Useful if you need
@@ -278,7 +287,7 @@ Syntax is::
 '''))
 
 
-def disable_ligatures(x):
+def disable_ligatures(x: str) -> int:
     cmap = {'never': 0, 'cursor': 1, 'always': 2}
     return cmap.get(x.lower(), 0)
 
@@ -342,11 +351,11 @@ You can do this with e.g.::
 '''))
 
 
-def box_drawing_scale(x):
-    ans = tuple(float(x.strip()) for x in x.split(','))
+def box_drawing_scale(x: str) -> Tuple[float, float, float, float]:
+    ans = tuple(float(q.strip()) for q in x.split(','))
     if len(ans) != 4:
         raise ValueError('Invalid box_drawing scale, must have four entries')
-    return ans
+    return ans[0], ans[1], ans[2], ans[3]
 
 
 o(
@@ -371,7 +380,7 @@ cshapes = {
 }
 
 
-def to_cursor_shape(x):
+def to_cursor_shape(x: str) -> int:
     try:
         return cshapes[x.lower()]
     except KeyError:
@@ -382,9 +391,9 @@ def to_cursor_shape(x):
         )
 
 
-def cursor_text_color(x):
+def cursor_text_color(x: str) -> Optional[Color]:
     if x.lower() == 'background':
-        return
+        return None
     return to_color(x)
 
 
@@ -413,14 +422,14 @@ inactivity.  Set to zero to never stop blinking.
 g('scrollback')  # {{{
 
 
-def scrollback_lines(x):
-    x = int(x)
-    if x < 0:
-        x = 2 ** 32 - 1
-    return x
+def scrollback_lines(x: str) -> int:
+    ans = int(x)
+    if ans < 0:
+        ans = 2 ** 32 - 1
+    return ans
 
 
-def scrollback_pager_history_size(x):
+def scrollback_pager_history_size(x: str) -> int:
     ans = int(max(0, float(x)) * 1024 * 1024)
     return min(ans, 4096 * 1024 * 1024 - 1)
 
@@ -473,11 +482,11 @@ The color and style for highlighting URLs on mouse-over.
 :code:`url_style` can be one of: none, single, double, curly'''))
 
 
-def url_style(x):
-    return url_style.map.get(x, url_style.map['curly'])
+def url_style(x: str) -> int:
+    return url_style_map.get(x, url_style_map['curly'])
 
 
-url_style.map = dict(
+url_style_map = dict(
     ((v, i) for i, v in enumerate('none single double curly'.split()))
 )
 
@@ -494,7 +503,15 @@ The special value :code:`default` means to use the
 operating system's default URL handler.'''))
 
 
-def copy_on_select(raw):
+def url_prefixes(x: str) -> Tuple[str, ...]:
+    return tuple(a.lower() for a in x.replace(',', ' ').split())
+
+
+o('url_prefixes', 'http https file ftp', option_type=url_prefixes, long_text=_('''
+The set of URL prefixes to look for when detecting a URL under the mouse cursor.'''))
+
+
+def copy_on_select(raw: str) -> str:
     q = raw.lower()
     # boolean values special cased for backwards compat
     if q in ('y', 'yes', 'true', 'clipboard'):
@@ -609,7 +626,7 @@ number of cells instead of pixels.
 '''))
 
 
-def window_size(val):
+def window_size(val: str) -> Tuple[int, str]:
     val = val.lower()
     unit = 'cells' if val.endswith('c') else 'px'
     return positive_int(val.rstrip('c')), unit
@@ -619,9 +636,9 @@ o('initial_window_width', '640', option_type=window_size)
 o('initial_window_height', '400', option_type=window_size)
 
 
-def to_layout_names(raw):
+def to_layout_names(raw: str) -> List[str]:
     parts = [x.strip().lower() for x in raw.split(',')]
-    ans = []
+    ans: List[str] = []
     for p in parts:
         if p in ('*', 'all'):
             ans.extend(sorted(all_layouts))
@@ -692,7 +709,7 @@ zero and one, with zero being fully faded).
 '''))
 
 
-def hide_window_decorations(x):
+def hide_window_decorations(x: str) -> int:
     if x == 'titlebar-only':
         return 0b10
     if to_bool(x):
@@ -714,7 +731,7 @@ operating system sends events corresponding to the start and end
 of a resize, this number is ignored.'''))
 
 
-def resize_draw_strategy(x):
+def resize_draw_strategy(x: str) -> int:
     cmap = {'static': 0, 'scale': 1, 'blank': 2, 'size': 3}
     return cmap.get(x.lower(), 0)
 
@@ -740,7 +757,7 @@ g('tabbar')   # {{{
 default_tab_separator = ' ┇'
 
 
-def tab_separator(x):
+def tab_separator(x: str) -> str:
     for q in '\'"':
         if x.startswith(q) and x.endswith(q):
             x = x[1:-1]
@@ -750,11 +767,11 @@ def tab_separator(x):
     return x
 
 
-def tab_bar_edge(x):
+def tab_bar_edge(x: str) -> int:
     return {'top': 1, 'bottom': 3}.get(x.lower(), 3)
 
 
-def tab_font_style(x):
+def tab_font_style(x: str) -> Tuple[bool, bool]:
     return {
         'bold-italic': (True, True),
         'bold': (True, False),
@@ -774,7 +791,12 @@ In the fade style, each tab's edges fade into the background color, in the separ
 separated by a configurable separator, and the powerline shows the tabs as a continuous line.
 '''))
 
-o('tab_bar_min_tabs', 2, option_type=lambda x: max(1, positive_int(x)), long_text=_('''
+
+def tab_bar_min_tabs(x: str) -> int:
+    return max(1, positive_int(x))
+
+
+o('tab_bar_min_tabs', 2, option_type=tab_bar_min_tabs, long_text=_('''
 The minimum number of tabs that must exist before the tab bar is shown
 '''))
 
@@ -786,7 +808,7 @@ of :code:`last` will switch to the right-most tab.
 '''))
 
 
-def tab_fade(x):
+def tab_fade(x: str) -> Tuple[float, ...]:
     return tuple(map(unit_float, x.split()))
 
 
@@ -802,7 +824,7 @@ o('tab_separator', '"{}"'.format(default_tab_separator), option_type=tab_separat
 The separator between tabs in the tab bar when using :code:`separator` as the :opt:`tab_bar_style`.'''))
 
 
-def tab_title_template(x):
+def tab_title_template(x: str) -> str:
     if x:
         for q in '\'"':
             if x.startswith(q) and x.endswith(q):
@@ -811,7 +833,7 @@ def tab_title_template(x):
     return x
 
 
-def active_tab_title_template(x):
+def active_tab_title_template(x: str) -> Optional[str]:
     x = tab_title_template(x)
     return None if x == 'none' else x
 
@@ -862,9 +884,9 @@ default as it has a performance cost)
 '''))
 
 
-def config_or_absolute_path(x):
+def config_or_absolute_path(x: str) -> Optional[str]:
     if x.lower() == 'none':
-        return
+        return None
     x = os.path.expanduser(x)
     x = os.path.expandvars(x)
     if not os.path.isabs(x):
@@ -900,9 +922,10 @@ How much to dim text that has the DIM/FAINT attribute set. One means no dimming 
 zero means fully dimmed (i.e. invisible).'''))
 
 
-def selection_foreground(x):
+def selection_foreground(x: str) -> Optional[Color]:
     if x.lower() != 'none':
         return to_color(x)
+    return None
 
 
 o('selection_foreground', '#000000', option_type=selection_foreground, long_text=_('''
@@ -971,7 +994,7 @@ terminal can fail silently because their stdout/stderr/stdin no longer work.
 '''))
 
 
-def allow_remote_control(x):
+def allow_remote_control(x: str) -> str:
     if x != 'socket-only':
         x = 'y' if to_bool(x) else 'n'
     return x
@@ -1017,7 +1040,12 @@ that relative paths are interpreted with respect to the kitty config directory.
 Environment variables in the path are expanded.
 '''))
 
-o('clipboard_control', 'write-clipboard write-primary', option_type=lambda x: frozenset(x.lower().split()), long_text=_('''
+
+def clipboard_control(x: str) -> FrozenSet[str]:
+    return frozenset(x.lower().split())
+
+
+o('clipboard_control', 'write-clipboard write-primary', option_type=clipboard_control, long_text=_('''
 Allow programs running in kitty to read and write from the clipboard. You can
 control exactly which actions are allowed. The set of possible actions is:
 write-clipboard read-clipboard write-primary read-primary. You can
@@ -1043,7 +1071,7 @@ key-presses, to colors, to various advanced features may not work.
 g('os')  # {{{
 
 
-def macos_titlebar_color(x):
+def macos_titlebar_color(x: str) -> int:
     x = x.strip('"')
     if x == 'system':
         return 0
@@ -1064,7 +1092,7 @@ probably better off just hiding the titlebar with :opt:`hide_window_decorations`
 '''))
 
 
-def macos_option_as_alt(x):
+def macos_option_as_alt(x: str) -> int:
     x = x.lower()
     if x == 'both':
         return 0b11
@@ -1157,7 +1185,8 @@ to zero for all mappings, including the builtin ones.
 g('shortcuts.clipboard')  # {{{
 k('copy_to_clipboard', 'kitty_mod+c', 'copy_to_clipboard', _('Copy to clipboard'), long_text=_('''
 There is also a :code:`copy_or_interrupt` action that can be optionally mapped to :kbd:`Ctrl+c`.
-It will copy only if there is a selection and send an interrupt otherwise.'''))
+It will copy only if there is a selection and send an interrupt otherwise. Similarly, :code:`copy_and_clear_or_interrupt`
+will copy and clear the selection or send an interrupt if there is no selection.'''))
 if is_macos:
     k('copy_to_clipboard', 'cmd+c', 'copy_to_clipboard', _('Copy to clipboard'), add_to_docs=False)
 k('paste_from_clipboard', 'kitty_mod+v', 'paste_from_clipboard', _('Paste from clipboard'))
@@ -1412,4 +1441,9 @@ the line (same as pressing the Home key)::
 # }}}
 # }}}
 
-type_map = {o.name: o.option_type for o in all_options.values() if hasattr(o, 'option_type')}
+
+def type_convert(name: str, val: Any) -> Any:
+    o = all_options.get(name)
+    if isinstance(o, Option):
+        val = o.option_type(val)
+    return val

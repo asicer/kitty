@@ -5,7 +5,6 @@
  */
 
 #include "state.h"
-#include "glfw_tests.h"
 #include "fonts.h"
 #include "monotonic.h"
 #include <structmember.h>
@@ -321,17 +320,26 @@ window_focus_callback(GLFWwindow *w, int focused) {
     global_state.callback_os_window = NULL;
 }
 
-static void
-drop_callback(GLFWwindow *w, int count, const char **strings) {
-    if (!set_callback_window(w)) return;
-    PyObject *s = PyTuple_New(count);
-    if (s) {
-        for (int i = 0; i < count; i++) PyTuple_SET_ITEM(s, i, PyUnicode_FromString(strings[i]));
-        WINDOW_CALLBACK(on_drop, "O", s);
-        Py_CLEAR(s);
-        request_tick_callback();
+static int
+drop_callback(GLFWwindow *w, const char *mime, const char *data, size_t sz) {
+    if (!set_callback_window(w)) return 0;
+    if (!data) {
+        if (strcmp(mime, "text/uri-list") == 0) return 3;
+        if (strcmp(mime, "text/plain;charset=utf-8") == 0) return 2;
+        if (strcmp(mime, "text/plain") == 0) return 1;
+        return 0;
     }
+    WINDOW_CALLBACK(on_drop, "sy#", mime, data, (int)sz);
+    request_tick_callback();
+    /* PyObject *s = PyTuple_New(count); */
+    /* if (s) { */
+    /*     for (int i = 0; i < count; i++) PyTuple_SET_ITEM(s, i, PyUnicode_FromString(strings[i])); */
+    /*     WINDOW_CALLBACK(on_drop, "O", s); */
+    /*     Py_CLEAR(s); */
+    /*     request_tick_callback(); */
+    /* } */
     global_state.callback_os_window = NULL;
+    return 0;
 }
 
 // }}}
@@ -385,8 +393,8 @@ get_window_content_scale(GLFWwindow *w, float *xscale, float *yscale, double *xd
         if (monitor) glfwGetMonitorContentScale(monitor, xscale, yscale);
     }
     // check for zero, negative, NaN or excessive values of xscale/yscale
-    if (*xscale <= 0 || *xscale != *xscale || *xscale >= 24) *xscale = 1.0;
-    if (*yscale <= 0 || *yscale != *yscale || *yscale >= 24) *yscale = 1.0;
+    if (*xscale <= 0.0001 || *xscale != *xscale || *xscale >= 24) *xscale = 1.0;
+    if (*yscale <= 0.0001 || *yscale != *yscale || *yscale >= 24) *yscale = 1.0;
 #ifdef __APPLE__
     const double factor = 72.0;
 #else
@@ -1179,18 +1187,6 @@ stop_main_loop(void) {
 }
 
 
-static PyObject*
-test_empty_event(PYNOARG) {
-    // To run this, use
-    // kitty +runpy "from kitty.main import init_glfw_module; init_glfw_module('x11'); from kitty.fast_data_types import glfw_test_empty_event; glfw_test_empty_event()"
-    int ret = empty_main();
-    if (ret != EXIT_SUCCESS) {
-        PyErr_Format(PyExc_RuntimeError, "Empty test returned failure code: %d", ret);
-        return NULL;
-    }
-    Py_RETURN_NONE;
-}
-
 // Boilerplate {{{
 
 static PyMethodDef module_methods[] = {
@@ -1219,7 +1215,6 @@ static PyMethodDef module_methods[] = {
     {"glfw_get_key_name", (PyCFunction)glfw_get_key_name, METH_VARARGS, ""},
     {"glfw_primary_monitor_size", (PyCFunction)primary_monitor_size, METH_NOARGS, ""},
     {"glfw_primary_monitor_content_scale", (PyCFunction)primary_monitor_content_scale, METH_NOARGS, ""},
-    {"glfw_test_empty_event", (PyCFunction)test_empty_event, METH_NOARGS, ""},
     {NULL, NULL, 0, NULL}        /* Sentinel */
 };
 

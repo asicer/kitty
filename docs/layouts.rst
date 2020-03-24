@@ -24,7 +24,7 @@ other in arbitrary arrangements, based on *Layouts*, see below for examples:
 
 There are many different layouts available. They are all enabled by default,
 you can switch layouts using :sc:`next_layout`. To control which layouts
-are available use :opt:`enabled_layouts` the first listed layout becomes
+are available use :opt:`enabled_layouts`, the first listed layout becomes
 the default. Individual layouts and how to use them are described below.
 
 .. contents::
@@ -141,7 +141,7 @@ and you can move focus to neighboring windows using :kbd:`ctrl+arrow keys`.
 You can switch an existing split from horizontal to vertical and vice versa
 using :kbd:`F7`. Finally, windows can be resized using :ref:`window_resizing`.
 
-This layout takes one option, ``split_axis`` that control if new windows
+This layout takes one option, ``split_axis`` that controls whether new windows
 are placed into vertical or horizontal splits, by default::
 
     enabled_layouts splits:split_axis=horizontal

@@ -4,8 +4,13 @@
 
 import re
 
+from typing import List, Generator, Any, Type
 
-def mark(text, args, Mark, extra_cli_args, *a):
+from .cli_stub import HintsCLIOptions
+from .typing import MarkType
+
+
+def mark(text: str, args: HintsCLIOptions, Mark: Type[MarkType], extra_cli_args: List[str], *a: Any) -> Generator[MarkType, None, None]:
     for idx, m in enumerate(re.finditer(args.regex, text)):
         start, end = m.span()
         mark_text = text[start:end].replace('\n', '').replace('\0', '')

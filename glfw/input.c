@@ -350,30 +350,31 @@ void _glfwInputCursorEnter(_GLFWwindow* window, bool entered)
 
 // Notifies shared code of files or directories dropped on a window
 //
-void _glfwInputDrop(_GLFWwindow* window, int count, const char** paths)
+int _glfwInputDrop(_GLFWwindow* window, const char *mime, const char *text, size_t sz)
 {
     if (window->callbacks.drop) {
-        size_t len = strlen(*paths) + 1;
-        size_t newLen = len;
-        for (size_t i = 0; i < len - 1; i++) {
-            if ((*paths)[i] == ' ') {
-                newLen++;
+        size_t new_sz = sz;
+        for (size_t i = 0; i < sz; i++) {
+            if (text[i] == ' ') {
+                new_sz++;
             }
         }
-        char* newPaths = (char*)malloc(newLen);
+        char* new_text = (char*)malloc(new_sz + 1);
 
-        size_t curPos = 0;
-        for (size_t i = 0; i < len; i++) {
-            if ((*paths)[i] == ' ') {
-                newPaths[curPos] = '\\';
-                curPos++;
+        size_t cur_pos = 0;
+        for (size_t i = 0; i < sz; i++) {
+            if (text[i] == ' ') {
+                new_text[cur_pos] = '\\';
+                cur_pos++;
             }
-            newPaths[curPos] = (*paths)[i];
-            curPos++;
+            new_text[cur_pos] = text[i];
+            cur_pos++;
         }
-        window->callbacks.drop((GLFWwindow*) window, count, (const char**)(&newPaths));
-        free(newPaths);
+        int result = window->callbacks.drop((GLFWwindow*) window, mime, new_text, new_sz);
+        free(new_text);
+        return result;
     }
+    return 0;
 }
 
 // Notifies shared code of a joystick connection or disconnection
