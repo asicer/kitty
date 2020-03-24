@@ -10,6 +10,7 @@ from kitty.options_stub import Options
 
 # Constants {{{
 KITTY_VCS_REV: str
+KITTY_VCS_VERSION: str
 ERROR_PREFIX: str
 GLSL_VERSION: int
 GLFW_IBEAM_CURSOR: int
@@ -689,6 +690,10 @@ def cocoa_set_notification_activated_callback(identifier: Callable[[str], None])
 
 
 def cocoa_set_new_window_trigger(mods: int, key: int) -> bool:
+    pass
+
+
+def cocoa_set_paste_from_clipboard_trigger(mods: int, key: int) -> bool:
     pass
 
 
