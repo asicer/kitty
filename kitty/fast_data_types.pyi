@@ -324,6 +324,7 @@ FC_MONO: int = 100
 FC_DUAL: int
 FC_WEIGHT_REGULAR: int
 FC_WEIGHT_BOLD: int
+FC_WIDTH_NORMAL: int
 FC_SLANT_ROMAN: int
 FC_SLANT_ITALIC: int
 BORDERS_PROGRAM: int
@@ -403,6 +404,7 @@ class FontConfigPattern(TypedDict):
     style: str
     spacing: str
     weight: int
+    width: int
     slant: int
     hint_style: int
     subpixel: int
@@ -905,7 +907,7 @@ def set_font_data(
     box_drawing_func: Callable[[int, int, int, float],
                                Tuple[int, Union[bytearray, bytes, Array]]],
     prerender_func: Callable[
-        [int, int, int, int, int, float, float, float, float],
+        [int, int, int, int, int, int, int, float, float, float, float],
         Tuple[Union[Array, int], ...]],
     descriptor_for_idx: Callable[[int], Tuple[FontObject, bool, bool]],
     bold: int, italic: int, bold_italic: int, num_symbol_fonts: int,

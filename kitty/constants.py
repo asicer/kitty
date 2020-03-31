@@ -20,7 +20,7 @@ class Version(NamedTuple):
 
 
 appname: str = 'kitty'
-version: Version = Version(0, 17, 1)
+version: Version = Version(0, 17, 2)
 str_version: str = '.'.join(map(str, version))
 _plat = sys.platform.lower()
 is_macos: bool = 'darwin' in _plat
@@ -198,3 +198,10 @@ def running_in_kitty(set_val: Optional[bool] = None) -> bool:
     if set_val is not None:
         setattr(running_in_kitty, 'ans', set_val)
     return bool(getattr(running_in_kitty, 'ans', False))
+
+
+def resolve_custom_file(path: str) -> str:
+    path = os.path.expandvars(os.path.expanduser(path))
+    if not os.path.isabs(path):
+        path = os.path.join(config_dir, path)
+    return path

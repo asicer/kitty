@@ -26,7 +26,7 @@ from .layout import (
 from .options_stub import Options
 from .tab_bar import TabBar, TabBarData
 from .utils import log_error, resolved_shell
-from .window import Window, WindowDict
+from .window import Window, WindowDict, Watchers
 from .typing import TypedDict, SessionTab, SessionType
 
 
@@ -345,11 +345,15 @@ class Tab:  # {{{
         location: Optional[str] = None,
         copy_colors_from: Optional[Window] = None,
         allow_remote_control: bool = False,
-        marker: Optional[str] = None
+        marker: Optional[str] = None,
+        watchers: Optional[Watchers] = None
     ) -> Window:
         child = self.launch_child(
             use_shell=use_shell, cmd=cmd, stdin=stdin, cwd_from=cwd_from, cwd=cwd, env=env, allow_remote_control=allow_remote_control)
-        window = Window(self, child, self.opts, self.args, override_title=override_title, copy_colors_from=copy_colors_from)
+        window = Window(
+            self, child, self.opts, self.args, override_title=override_title,
+            copy_colors_from=copy_colors_from, watchers=watchers
+        )
         if overlay_for is not None:
             overlaid = next(w for w in self.windows if w.id == overlay_for)
             window.overlay_for = overlay_for
@@ -383,6 +387,13 @@ class Tab:  # {{{
     def close_window(self) -> None:
         if self.windows:
             self.remove_window(self.windows[self.active_window_idx])
+
+    def close_other_windows_in_tab(self) -> None:
+        if len(self.windows) > 1:
+            active_window = self.windows[self.active_window_idx]
+            for window in tuple(self.windows):
+                if window is not active_window:
+                    self.remove_window(window)
 
     def previous_active_window_idx(self, num: int) -> Optional[int]:
         try:
